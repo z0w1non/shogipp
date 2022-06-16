@@ -9,28 +9,27 @@
 #include <sstream>
 #include <unordered_map>
 
-namespace shogipp
-{
-
 #ifdef NDEBUG
-#define assert(expr)
+#define SHOGIPP_ASSERT(expr)
 #else
-#define assert(expr) do { assert_impl((expr), #expr, __FILE__, __func__, __LINE__); } while (false)
+#define SHOGIPP_ASSERT(expr) do { assert_impl((expr), #expr, __FILE__, __func__, __LINE__); } while (false)
 #endif
 
+#define XY_TO_ROW_POS(x, y) ((y + PADDING_H) * W + x + PADDING_W)
+#define XY_TO_POS(x, y) (y * 9 + x)
+
+namespace shogipp
+{
     void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
     {
         if (!assertion)
         {
             std::ostringstream what;
-            what << "Assertion failed: " << expr << ", file " << file << ", line " << line;
+            what << "SHOGIPP_ASSERTion failed: " << expr << ", file " << file << ", line " << line;
             std::cerr << what.str() << std::endl;
             std::terminate();
         }
     }
-
-#define XY_TO_ROW_POS(x, y) ((y + PADDING_H) * W + x + PADDING_W)
-#define XY_TO_POS(x, y) (y * 9 + x)
 
     using koma_t = unsigned char;
     enum : koma_t { EMPTY, FU, KYO, KEI, GIN, KIN, KAK, HI, OU, KIND = 15, NARI = 16, GOTE = 32, X = 0xFF };
@@ -69,7 +68,7 @@ namespace shogipp
     {
         static const char * str[][9]{ { "・", "歩", "香", "桂", "銀", "金", "角", "飛", "王" },
         { "・", "と", "杏", "圭", "全", "金", "馬", "竜", "王" } };
-        assert((koma & KIND) < 9);
+        SHOGIPP_ASSERT((koma & KIND) < 9);
         return str[(koma & NARI) ? 1 : 0][koma & KIND];
     }
 
@@ -114,12 +113,12 @@ namespace shogipp
         /**
          * @breif 持ち駒を初期化する。
          */
-        void init()
+        inline void init()
         {
             std::fill(std::begin(cnt), std::end(cnt), 0);
         }
 
-        void print() const
+        inline void print() const
         {
             int kind = 0;
             for (std::size_t i = 0; i < std::size(cnt); ++i)
@@ -138,15 +137,15 @@ namespace shogipp
             std::cout << std::endl;
         }
 
-        unsigned char & operator [](size_t i)
+        inline unsigned char & operator [](size_t i)
         {
-            assert(i <= HI - FU);
+            SHOGIPP_ASSERT(i <= HI - FU);
             return cnt[i];
         }
 
-        const unsigned char & operator [](size_t i) const
+        inline const unsigned char & operator [](size_t i) const
         {
-            assert(i <= HI - FU);
+            SHOGIPP_ASSERT(i <= HI - FU);
             return cnt[i];
         }
     };
@@ -159,7 +158,7 @@ namespace shogipp
         /**
          * @breif 盤を初期化する。
          */
-        void init()
+        inline void init()
         {
             koma_t temp[]{
                 X, X, X, X, X, X, X, X, X, X, X,
@@ -179,15 +178,15 @@ namespace shogipp
             std::copy(std::begin(temp), std::end(temp), std::begin(data));
         }
 
-        koma_t & operator [](size_t i) { return data[i]; }
-        const koma_t & operator [](size_t i) const { return data[i]; }
+        inline koma_t & operator [](size_t i) { return data[i]; }
+        inline const koma_t & operator [](size_t i) const { return data[i]; }
 
         /**
          * @breif 座標posが盤外か判定する。
          * @param pos 座標
          * @return 盤外の場合true
          */
-        static bool out(int pos)
+        inline static bool out(int pos)
         {
 #define _ EMPTY
             static const koma_t table[]{
@@ -212,7 +211,7 @@ namespace shogipp
         /**
          * @breif 盤を標準出力に出力する。
          */
-        void print() const
+        inline void print() const
         {
             std::cout << "  ９ ８ ７ ６ ５ ４ ３ ２ １" << std::endl;
             std::cout << "+---------------------------+" << std::endl;
@@ -252,7 +251,7 @@ namespace shogipp
         /**
          * @breif 局面を初期化する。
          */
-        void init()
+        inline void init()
         {
             ban.init();
             for (mochigoma_t & m : mochigoma_list)
@@ -270,7 +269,7 @@ namespace shogipp
          * @param dst 移動先の座標
          * @return 成りが可能の場合(komaが既に成っている場合、常にfalse)
          */
-        static bool can_promote(koma_t koma, int dst)
+        inline static bool can_promote(koma_t koma, int dst)
         {
             if ((koma & NARI) || (koma & KIND) == KIN || (koma & KIND) == OU)
                 return false;
@@ -285,7 +284,7 @@ namespace shogipp
          * @param dst 移動先の座標
          * @return 成りが必須の場合(komaが既に成っている場合、常にfalse)
          */
-        static bool must_promote(koma_t koma, int dst)
+        inline static bool must_promote(koma_t koma, int dst)
         {
             if ((koma & KIND) == FU || (koma & KIND) == KYO)
             {
@@ -412,7 +411,7 @@ namespace shogipp
          * @param dst 移動先の座標
          * @return 置くことができる場合 true
          */
-        bool can_put(koma_t koma, int dst)
+        inline bool can_put(koma_t koma, int dst)
         {
             if (ban[dst] != EMPTY)
                 return false;
@@ -470,7 +469,7 @@ namespace shogipp
          * @param offset 走査する相対座標
          * @return 最初に駒が現れる座標(駒が見つからない場合-1)
          */
-        int search(int pos, int offset) const
+        inline int search(int pos, int offset) const
         {
             int cur;
             for (cur = pos + offset; !ban_t::out(cur) && ban[cur] == EMPTY; cur += offset);
@@ -567,7 +566,7 @@ namespace shogipp
         /**
          * @breif 王に対する利きを更新する。
          */
-        void update_oute()
+        inline void update_oute()
         {
             for (std::size_t i = 0; i < 2; ++i)
             {
@@ -576,7 +575,7 @@ namespace shogipp
             }
         }
 
-        void search_aigoma(aigoma_info_t & aigoma_info, bool gote)
+        inline void search_aigoma(aigoma_info_t & aigoma_info, bool gote)
         {
             using pair = std::pair<int, std::vector<koma_t>>;
             static const std::vector<pair> table{
@@ -654,7 +653,7 @@ namespace shogipp
                             print_te(te);
                         }
 #endif
-                        assert((ban[dst] & KIND) != OU);
+                        SHOGIPP_ASSERT((ban[dst] & KIND) != OU);
 
                         // 合駒は利きの範囲にしか移動できない。
                         if (is_aigoma)
@@ -770,7 +769,7 @@ namespace shogipp
             }
         }
 
-        hash_t make_hash() const
+        inline hash_t make_hash() const
         {
             hash_t temp = 0;
             for (int suji = 0; suji < 9; ++suji)
@@ -779,7 +778,7 @@ namespace shogipp
             return temp;
         }
 
-        hash_t make_hash(hash_t hash, const te_t & te) const
+        inline hash_t make_hash(hash_t hash, const te_t & te) const
         {
             if (te.src == -1)
             {
@@ -798,7 +797,7 @@ namespace shogipp
          * @breif 合法着手を出力する。
          * @param te 合法着手
          */
-        void print_te(const te_t & te) const
+        inline void print_te(const te_t & te) const
         {
             std::cout << (tesu % 2 == 0 ? "▲" : "△");
             if (te.src != -1)
@@ -833,14 +832,14 @@ namespace shogipp
             }
         }
 
-        void print_te()
+        inline void print_te()
         {
             std::vector<te_t> te;
             search_te(std::back_inserter(te));
             print_te(te.begin(), te.end());
         }
 
-        void print_oute()
+        inline void print_oute()
         {
             for (std::size_t i = 0; i < std::size(oute_list); ++i)
             {
@@ -863,7 +862,7 @@ namespace shogipp
         /**
          * @breif 局面を出力する。
          */
-        void print()
+        inline void print()
         {
             std::cout << "後手持ち駒：";
             mochigoma_list[1].print();
@@ -876,7 +875,7 @@ namespace shogipp
          * @breif 合法着手を実行する。
          * @param te 合法着手
          */
-        void do_te(const te_t & te)
+        inline void do_te(const te_t & te)
         {
             if (te.src == -1)
             {
@@ -885,9 +884,9 @@ namespace shogipp
             }
             else
             {
-                assert(!((te.srckoma & KIND) == KIN && te.nari));
-                assert(!((te.srckoma & KIND) == OU && te.nari));
-                assert(!((te.srckoma & NARI) && te.nari));
+                SHOGIPP_ASSERT(!((te.srckoma & KIND) == KIN && te.nari));
+                SHOGIPP_ASSERT(!((te.srckoma & KIND) == OU && te.nari));
+                SHOGIPP_ASSERT(!((te.srckoma & NARI) && te.nari));
                 if (ban[te.dst] != EMPTY)
                     ++mochigoma_list[tesu % 2][(ban[te.dst] & KIND) - FU];
                 ban[te.dst] = ban[te.src] | static_cast<koma_t>(te.nari ? NARI : 0);
@@ -903,7 +902,7 @@ namespace shogipp
          * @breif 合法着手を実行する前に戻す。
          * @param te 合法着手
          */
-        void undo_te(const te_t & te)
+        inline void undo_te(const te_t & te)
         {
             --tesu;
             if (te.src == -1)
@@ -957,12 +956,12 @@ namespace shogipp
         kyokumen_t kyokumen;
         bool sente_win;
 
-        void init()
+        inline void init()
         {
             kyokumen.init();
         }
 
-        bool procedure()
+        inline bool procedure()
         {
             auto & evaluator = evaluators[kyokumen.tesu % 2];
 
@@ -1085,7 +1084,7 @@ namespace shogipp
     struct random_evaluator_t
         : public basic_evaluator_t
     {
-        int eval(kyokumen_t & kyokumen) override
+        inline int eval(kyokumen_t & kyokumen) override
         {
             return std::rand();
         }

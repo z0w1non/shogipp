@@ -523,7 +523,7 @@ namespace shogipp
             {
                 if (is_gote(koma))
                     return dst >= W * (8 + PADDING_H);
-                return dst < (W + PADDING_H);
+                return dst < (W * (1 + PADDING_H));
             }
             else if (trim_sengo(koma) == KEI)
             {
@@ -619,9 +619,9 @@ namespace shogipp
 
                 // ‘Å‚¿•à‹l‚ß
                 pos_t pos = dst + FRONT * (is_goteban(tesu) ? -1 : 1);
-                if (!ban_t::out(pos) && (trim_sengo(ban[pos])) == OU && is_gote(ban[pos]) != is_goteban(tesu))
+                if (!ban_t::out(pos) && trim_sengo(ban[pos]) == OU && is_gote(ban[pos]) != is_goteban(tesu))
                 {
-                    te_t te{ -1, dst, koma, ban[dst] };
+                    te_t te{ npos, dst, koma, ban[dst] };
                     std::vector<te_t> te_list;
                     do_te(te);
                     search_te(std::back_inserter(te_list));
@@ -674,10 +674,8 @@ namespace shogipp
         void search_kiki_near(OutputIterator result, pos_t pos, pos_t offset, bool gote, InputIterator first, InputIterator last)
         {
             if (pos_t cur = pos + offset; !ban_t::out(cur) && gote != is_gote(ban[cur]))
-            {
                 if (std::find(first, last, trim_sengo(ban[cur])) != last)
                     *result++ = { offset, cur, false };
-            }
         }
 
         /**
@@ -696,10 +694,8 @@ namespace shogipp
             {
                 bool adjacency = found == pos + offset;
                 if (!adjacency)
-                {
                     if (std::find(first, last, trim_sengo(ban[found])) != last)
                         *result++ = { offset, found, adjacency };
-                }
             }
         }
 
@@ -874,12 +870,11 @@ namespace shogipp
             {
                 pos_t reverse = is_goteban(tesu) ? -1 : 1;
                 pos_t src = ou_pos[tesu % 2];
-                pos_t dst;
 
                 // ‰¤‚ğˆÚ“®‚µ‚Ä‰¤è‚ğ‰ğœ‚Å‚«‚éè‚ğŒŸõ‚·‚éB
                 for (const pos_t * p = near_move_offsets(OU); *p; ++p)
                 {
-                    dst = src + *p * reverse;
+                    pos_t dst = src + *p * reverse;
                     if (!ban_t::out(dst)
                         && (ban[dst] == EMPTY || is_gote(ban[dst]) != is_gote(ban[src])))
                     {
@@ -1007,12 +1002,10 @@ namespace shogipp
         template<typename InputIterator>
         void print_te(InputIterator first, InputIterator last) const
         {
-            std::size_t i = 0;
-            while (first != last)
+            for (std::size_t i = 0; first != last; ++i)
             {
                 std::cout << "#" << (i + 1) << " ";
                 print_te(*first++);
-                ++i;
             }
         }
 

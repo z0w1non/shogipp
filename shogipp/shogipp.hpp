@@ -80,7 +80,7 @@ namespace shogipp
         constexpr static bool map[]{
             false,
             false, false, false, false, false, false, false, false, false, false, false, false, false, false,
-            true, true, true, true, false, true, true, true, true, true, true, true, true, true,
+            true, true, true, true, true, true, true, true, true, true, true, true, true, true,
         };
         return map[koma];
     }
@@ -349,7 +349,7 @@ namespace shogipp
                 std::cout << "|";
                 for (int suji = 0; suji < 9; ++suji)
                 {
-                    koma_t koma = data[(dan + 2) * W + suji + 1];
+                    koma_t koma = data[suji_dan_to_pos(suji, dan)];
                     std::cout << (is_gote(koma) ? "v" : " ") << to_string(koma);
                 }
                 std::cout << "| " << danstr(dan) << std::endl;

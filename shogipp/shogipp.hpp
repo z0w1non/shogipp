@@ -25,9 +25,6 @@
 #define SHOGIPP_ASSERT(expr) do { shogipp::assert_impl((expr), #expr, __FILE__, __func__, __LINE__); } while (false)
 #endif
 
-#define XY_TO_ROW_POS(x, y) ((y + padding_height) * width + x + padding_width)
-#define XY_TO_POS(x, y) (y * 9 + x)
-
 namespace shogipp
 {
     inline void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
@@ -125,7 +122,6 @@ namespace shogipp
      */
     inline bool is_sente(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != empty);
         constexpr static bool map[]
         {
             false,
@@ -142,7 +138,6 @@ namespace shogipp
      */
     inline bool is_gote(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != empty);
         constexpr static bool map[]
         {
             false,
@@ -309,9 +304,9 @@ namespace shogipp
                 size        = hi_offset   + hi_max
             };
 
-            SHOGIPP_ASSERT(!koma != empty);
+            SHOGIPP_ASSERT(koma != empty);
             SHOGIPP_ASSERT(koma >= fu);
-            SHOGIPP_ASSERT(koma >= hi);
+            SHOGIPP_ASSERT(koma <= hi);
             SHOGIPP_ASSERT(!(koma == fu && count > fu_max));
             SHOGIPP_ASSERT(!(koma == kyo && count > kyo_max));
             SHOGIPP_ASSERT(!(koma == kei && count > kei_max));
@@ -488,7 +483,7 @@ namespace shogipp
          */
         inline unsigned char & operator [](koma_t koma)
         {
-            SHOGIPP_ASSERT(trim_sengo(koma) != empty);
+            SHOGIPP_ASSERT(koma != empty);
             SHOGIPP_ASSERT(trim_sengo(koma) != ou);
             static const std::size_t map[]{
                 0,
@@ -734,10 +729,11 @@ namespace shogipp
                 return false;
             if (koma == fu)
             {
+                pos_t suji = pos_to_suji(dst);
                 for (pos_t dan = 0; dan < height; ++dan)
                 {
-                    koma_t cur = ban[dst % width + width * dan];
-                    if (trim_sengo(cur) == fu && is_goteban(tesu) == is_gote(cur))
+                    koma_t cur = ban[suji_dan_to_pos(suji, dan)];
+                    if (cur != empty && trim_sengo(cur) == fu && is_goteban(tesu) == is_gote(cur))
                         return false;
                 }
 
@@ -797,7 +793,7 @@ namespace shogipp
         template<typename OutputIterator, typename InputIterator>
         void search_kiki_near(OutputIterator result, pos_t pos, pos_t offset, bool gote, InputIterator first, InputIterator last)
         {
-            if (pos_t cur = pos + offset; !ban_t::out(cur) && gote != is_gote(ban[cur]))
+            if (pos_t cur = pos + offset; !ban_t::out(cur) && ban[cur] != empty && gote != is_gote(ban[cur]))
                 if (std::find(first, last, trim_sengo(ban[cur])) != last)
                     *result++ = { offset, cur, false };
         }
@@ -950,13 +946,13 @@ namespace shogipp
                     for (pos_t dst : found_dst)
                     {
 #ifndef NDEBUG
-                        if (trim_sengo(ban[dst]) == ou)
+                        if (ban[dst] != empty && trim_sengo(ban[dst]) == ou)
                         {
                             te_t te{ src, dst, ban[src], ban[dst], false };
                             print_te(te);
+                            SHOGIPP_ASSERT(false);
                         }
 #endif
-                        SHOGIPP_ASSERT(trim_sengo(ban[dst]) != ou);
 
                         // çáãÓÇÕóòÇ´ÇÃîÕàÕÇ…ÇµÇ©à⁄ìÆÇ≈Ç´Ç»Ç¢ÅB
                         if (is_aigoma)
@@ -977,7 +973,7 @@ namespace shogipp
 
                         if (can_promote(ban[src], dst))
                             *result++ = { src, dst, ban[src], ban[dst], true };
-                        if (!must_promote(ban[dst], dst))
+                        if (!must_promote(ban[src], dst))
                             *result++ = { src, dst, ban[src], ban[dst], false };
                     }
                 }
@@ -1117,7 +1113,7 @@ namespace shogipp
                 hash ^= hash_table.koma_hash(te.srckoma, te.src);
                 if (te.dstkoma != empty)
                 {
-                    std::size_t mochigoma_count = mochigoma_list[tesu % 2][te.srckoma];
+                    std::size_t mochigoma_count = mochigoma_list[tesu % 2][te.dstkoma];
                     hash ^= hash_table.mochigoma_hash(to_mochigoma(te.dstkoma), mochigoma_count, is_goteban(tesu));
                     hash ^= hash_table.mochigoma_hash(to_mochigoma(te.dstkoma), mochigoma_count + 1, is_goteban(tesu));
                     hash ^= hash_table.koma_hash(te.dstkoma, te.dst);

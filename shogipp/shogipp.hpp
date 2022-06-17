@@ -8,6 +8,9 @@
 #include <memory>
 #include <sstream>
 #include <unordered_map>
+#include <random>
+#include <limits>
+#include <stack>
 
 #define NDEBUG
 
@@ -47,6 +50,16 @@ namespace shogipp
     using pos_t = int;
     constexpr pos_t npos = -1;
 
+    inline pos_t pos_to_dan(pos_t pos)
+    {
+        return pos / W - PADDING_H;
+    }
+
+    inline pos_t pos_to_suji(pos_t pos)
+    {
+        return pos % W - PADDING_W;
+    }
+
     constexpr pos_t FRONT = -W;
     constexpr pos_t LEFT = -1;
     constexpr pos_t RIGHT = 1;
@@ -65,7 +78,7 @@ namespace shogipp
         return tesu % 2 != 0;
     }
 
-    using hash_t = std::int32_t;
+    using hash_t = std::size_t;
 
     inline bool is_promoted(koma_t koma)
     {
@@ -208,11 +221,80 @@ namespace shogipp
     {
         hash_table_t()
         {
-            std::srand((unsigned int)std::time(nullptr));
-            for (std::size_t i = 0; i < std::size(rand); ++i)
-                rand[i] = std::rand();
+            std::minstd_rand rand;
+            std::uniform_int_distribution<hash_t> uid{ std::numeric_limits<hash_t>::min(), std::numeric_limits<hash_t>::max() };
+            for (std::size_t i = 0; i < std::size(ban_table); ++i)
+                ban_table[i] = uid(rand);
+            for (std::size_t i = 0; i < std::size(mochigoma_table); ++i)
+                mochigoma_table[i] = uid(rand);
         }
-        hash_t rand[64 * 9 * 9];
+        hash_t ban_table[KOMA_ENUM_NUMBER * 9 * 9];
+        hash_t mochigoma_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];
+
+        /**
+         * @breif 盤上の駒のハッシュ値を計算する。
+         * @param koma 駒
+         * @param pos 駒の座標
+         * @return ハッシュ値
+         */
+        inline hash_t koma_hash(koma_t koma, pos_t pos) const
+        {
+            std::size_t index = koma;
+            index *= 9;
+            index += pos_to_suji(pos);
+            index *= 9;
+            index += pos_to_dan(pos);
+            return ban_table[index];
+        }
+
+        /**
+         * @breif 持ち駒のハッシュ値を計算する。
+         * @param koma 駒
+         * @param count 駒の数
+         * @param is_gote 後手の持ち駒か
+         * @return ハッシュ値
+         */
+        inline hash_t mochigoma_hash(koma_t koma, std::size_t count, bool is_gote) const
+        {
+            enum
+            {
+                FU_OFFSET   = 0                     , FU_MAX   = 18,
+                KYO_OFFSET  = FU_OFFSET   + FU_MAX  , KYO_MAX  =  4,
+                KEI_OFFSET  = KYO_OFFSET  + KYO_MAX , KEI_MAX  =  4,
+                GIN_OFFSET  = KEI_OFFSET  + KEI_MAX , GIN_MAX  =  4,
+                KIN_OFFSET  = GIN_OFFSET  + GIN_MAX , KIN_MAX  =  4,
+                KAKU_OFFSET = KIN_OFFSET  + KIN_MAX , KAKU_MAX =  2,
+                HI_OFFSET   = KAKU_OFFSET + KAKU_MAX, HI_MAX   =  2,
+                SIZE        = HI_OFFSET   + HI_MAX
+            };
+
+            SHOGIPP_ASSERT(!(koma == FU && count > FU_MAX));
+            SHOGIPP_ASSERT(!(koma == KYO && count > KYO_MAX));
+            SHOGIPP_ASSERT(!(koma == KEI && count > KEI_MAX));
+            SHOGIPP_ASSERT(!(koma == GIN && count > GIN_MAX));
+            SHOGIPP_ASSERT(!(koma == KIN && count > KIN_MAX));
+            SHOGIPP_ASSERT(!(koma == KAKU && count > KAKU_MAX));
+            SHOGIPP_ASSERT(!(koma == HI && count > HI_MAX));
+
+            static const std::size_t map[]
+            {
+                FU_OFFSET  ,
+                KYO_OFFSET ,
+                KEI_OFFSET ,
+                GIN_OFFSET ,
+                KIN_OFFSET ,
+                KAKU_OFFSET,
+                HI_OFFSET  ,
+            };
+
+            std::size_t index = map[koma];
+            index *= SIZE;
+            index += count;
+            index *= 2;
+            if (is_gote)
+                ++index;
+            return ban_table[index];
+        }
     } hash_table;
 
     inline const char * tebanstr(tesu_t tesu)
@@ -276,16 +358,6 @@ namespace shogipp
 
     static const bool kin_nari[]{ false, true, true, true, true, false, false, false, false };
 
-    inline pos_t pos_to_dan(pos_t pos)
-    {
-        return pos / W - PADDING_H;
-    }
-
-    inline pos_t pos_to_suji(pos_t pos)
-    {
-        return pos % W - PADDING_W;
-    }
-
     inline const char * to_string(koma_t koma)
     {
         SHOGIPP_ASSERT(koma < KOMA_ENUM_NUMBER);
@@ -320,11 +392,16 @@ namespace shogipp
         std::cout.flush();
     }
 
+    /**
+     * @breif 合法手
+     */
     struct te_t
     {
-        pos_t src, dst;
-        koma_t srckoma, dstkoma;
-        bool promote;
+        pos_t src;      // 移動元の座標(src == npos の場合、持ち駒を打つ)
+        pos_t dst;      // 移動先の座標(src == npos の場合、 dst は打つ座標)
+        koma_t srckoma; // 移動元の駒(src == npos の場合、 srckoma は打つ持ち駒)
+        koma_t dstkoma; // 移動先の駒(src == npos の場合、 dstkoma は未定義)
+        bool promote;   // 成る場合 true
     };
 
     /**
@@ -369,7 +446,7 @@ namespace shogipp
         {
             SHOGIPP_ASSERT(trim_sengo(koma) != EMPTY);
             SHOGIPP_ASSERT(trim_sengo(koma) != OU);
-            constexpr static std::size_t map[]{
+            static const std::size_t map[]{
                 0,
                 FU - FU, KYO - FU, KEI - FU, GIN - FU, KIN - FU, KAKU - FU, HI - FU, 0,
                 FU - FU, KYO - FU, KEI - FU, GIN - FU, KAKU - FU, HI - FU
@@ -494,6 +571,9 @@ namespace shogipp
             ou_pos[1] = suji_dan_to_pos(4, 0);
             for (auto & k : oute_list)
                 k.clear();
+            while (hash_stack.size())
+                hash_stack.pop();
+            hash_stack.push(make_hash());
         }
 
         /**
@@ -621,7 +701,7 @@ namespace shogipp
                 pos_t pos = dst + FRONT * (is_goteban(tesu) ? -1 : 1);
                 if (!ban_t::out(pos) && trim_sengo(ban[pos]) == OU && is_gote(ban[pos]) != is_goteban(tesu))
                 {
-                    te_t te{ npos, dst, koma, ban[dst] };
+                    te_t te{ npos, dst, koma };
                     std::vector<te_t> te_list;
                     do_te(te);
                     search_te(std::back_inserter(te_list));
@@ -794,8 +874,8 @@ namespace shogipp
         }
 
         /**
-         * @breif 合法着手を生成する。
-         * @param result 合法着手の出力イテレータ
+         * @breif 合法手を生成する。
+         * @param result 合法手の出力イテレータ
          */
         template<typename OutputIterator>
         void search_te(OutputIterator result)
@@ -863,7 +943,7 @@ namespace shogipp
                     if (mochigoma_list[tesu % 2][koma])
                         for (pos_t dst = 0; dst < W * H; ++dst)
                             if (can_put(koma, dst))
-                                *result++ = { npos, dst, koma, ban[dst] };
+                                *result++ = { npos, dst, koma };
                 }
             }
             else // 王手されている場合
@@ -912,7 +992,7 @@ namespace shogipp
                             for (koma_t koma = FU; koma <= HI; ++koma)
                                 if (mochigoma_list[tesu % 2][koma])
                                     if (can_put(koma, dst))
-                                        *result++ = { npos, dst, koma, ban[dst] };
+                                        *result++ = { npos, dst, koma };
                         }
                     }
                     else
@@ -947,33 +1027,65 @@ namespace shogipp
             }
         }
 
+        /**
+         * @breif 局面のハッシュ値を計算する。
+         * @return 局面のハッシュ値
+         */
         inline hash_t make_hash() const
         {
-            hash_t temp = 0;
-            for (pos_t suji = 0; suji < 9; ++suji)
-                for (pos_t dan = 0; dan < 9; ++dan)
-                    temp ^= hash_table.rand[ban[XY_TO_POS(suji, dan)] * (9 * 9) + XY_TO_POS(suji, dan)];
-            return temp;
+            hash_t hash = 0;
+
+            // 盤上の駒のハッシュ値をXOR演算
+            for (pos_t pos = 0; pos < W * H; ++pos)
+                if (!ban_t::out(pos))
+                    if (koma_t koma = ban[pos]; koma != EMPTY)
+                        hash ^= hash_table.koma_hash(koma, pos);
+
+            // 持ち駒のハッシュ値をXOR演算
+            for (std::size_t i = 0; i < std::size(mochigoma_list); ++i)
+                for (koma_t koma = FU; koma <= HI; ++koma)
+                    hash ^= hash_table.mochigoma_hash(koma, mochigoma_list[i][koma], is_goteban(i));
+
+            return hash;
         }
 
+        /**
+         * @breif 局面のハッシュ値と合法手から、合法手を実施した後の局面のハッシュ値を計算する。
+         * @param hash 合法手を実施する前の局面のハッシュ値
+         * @param te 実施する合法手
+         * @return 合法手を実施した後の局面のハッシュ値
+         * @details 合法手により発生する差分に基づき計算するため make_hash() より比較的高速に処理される。
+         *          この関数は合法手を実施するより前に呼び出される必要がある。
+         */
         inline hash_t make_hash(hash_t hash, const te_t & te) const
         {
             if (te.src == npos)
             {
-                return hash;
+                std::size_t mochigoma_count = mochigoma_list[tesu % 2][te.srckoma];
+                SHOGIPP_ASSERT(mochigoma_count > 0);
+                hash ^= hash_table.koma_hash(te.srckoma, te.dst);
+                hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count, is_goteban(tesu));
+                hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count - 1, is_goteban(tesu));
             }
             else
             {
-                return hash
-                    ^ hash_table.rand[te.srckoma * (9 * 9) + te.src]
-                    ^ hash_table.rand[te.dstkoma * (9 * 9) + te.dst]
-                    ^ hash_table.rand[(te.promote ? to_unpromoted(te.srckoma) : te.srckoma) * (9 * 9) + te.dst];
+                SHOGIPP_ASSERT(!(!is_promotable(te.srckoma) && te.promote));
+                hash ^= hash_table.koma_hash(te.srckoma, te.src);
+                if (te.dstkoma != EMPTY)
+                {
+                    std::size_t mochigoma_count = mochigoma_list[tesu % 2][te.srckoma];
+                    hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count, is_goteban(tesu));
+                    hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count + 1, is_goteban(tesu));
+                    hash ^= hash_table.koma_hash(te.dstkoma, te.dst);
+                }
+                hash ^= hash_table.koma_hash(te.promote ? to_unpromoted(te.srckoma) : te.srckoma, te.dst);
             }
+            return hash;
         }
 
         /**
-         * @breif 合法着手を出力する。
-         * @param te 合法着手
+         * @breif 合法手を出力する。
+         * @param te 合法手
          */
         inline void print_te(const te_t & te) const
         {
@@ -995,9 +1107,9 @@ namespace shogipp
         }
 
         /**
-         * @breif 合法着手を出力する。
-         * @param first 合法着手の入力イテレータのbegin
-         * @param last 合法着手の入力イテレータのend
+         * @breif 合法手を出力する。
+         * @param first 合法手の入力イテレータのbegin
+         * @param last 合法手の入力イテレータのend
          */
         template<typename InputIterator>
         void print_te(InputIterator first, InputIterator last) const
@@ -1049,11 +1161,21 @@ namespace shogipp
         }
 
         /**
-         * @breif 合法着手を実行する。
-         * @param te 合法着手
+         * @breif 局面のハッシュ値を返す。
+         * @return 局面のハッシュ値
+         */
+        hash_t hash() const
+        {
+            return hash_stack.top();
+        }
+
+        /**
+         * @breif 合法手を実行する。
+         * @param te 合法手
          */
         inline void do_te(const te_t & te)
         {
+            hash_t hash = make_hash(hash_stack.top(), te);
             if (te.src == npos)
             {
                 SHOGIPP_ASSERT(mochigoma_list[tesu % 2][te.srckoma] > 0);
@@ -1062,9 +1184,7 @@ namespace shogipp
             }
             else
             {
-                SHOGIPP_ASSERT(!(trim_sengo(te.srckoma) == KIN && te.promote));
-                SHOGIPP_ASSERT(!(trim_sengo(te.srckoma) == OU && te.promote));
-                SHOGIPP_ASSERT(!(is_promoted(te.srckoma) && te.promote));
+                SHOGIPP_ASSERT(!(!is_promotable(te.srckoma) && te.promote));
                 if (ban[te.dst] != EMPTY)
                     ++mochigoma_list[tesu % 2][ban[te.dst]];
                 ban[te.dst] = te.promote ? to_promoted(ban[te.src]) : ban[te.src];
@@ -1073,12 +1193,13 @@ namespace shogipp
                     ou_pos[tesu % 2] = te.dst;
             }
             ++tesu;
+            hash_stack.push(hash);
             update_oute();
         }
 
         /**
-         * @breif 合法着手を実行する前に戻す。
-         * @param te 合法着手
+         * @breif 合法手を実行する前に戻す。
+         * @param te 合法手
          */
         inline void undo_te(const te_t & te)
         {
@@ -1098,14 +1219,16 @@ namespace shogipp
                 if (ban[te.dst] != EMPTY)
                     --mochigoma_list[tesu % 2][ban[te.dst]];
             }
+            hash_stack.pop();
             update_oute();
         }
 
         ban_t ban;                          // 盤
         mochigoma_t mochigoma_list[2];      // 持ち駒 { 先手, 後手 }
         tesu_t tesu;                        // 手数
-        pos_t ou_pos[2];                      // 王の座標 { 先手, 後手 }
+        pos_t ou_pos[2];                    // 王の座標 { 先手, 後手 }
         std::vector<kiki_t> oute_list[2];   // 王に対する利き { 先手, 後手 }
+        std::stack<hash_t> hash_stack;      // それまでの各手番におけるハッシュ値を格納するスタック
     };
 
     /**
@@ -1116,9 +1239,9 @@ namespace shogipp
         virtual ~abstract_evaluator_t() {};
 
         /**
-         * @breif 局面に対して合法着手を選択する。
+         * @breif 局面に対して合法手を選択する。
          * @param kyokumen 局面
-         * @return 選択された合法着手
+         * @return 選択された合法手
          */
         virtual te_t select_te(kyokumen_t & kyokumen) = 0;
 
@@ -1188,9 +1311,9 @@ namespace shogipp
         : public abstract_evaluator_t
     {
         /**
-         * @breif 局面に対して評価値が最も高くなる合法着手を選択する。
+         * @breif 局面に対して評価値が最も高くなる合法手を選択する。
          * @param kyokumen 局面
-         * @return 選択された合法着手
+         * @return 選択された合法手
          */
         te_t select_te(kyokumen_t & kyokumen) override
         {

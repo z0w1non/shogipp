@@ -13,7 +13,11 @@
 #include <stack>
 #include <optional>
 
-#define NDEBUG
+#ifdef NONDETERMINISM
+#define SHOGIPP_SEED std::random_device{}()
+#else
+#define SHOGIPP_SEED
+#endif
 
 #ifdef NDEBUG
 #define SHOGIPP_ASSERT(expr)
@@ -258,7 +262,7 @@ namespace shogipp
     {
         hash_table_t()
         {
-            std::minstd_rand rand;
+            std::minstd_rand rand{ SHOGIPP_SEED };
             std::uniform_int_distribution<hash_t> uid{ std::numeric_limits<hash_t>::min(), std::numeric_limits<hash_t>::max() };
             for (std::size_t i = 0; i < std::size(ban_table); ++i)
                 ban_table[i] = uid(rand);
@@ -946,7 +950,7 @@ namespace shogipp
                     for (pos_t dst : found_dst)
                     {
 #ifndef NDEBUG
-                        if (trim_sengo(ban[dst]) == OU)
+                        if (trim_sengo(ban[dst]) == ou)
                         {
                             te_t te{ src, dst, ban[src], ban[dst], false };
                             print_te(te);
@@ -1560,7 +1564,10 @@ namespace shogipp
                 /* uma      */ 10,
                 /* ryu      */ 12
             };
-            return kyokumen_map_score(kyokumen, map);
+            int score = kyokumen_map_score(kyokumen, map);
+            score *= 100;
+
+            return score;
         }
 
         const char * name() override
@@ -1577,13 +1584,16 @@ namespace shogipp
     {
         inline int eval(kyokumen_t & kyokumen) override
         {
-            return std::rand();
+            return uid(rand);
         }
 
         const char * name() override
         {
             return "random evaluator";
         }
+
+        std::minstd_rand rand{ SHOGIPP_SEED };
+        std::uniform_int_distribution<int> uid{ std::numeric_limits<int>::min(), std::numeric_limits<int>::max() };
     };
 
 } // namespace shogipp

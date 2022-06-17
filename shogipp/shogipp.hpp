@@ -11,6 +11,7 @@
 #include <random>
 #include <limits>
 #include <stack>
+#include <optional>
 
 #define NDEBUG
 
@@ -92,7 +93,8 @@ namespace shogipp
     inline bool is_promoted(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static bool map[]{
+        constexpr static bool map[]
+        {
             false,
             false, false, false, false, false, false, false, false, true, true, true, true, true, true,
             false, false, false, false, false, false, false, false, true, true, true, true, true, true
@@ -103,7 +105,8 @@ namespace shogipp
     inline bool is_promotable(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static bool map[]{
+        constexpr static bool map[]
+        {
             false,
             true, true, true, true, false, true, true, false, false, false, false, false, false, false,
             true, true, true, true, false, true, true, false, false, false, false, false, false, false,
@@ -119,7 +122,8 @@ namespace shogipp
     inline bool is_sente(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static bool map[]{
+        constexpr static bool map[]
+        {
             false,
             true, true, true, true, false, true, true, true, true, true, true, true, true, true,
             false, false, false, false, false, false, false, false, false, false, false, false, false, false,
@@ -135,7 +139,8 @@ namespace shogipp
     inline bool is_gote(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static bool map[]{
+        constexpr static bool map[]
+        {
             false,
             false, false, false, false, false, false, false, false, false, false, false, false, false, false,
             true, true, true, true, true, true, true, true, true, true, true, true, true, true,
@@ -151,13 +156,32 @@ namespace shogipp
     inline bool is_hasirigoma(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static bool map[]{
+        constexpr static bool map[]
+        {
             false,
             false, true, false, false, false, true, true, false, false, false, false, false, true, true,
             false, true, false, false, false, true, true, false, false, false, false, false, true, true,
         };
         return map[koma];
     }
+
+    /**
+     * @breif 駒を持ち駒として適格の駒に変換する。
+     * @param koma 駒
+     * @return 持ち駒として適格の駒
+     */
+    inline koma_t to_mochigoma(koma_t koma)
+    {
+        SHOGIPP_ASSERT(koma != empty);
+        constexpr static koma_t map[]
+        {
+            0,
+            fu, kyo, kei, gin, kin, kaku, hi, ou, fu, kyo, kei, gin, kaku, hi,
+            fu, kyo, kei, gin, kin, kaku, hi, ou, fu, kyo, kei, gin, kaku, hi,
+        };
+        return map[koma];
+    }
+
 
     /*
      * @breif 駒を成る前の駒に変換する。
@@ -167,10 +191,11 @@ namespace shogipp
     inline koma_t to_unpromoted(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static koma_t map[]{
+        constexpr static koma_t map[]
+        {
             0,
-            fu, kyo, kei, gin, kin, kaku, hi, ou, fu, kyo, kei, gin, kaku, hi,
-            fu, kyo, kei, gin, kin, kaku, hi, ou, fu, kyo, kei, gin, kaku, hi,
+            sente_fu, sente_kyo, sente_kei, sente_gin, sente_kin, sente_kaku, sente_hi, sente_ou, sente_fu, sente_kyo, sente_kei, sente_gin, sente_kaku, sente_hi,
+            gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_fu, gote_kyo, gote_kei, gote_gin, gote_kaku, gote_hi,
         };
         return map[koma];
     }
@@ -183,10 +208,11 @@ namespace shogipp
     inline koma_t to_promoted(koma_t koma)
     {
         SHOGIPP_ASSERT(is_promotable(koma));
-        constexpr static koma_t map[]{
+        constexpr static koma_t map[]
+        {
             0,
-            tokin, nari_kyo, nari_kei, nari_gin, 0, uma, ryu, 0, 0, 0, 0, 0, 0, 0,
-            tokin, nari_kyo, nari_kei, nari_gin, 0, uma, ryu, 0, 0, 0, 0, 0, 0, 0,
+            sente_tokin, sente_nari_kyo, sente_nari_kei, sente_nari_gin, 0, sente_uma, sente_ryu, 0, 0, 0, 0, 0, 0, 0,
+            gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, 0, gote_uma, gote_ryu, 0, 0, 0, 0, 0, 0, 0,
         };
         return map[koma];
     }
@@ -201,7 +227,8 @@ namespace shogipp
     inline koma_t trim_sengo(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static koma_t map[]{
+        constexpr static koma_t map[]
+        {
             0,
             fu, kyo, kei, gin, kin, kaku, hi, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu,
             fu, kyo, kei, gin, kin, kaku, hi, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu,
@@ -218,7 +245,8 @@ namespace shogipp
     inline koma_t to_gote(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static koma_t map[]{
+        constexpr static koma_t map[]
+        {
             0,
             gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, gote_uma, gote_ryu,
             gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, gote_uma, gote_ryu,
@@ -277,6 +305,9 @@ namespace shogipp
                 size        = hi_offset   + hi_max
             };
 
+            SHOGIPP_ASSERT(!koma != empty);
+            SHOGIPP_ASSERT(koma >= fu);
+            SHOGIPP_ASSERT(koma >= hi);
             SHOGIPP_ASSERT(!(koma == fu && count > fu_max));
             SHOGIPP_ASSERT(!(koma == kyo && count > kyo_max));
             SHOGIPP_ASSERT(!(koma == kei && count > kei_max));
@@ -287,6 +318,7 @@ namespace shogipp
 
             static const std::size_t map[]
             {
+                0,
                 fu_offset  ,
                 kyo_offset ,
                 kei_offset ,
@@ -297,7 +329,6 @@ namespace shogipp
             };
 
             std::size_t index = map[koma];
-            index *= size;
             index += count;
             index *= 2;
             if (is_gote)
@@ -1083,8 +1114,8 @@ namespace shogipp
                 if (te.dstkoma != empty)
                 {
                     std::size_t mochigoma_count = mochigoma_list[tesu % 2][te.srckoma];
-                    hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count, is_goteban(tesu));
-                    hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count + 1, is_goteban(tesu));
+                    hash ^= hash_table.mochigoma_hash(to_mochigoma(te.dstkoma), mochigoma_count, is_goteban(tesu));
+                    hash ^= hash_table.mochigoma_hash(to_mochigoma(te.dstkoma), mochigoma_count + 1, is_goteban(tesu));
                     hash ^= hash_table.koma_hash(te.dstkoma, te.dst);
                 }
                 hash ^= hash_table.koma_hash(te.promote ? to_unpromoted(te.srckoma) : te.srckoma, te.dst);
@@ -1107,11 +1138,11 @@ namespace shogipp
                 else
                     naristr = "";
                 std::cout << sujistr(pos_to_suji(te.dst)) << danstr(pos_to_dan(te.dst)) << to_string(trim_sengo(te.srckoma)) << naristr
-                    << " (" << sujistr(pos_to_suji(te.src)) << danstr(pos_to_dan(te.src)) << ")" << std::endl;
+                    << " (" << sujistr(pos_to_suji(te.src)) << danstr(pos_to_dan(te.src)) << ")";
             }
             else
             {
-                std::cout << sujistr(pos_to_suji(te.dst)) << danstr(pos_to_dan(te.dst)) << to_string(trim_sengo(te.srckoma)) << "打" << std::endl;
+                std::cout << sujistr(pos_to_suji(te.dst)) << danstr(pos_to_dan(te.dst)) << to_string(trim_sengo(te.srckoma)) << "打";
             }
         }
 
@@ -1128,6 +1159,7 @@ namespace shogipp
                 std::printf("#%3d ", i + 1);
                 //std::cout << "#" << (i + 1) << " ";
                 print_te(*first++);
+                std::cout << std::endl;
             }
         }
 
@@ -1288,9 +1320,10 @@ namespace shogipp
             kyokumen.search_te(std::back_inserter(te_list));
             if (te_list.empty())
             {
+                auto & winner_evaluator = evaluators[(kyokumen.tesu + 1) % 2];
                 std::cout << kyokumen.tesu << "手詰み" << std::endl;
                 kyokumen.print();
-                std::cout << tebanstr(kyokumen.tesu + 1) << "勝利 (" << evaluator->name() << ")";
+                std::cout << tebanstr(kyokumen.tesu + 1) << "勝利 (" << winner_evaluator->name() << ")";
                 std::cout.flush();
                 return false;
             }
@@ -1306,7 +1339,7 @@ namespace shogipp
             te_t selected_te = evaluator->select_te(temp_kyokumen);
 
             kyokumen.print_te(selected_te);
-            std::cout << std::endl;
+            std::cout << std::endl << std::endl;
 
             kyokumen.do_te(selected_te);
 
@@ -1315,9 +1348,158 @@ namespace shogipp
     };
 
     /**
+     * @breif 駒と価値の連想配列から局面の点数を計算する。
+     * @param kyokumen 局面
+     * @param map []演算子により駒から価値を連想するオブジェクト
+     * @return 局面の点数
+     */
+    template<typename MapKomaInt>
+    inline int kyokumen_map_score(kyokumen_t & kyokumen, MapKomaInt & map)
+    {
+        int score = 0;
+        for (pos_t pos = 0; pos < width * height; ++pos)
+        {
+            koma_t koma = kyokumen.ban[pos];
+            pos_t reverse = is_gote(koma) ? -1 : 1;
+            if (!ban_t::out(pos) && koma != empty)
+                score += map[trim_sengo(koma)] * reverse;
+        }
+
+        for (std::size_t sengo = 0; sengo < std::size(kyokumen.mochigoma_list); ++sengo)
+            for (koma_t koma = fu; koma <= hi; ++koma)
+                score += map[koma] * kyokumen.mochigoma_list[sengo][koma] * is_goteban(sengo) ? -1 : 1;
+
+        return score;
+    }
+
+    /**
+     * @breif minimax で合法手を選択する評価関数オブジェクトの抽象クラス
+     */
+    struct minimax_evaluator_t
+        : public abstract_evaluator_t
+    {
+        using cache_t = std::unordered_map<hash_t, int>;
+        
+        struct search_info_t
+        {
+            kyokumen_t * kyokumen;
+            unsigned int * search_count;
+            cache_t * cache;
+            unsigned int depth;
+            te_t selected_te;
+            int selected_score;
+            int te_number;
+        };
+
+        void min_max(search_info_t & search_info)
+        {
+            std::vector<te_t> te_list;
+            search_info.kyokumen->search_te(std::back_inserter(te_list));
+            search_info.te_number = te_list.size();
+
+            using pair = std::pair<te_t *, int>;
+            std::vector<pair> scores;
+            auto back_inserter = std::back_inserter(scores);
+
+            for (te_t & te : te_list)
+            {
+                ++*search_info.search_count;
+
+#ifndef NDEBUG
+                if (*search_info.search_count % 10000 == 0)
+                    std::cout << *search_info.search_count << std::endl;
+#endif
+
+                int score;
+                hash_t hash;
+
+                if (search_info.depth >= 2)
+                {
+                    search_info.kyokumen->do_te(te);
+                    hash = search_info.kyokumen->hash();
+                    score = eval(*search_info.kyokumen);
+                    search_info.kyokumen->undo_te(te);
+                }
+                else
+                {
+                    search_info_t temp;
+                    temp.kyokumen = search_info.kyokumen;
+                    temp.search_count = search_info.search_count;
+                    temp.cache = search_info.cache;
+                    temp.depth = search_info.depth + 1;
+                    temp.selected_score = 0;
+
+                    search_info.kyokumen->do_te(te);
+                    hash = search_info.kyokumen->hash();
+
+                    min_max(temp);
+                    if (temp.te_number)
+                        score = temp.selected_score;
+                    else // 詰み
+                        score = (search_info.kyokumen->tesu % 2 == 0) ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
+
+                    search_info.kyokumen->undo_te(te);
+                }
+
+                *back_inserter++ = { &te, score };
+            }
+
+            using comparator_t = bool(const pair &, const pair &);
+            comparator_t * comparator = (search_info.kyokumen->tesu % 2 == 0) ?
+                  comparator = [](const pair & a, const pair & b) -> bool { return a.second > b.second; }
+                : comparator = [](const pair & a, const pair & b) -> bool { return a.second < b.second; };
+            std::sort(scores.begin(), scores.end(), comparator);
+
+            if (!te_list.empty())
+            {
+                search_info.selected_te = *scores.front().first;
+                search_info.selected_score = scores.front().second;
+            }
+
+            search_info.te_number = te_list.size();
+        }
+
+        /**
+         * @breif 局面に対して minimax で合法手を選択する。
+         * @param kyokumen 局面
+         * @return 選択された合法手
+         */
+        te_t select_te(kyokumen_t & kyokumen) override
+        {
+            unsigned int search_count = 0;
+            cache_t cache;
+
+            search_info_t search_info;
+            search_info.kyokumen = &kyokumen;
+            search_info.cache = &cache;
+            search_info.depth = 0;
+            search_info.search_count = &search_count;
+            search_info.selected_score = 0;
+
+            min_max(search_info);
+
+            std::cout << "読み手数：" << search_count << std::endl;
+
+            //std::cout << "hash begin" << std::endl;
+            //for (auto & [hash, score] : score_cache)
+            //    std::printf("%08x: %d\n", hash, score);
+            //std::cout << "hash end" << std::endl;
+
+            return search_info.selected_te;
+        }
+
+        /**
+         * @breif 局面に対して評価値を返す。
+         * @param kyokumen 局面
+         * @return 局面の評価値
+         */
+        virtual int eval(kyokumen_t & kyokumen) = 0;
+    };
+
+    /**
      * @breif 単純に評価値が最も高い手を返す評価関数オブジェクトの抽象クラス
      */
-    struct basic_evaluator_t
+    struct max_evaluator_t
         : public abstract_evaluator_t
     {
         /**
@@ -1356,32 +1538,29 @@ namespace shogipp
      * @breif 評価関数オブジェクトの実装例
      */
     struct sample_evaluator_t
-        : public basic_evaluator_t
+        : public minimax_evaluator_t
     {
         int eval(kyokumen_t & kyokumen) override
         {
-            static const int komascore[]{ 5, 30, 35, 55, 60, 95, 100, 0xFFFF };
-            static const int pkomascore[]{ 60, 60, 60, 60, 0, 115, 120, 0 };
-            int score = 0;
-            for (int i = 0; i < width * height; ++i)
+            static const int map[]
             {
-                koma_t koma = kyokumen.ban[i];
-                pos_t reverse = is_gote(koma) == is_goteban(kyokumen.tesu) ? 1 : -1;
-                if (koma != empty)
-                {
-                    if (is_promoted(koma))
-                        score += pkomascore[trim_sengo(koma) - fu] * reverse;
-                    else
-                        score += komascore[trim_sengo(koma) - fu] * reverse;
-                }
-            }
-            for (int i = fu; i <= hi; ++i)
-            {
-                mochigoma_t * m0 = &kyokumen.mochigoma_list[kyokumen.tesu % 2];
-                mochigoma_t * m1 = &kyokumen.mochigoma_list[(kyokumen.tesu + 1) % 2];
-                score += komascore[i] * ((*m0)[i] - (*m1)[i]);
-            }
-            return score;
+                /* empty    */  0,
+                /* fu       */  1,
+                /* kyo      */  3,
+                /* kei      */  4,
+                /* gin      */  5,
+                /* kin      */  6,
+                /* kaku     */  8,
+                /* hi       */ 10,
+                /* ou       */  0,
+                /* tokin    */  7,
+                /* nari_kyo */  6,
+                /* nari_kei */  6,
+                /* nari_gin */  6,
+                /* uma      */ 10,
+                /* ryu      */ 12
+            };
+            return kyokumen_map_score(kyokumen, map);
         }
 
         const char * name() override
@@ -1394,7 +1573,7 @@ namespace shogipp
      * @breif 評価関数オブジェクトの実装例
      */
     struct random_evaluator_t
-        : public basic_evaluator_t
+        : public max_evaluator_t
     {
         inline int eval(kyokumen_t & kyokumen) override
         {

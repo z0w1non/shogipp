@@ -20,7 +20,7 @@
 #define SHOGIPP_ASSERT(expr) do { shogipp::assert_impl((expr), #expr, __FILE__, __func__, __LINE__); } while (false)
 #endif
 
-#define XY_TO_ROW_POS(x, y) ((y + PADDING_H) * W + x + PADDING_W)
+#define XY_TO_ROW_POS(x, y) ((y + padding_height) * width + x + padding_width)
 #define XY_TO_POS(x, y) (y * 9 + x)
 
 namespace shogipp
@@ -37,39 +37,48 @@ namespace shogipp
     }
 
     using koma_t = unsigned char;
-    enum : koma_t {
-        EMPTY,
-        FU, KYO, KEI, GIN, KIN, KAKU, HI, OU, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU,
-        SENTE_FU = FU, SENTE_KYO, SENTE_KEI, SENTE_GIN, SENTE_KIN, SENTE_KAKU, SENTE_HI, SENTE_OU, SENTE_NARI_FU, SENTE_NARI_KYO, SENTE_NARI_KEI, SENTE_NARI_GIN, SENTE_UMA, SENTE_RYU,
-        GOTE_FU, GOTE_KYO, GOTE_KEI, GOTE_GIN, GOTE_KIN, GOTE_KAKU, GOTE_HI, GOTE_OU, GOTE_NARI_FU, GOTE_NARI_KYO, GOTE_NARI_KEI, GOTE_NARI_GIN, GOTE_UMA, GOTE_RYU,
-        KOMA_ENUM_NUMBER,
-        X = 0xFF
+    enum : koma_t
+    {
+        empty,
+        fu, kyo, kei, gin, kin, kaku, hi, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu,
+        sente_fu = fu, sente_kyo, sente_kei, sente_gin, sente_kin, sente_kaku, sente_hi, sente_ou, sente_tokin, sente_nari_kyo, sente_nari_kei, sente_nari_gin, sente_uma, sente_ryu,
+        gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, gote_uma, gote_ryu,
+        koma_enum_number,
+        x = 0xff
     };
-    enum { W = 11, H = 13, PADDING_W = 1, PADDING_H = 2 };
 
     using pos_t = int;
     constexpr pos_t npos = -1;
 
+    enum : pos_t
+    {
+        width = 11,
+        height = 13,
+        padding_width = 1,
+        padding_height = 2
+    };
+
+
     inline pos_t pos_to_dan(pos_t pos)
     {
-        return pos / W - PADDING_H;
+        return pos / width - padding_height;
     }
 
     inline pos_t pos_to_suji(pos_t pos)
     {
-        return pos % W - PADDING_W;
+        return pos % width - padding_width;
     }
 
-    constexpr pos_t FRONT = -W;
-    constexpr pos_t LEFT = -1;
-    constexpr pos_t RIGHT = 1;
-    constexpr pos_t BACK = W;
-    constexpr pos_t KEI_LEFT = FRONT * 2 + LEFT;
-    constexpr pos_t KEI_RIGHT = FRONT * 2 + RIGHT;
-    constexpr pos_t FRONT_LEFT = FRONT + LEFT;
-    constexpr pos_t FRONT_RIGHT = FRONT + RIGHT;
-    constexpr pos_t BACK_LEFT = BACK + LEFT;
-    constexpr pos_t BACK_RIGHT = BACK + RIGHT;
+    constexpr pos_t front = -width;
+    constexpr pos_t left = -1;
+    constexpr pos_t right = 1;
+    constexpr pos_t back = width;
+    constexpr pos_t kei_left = front * 2 + left;
+    constexpr pos_t kei_right = front * 2 + right;
+    constexpr pos_t front_left = front + left;
+    constexpr pos_t front_right = front + right;
+    constexpr pos_t back_left = back + left;
+    constexpr pos_t back_right = back + right;
 
     using tesu_t = unsigned int;
     
@@ -82,7 +91,7 @@ namespace shogipp
 
     inline bool is_promoted(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         constexpr static bool map[]{
             false,
             false, false, false, false, false, false, false, false, true, true, true, true, true, true,
@@ -93,7 +102,7 @@ namespace shogipp
 
     inline bool is_promotable(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         constexpr static bool map[]{
             false,
             true, true, true, true, false, true, true, false, false, false, false, false, false, false,
@@ -109,7 +118,7 @@ namespace shogipp
      */
     inline bool is_sente(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         constexpr static bool map[]{
             false,
             true, true, true, true, false, true, true, true, true, true, true, true, true, true,
@@ -125,7 +134,7 @@ namespace shogipp
      */
     inline bool is_gote(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         constexpr static bool map[]{
             false,
             false, false, false, false, false, false, false, false, false, false, false, false, false, false,
@@ -141,7 +150,7 @@ namespace shogipp
      */
     inline bool is_hasirigoma(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         constexpr static bool map[]{
             false,
             false, true, false, false, false, true, true, false, false, false, false, false, true, true,
@@ -157,11 +166,11 @@ namespace shogipp
      */
     inline koma_t to_unpromoted(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         constexpr static koma_t map[]{
             0,
-            FU, KYO, KEI, GIN, KIN, KAKU, HI, OU, FU, KYO, KEI, GIN, KAKU, HI,
-            FU, KYO, KEI, GIN, KIN, KAKU, HI, OU, FU, KYO, KEI, GIN, KAKU, HI,
+            fu, kyo, kei, gin, kin, kaku, hi, ou, fu, kyo, kei, gin, kaku, hi,
+            fu, kyo, kei, gin, kin, kaku, hi, ou, fu, kyo, kei, gin, kaku, hi,
         };
         return map[koma];
     }
@@ -176,8 +185,8 @@ namespace shogipp
         SHOGIPP_ASSERT(is_promotable(koma));
         constexpr static koma_t map[]{
             0,
-            NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, 0, UMA, RYU, 0, 0, 0, 0, 0, 0, 0,
-            NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, 0, UMA, RYU, 0, 0, 0, 0, 0, 0, 0,
+            tokin, nari_kyo, nari_kei, nari_gin, 0, uma, ryu, 0, 0, 0, 0, 0, 0, 0,
+            tokin, nari_kyo, nari_kei, nari_gin, 0, uma, ryu, 0, 0, 0, 0, 0, 0, 0,
         };
         return map[koma];
     }
@@ -191,11 +200,11 @@ namespace shogipp
      */
     inline koma_t trim_sengo(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         constexpr static koma_t map[]{
             0,
-            FU, KYO, KEI, GIN, KIN, KAKU, HI, OU, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU,
-            FU, KYO, KEI, GIN, KIN, KAKU, HI, OU, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU,
+            fu, kyo, kei, gin, kin, kaku, hi, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu,
+            fu, kyo, kei, gin, kin, kaku, hi, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu,
         };
         return map[koma];
     }
@@ -208,11 +217,11 @@ namespace shogipp
      */
     inline koma_t to_gote(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         constexpr static koma_t map[]{
             0,
-            GOTE_FU, GOTE_KYO, GOTE_KEI, GOTE_GIN, GOTE_KIN, GOTE_KAKU, GOTE_HI, GOTE_OU, GOTE_NARI_FU, GOTE_NARI_KYO, GOTE_NARI_KEI, GOTE_NARI_GIN, GOTE_UMA, GOTE_RYU,
-            GOTE_FU, GOTE_KYO, GOTE_KEI, GOTE_GIN, GOTE_KIN, GOTE_KAKU, GOTE_HI, GOTE_OU, GOTE_NARI_FU, GOTE_NARI_KYO, GOTE_NARI_KEI, GOTE_NARI_GIN, GOTE_UMA, GOTE_RYU,
+            gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, gote_uma, gote_ryu,
+            gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, gote_uma, gote_ryu,
         };
         return map[koma];
     }
@@ -228,7 +237,7 @@ namespace shogipp
             for (std::size_t i = 0; i < std::size(mochigoma_table); ++i)
                 mochigoma_table[i] = uid(rand);
         }
-        hash_t ban_table[KOMA_ENUM_NUMBER * 9 * 9];
+        hash_t ban_table[koma_enum_number * 9 * 9];
         hash_t mochigoma_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];
 
         /**
@@ -258,37 +267,37 @@ namespace shogipp
         {
             enum
             {
-                FU_OFFSET   = 0                     , FU_MAX   = 18,
-                KYO_OFFSET  = FU_OFFSET   + FU_MAX  , KYO_MAX  =  4,
-                KEI_OFFSET  = KYO_OFFSET  + KYO_MAX , KEI_MAX  =  4,
-                GIN_OFFSET  = KEI_OFFSET  + KEI_MAX , GIN_MAX  =  4,
-                KIN_OFFSET  = GIN_OFFSET  + GIN_MAX , KIN_MAX  =  4,
-                KAKU_OFFSET = KIN_OFFSET  + KIN_MAX , KAKU_MAX =  2,
-                HI_OFFSET   = KAKU_OFFSET + KAKU_MAX, HI_MAX   =  2,
-                SIZE        = HI_OFFSET   + HI_MAX
+                fu_offset   = 0                     , fu_max   = 18,
+                kyo_offset  = fu_offset   + fu_max  , kyo_max  =  4,
+                kei_offset  = kyo_offset  + kyo_max , kei_max  =  4,
+                gin_offset  = kei_offset  + kei_max , gin_max  =  4,
+                kin_offset  = gin_offset  + gin_max , kin_max  =  4,
+                kaku_offset = kin_offset  + kin_max , kaku_max =  2,
+                hi_offset   = kaku_offset + kaku_max, hi_max   =  2,
+                size        = hi_offset   + hi_max
             };
 
-            SHOGIPP_ASSERT(!(koma == FU && count > FU_MAX));
-            SHOGIPP_ASSERT(!(koma == KYO && count > KYO_MAX));
-            SHOGIPP_ASSERT(!(koma == KEI && count > KEI_MAX));
-            SHOGIPP_ASSERT(!(koma == GIN && count > GIN_MAX));
-            SHOGIPP_ASSERT(!(koma == KIN && count > KIN_MAX));
-            SHOGIPP_ASSERT(!(koma == KAKU && count > KAKU_MAX));
-            SHOGIPP_ASSERT(!(koma == HI && count > HI_MAX));
+            SHOGIPP_ASSERT(!(koma == fu && count > fu_max));
+            SHOGIPP_ASSERT(!(koma == kyo && count > kyo_max));
+            SHOGIPP_ASSERT(!(koma == kei && count > kei_max));
+            SHOGIPP_ASSERT(!(koma == gin && count > gin_max));
+            SHOGIPP_ASSERT(!(koma == kin && count > kin_max));
+            SHOGIPP_ASSERT(!(koma == kaku && count > kaku_max));
+            SHOGIPP_ASSERT(!(koma == hi && count > hi_max));
 
             static const std::size_t map[]
             {
-                FU_OFFSET  ,
-                KYO_OFFSET ,
-                KEI_OFFSET ,
-                GIN_OFFSET ,
-                KIN_OFFSET ,
-                KAKU_OFFSET,
-                HI_OFFSET  ,
+                fu_offset  ,
+                kyo_offset ,
+                kei_offset ,
+                gin_offset ,
+                kin_offset ,
+                kaku_offset,
+                hi_offset  ,
             };
 
             std::size_t index = map[koma];
-            index *= SIZE;
+            index *= size;
             index += count;
             index *= 2;
             if (is_gote)
@@ -310,48 +319,48 @@ namespace shogipp
     
     inline const pos_t * near_move_offsets(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         static const pos_t map[][10]
         {
-            /* EMPTY    */ { },
-            /* FU       */ { FRONT },
-            /* KYO      */ { },
-            /* KEI      */ { KEI_LEFT, KEI_RIGHT},
-            /* GIN      */ { FRONT_LEFT, FRONT, FRONT_RIGHT, BACK_LEFT, BACK_RIGHT },
-            /* KIN      */ { FRONT_LEFT, FRONT, FRONT_RIGHT, LEFT, RIGHT, BACK },
-            /* KAKU     */ { },
-            /* HI       */ { },
-            /* OU       */ { FRONT_LEFT, FRONT, FRONT_RIGHT, LEFT, RIGHT, BACK_LEFT, BACK, BACK_RIGHT },
-            /* NARI_FU  */ { FRONT_LEFT, FRONT, FRONT_RIGHT, LEFT, RIGHT, BACK },
-            /* KAKU_KYO */ { FRONT_LEFT, FRONT, FRONT_RIGHT, LEFT, RIGHT, BACK },
-            /* KAKU_KEI */ { FRONT_LEFT, FRONT, FRONT_RIGHT, LEFT, RIGHT, BACK },
-            /* KAKU_GIN */ { FRONT_LEFT, FRONT, FRONT_RIGHT, LEFT, RIGHT, BACK },
-            /* UMA      */ { FRONT, LEFT, RIGHT, BACK },
-            /* RYU      */ { FRONT_LEFT, FRONT_RIGHT, BACK_LEFT, BACK_RIGHT },
+            /* empty    */ { },
+            /* fu       */ { front },
+            /* kyo      */ { },
+            /* kei      */ { kei_left, kei_right},
+            /* gin      */ { front_left, front, front_right, back_left, back_right },
+            /* kin      */ { front_left, front, front_right, left, right, back },
+            /* kaku     */ { },
+            /* hi       */ { },
+            /* ou       */ { front_left, front, front_right, left, right, back_left, back, back_right },
+            /* tokin    */ { front_left, front, front_right, left, right, back },
+            /* kaku_kyo */ { front_left, front, front_right, left, right, back },
+            /* kaku_kei */ { front_left, front, front_right, left, right, back },
+            /* kaku_gin */ { front_left, front, front_right, left, right, back },
+            /* uma      */ { front, left, right, back },
+            /* ryu      */ { front_left, front_right, back_left, back_right },
         };
         return map[koma];
     }
 
     inline const pos_t * far_move_offsets(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != EMPTY);
+        SHOGIPP_ASSERT(koma != empty);
         static const pos_t map[][10]
         {
-            /* EMPTY    */ { },
-            /* FU       */ { },
-            /* KYO      */ { FRONT },
-            /* KEI      */ { },
-            /* GIN      */ { },
-            /* KIN      */ { },
-            /* KAKU     */ { FRONT_LEFT, FRONT_RIGHT, BACK_LEFT, BACK_RIGHT },
-            /* HI       */ { FRONT, LEFT, RIGHT, BACK },
-            /* OU       */ { },
-            /* NARI_FU  */ { },
-            /* KAKU_KYO */ { },
-            /* KAKU_KEI */ { },
-            /* KAKU_GIN */ { },
-            /* UMA      */ { FRONT_LEFT, FRONT_RIGHT, BACK_LEFT, BACK_RIGHT },
-            /* RYU      */ { FRONT, LEFT, RIGHT, BACK },
+            /* empty    */ { },
+            /* fu       */ { },
+            /* kyo      */ { front },
+            /* kei      */ { },
+            /* gin      */ { },
+            /* kin      */ { },
+            /* kaku     */ { front_left, front_right, back_left, back_right },
+            /* hi       */ { front, left, right, back },
+            /* ou       */ { },
+            /* tokin    */ { },
+            /* kaku_kyo */ { },
+            /* kaku_kei */ { },
+            /* kaku_gin */ { },
+            /* uma      */ { front_left, front_right, back_left, back_right },
+            /* ryu      */ { front, left, right, back },
         };
         return map[koma];
     }
@@ -360,7 +369,7 @@ namespace shogipp
 
     inline const char * to_string(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma < KOMA_ENUM_NUMBER);
+        SHOGIPP_ASSERT(koma < koma_enum_number);
         static const char * map[]{
             "・",
             "歩", "香", "桂", "銀", "金", "角", "飛", "王", "と", "杏", "圭", "全", "馬", "竜",
@@ -383,7 +392,7 @@ namespace shogipp
 
     inline pos_t suji_dan_to_pos(pos_t suji, pos_t dan)
     {
-        return W * (dan + PADDING_H) + suji + PADDING_W;
+        return width * (dan + padding_height) + suji + padding_width;
     }
 
     void print_pos(pos_t pos)
@@ -409,7 +418,7 @@ namespace shogipp
      */
     struct mochigoma_t
     {
-        unsigned char count[HI - FU + 1];
+        unsigned char count[hi - fu + 1];
 
         /**
          * @breif 持ち駒を初期化する。
@@ -422,7 +431,7 @@ namespace shogipp
         inline void print() const
         {
             unsigned int kind = 0;
-            for (koma_t koma = FU; koma <= HI; ++koma)
+            for (koma_t koma = hi; koma >= fu; --koma)
             {
                 if ((*this)[koma] > 0)
                 {
@@ -444,12 +453,12 @@ namespace shogipp
          */
         inline unsigned char & operator [](koma_t koma)
         {
-            SHOGIPP_ASSERT(trim_sengo(koma) != EMPTY);
-            SHOGIPP_ASSERT(trim_sengo(koma) != OU);
+            SHOGIPP_ASSERT(trim_sengo(koma) != empty);
+            SHOGIPP_ASSERT(trim_sengo(koma) != ou);
             static const std::size_t map[]{
                 0,
-                FU - FU, KYO - FU, KEI - FU, GIN - FU, KIN - FU, KAKU - FU, HI - FU, 0,
-                FU - FU, KYO - FU, KEI - FU, GIN - FU, KAKU - FU, HI - FU
+                fu - fu, kyo - fu, kei - fu, gin - fu, kin - fu, kaku - fu, hi - fu, 0,
+                fu - fu, kyo - fu, kei - fu, gin - fu, kaku - fu, hi - fu
             };
             return count[map[trim_sengo(koma)]];
         }
@@ -471,19 +480,19 @@ namespace shogipp
         inline void init()
         {
             static const koma_t temp[]{
-                X, X, X, X, X, X, X, X, X, X, X,
-                X, X, X, X, X, X, X, X, X, X, X,
-                X, GOTE_KYO, GOTE_KEI, GOTE_GIN, GOTE_KIN, GOTE_OU, GOTE_KIN, GOTE_GIN, GOTE_KEI, GOTE_KYO, X,
-                X, EMPTY, GOTE_HI, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, GOTE_KAKU, EMPTY, X,
-                X, GOTE_FU, GOTE_FU, GOTE_FU, GOTE_FU, GOTE_FU, GOTE_FU, GOTE_FU, GOTE_FU, GOTE_FU, X,
-                X, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, X,
-                X, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, X,
-                X, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, X,
-                X, SENTE_FU, SENTE_FU, SENTE_FU, SENTE_FU, SENTE_FU, SENTE_FU, SENTE_FU, SENTE_FU, SENTE_FU, X,
-                X, EMPTY, SENTE_KAKU, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, SENTE_HI, EMPTY, X,
-                X, SENTE_KYO, SENTE_KEI, SENTE_GIN, SENTE_KIN, SENTE_OU, SENTE_KIN, SENTE_GIN, SENTE_KEI, SENTE_KYO, X,
-                X, X, X, X, X, X, X, X, X, X, X,
-                X, X, X, X, X, X, X, X, X, X, X,
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, gote_kyo, gote_kei, gote_gin, gote_kin, gote_ou, gote_kin, gote_gin, gote_kei, gote_kyo, x,
+                x, empty, gote_hi, empty, empty, empty, empty, empty, gote_kaku, empty, x,
+                x, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, x,
+                x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
+                x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
+                x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
+                x, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, x,
+                x, empty, sente_kaku, empty, empty, empty, empty, empty, sente_hi, empty, x,
+                x, sente_kyo, sente_kei, sente_gin, sente_kin, sente_ou, sente_kin, sente_gin, sente_kei, sente_kyo, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, x, x, x, x, x, x, x, x, x, x,
             };
             std::copy(std::begin(temp), std::end(temp), std::begin(data));
         }
@@ -498,24 +507,24 @@ namespace shogipp
          */
         inline static bool out(pos_t pos)
         {
-#define _ EMPTY
+#define _ empty
             static const koma_t table[]{
-                X, X, X, X, X, X, X, X, X, X, X,
-                X, X, X, X, X, X, X, X, X, X, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, _, _, _, _, _, _, _, _, _, X,
-                X, X, X, X, X, X, X, X, X, X, X,
-                X, X, X, X, X, X, X, X, X, X, X,
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, x, x, x, x, x, x, x, x, x, x,
             };
 #undef _
-            return pos < 0 || pos >= W * H || table[pos] == X;
+            return pos < 0 || pos >= width * height || table[pos] == x;
         }
 
         /**
@@ -538,7 +547,7 @@ namespace shogipp
             std::cout << "+---------------------------+" << std::endl;
         }
 
-        koma_t data[W * H];
+        koma_t data[width * height];
     };
 
     /**
@@ -584,11 +593,11 @@ namespace shogipp
          */
         inline static bool can_promote(koma_t koma, pos_t dst)
         {
-            if ((is_promoted(koma)) || trim_sengo(koma) == KIN || trim_sengo(koma) == OU)
+            if ((is_promoted(koma)) || trim_sengo(koma) == kin || trim_sengo(koma) == ou)
                 return false;
             if (is_gote(koma))
-                return dst >= W * (6 + PADDING_H);
-            return dst < W * (3 + PADDING_H);
+                return dst >= width * (6 + padding_height);
+            return dst < width * (3 + padding_height);
         }
 
         /**
@@ -599,17 +608,17 @@ namespace shogipp
          */
         inline static bool must_promote(koma_t koma, pos_t dst)
         {
-            if (trim_sengo(koma) == FU || trim_sengo(koma) == KYO)
+            if (trim_sengo(koma) == fu || trim_sengo(koma) == kyo)
             {
                 if (is_gote(koma))
-                    return dst >= W * (8 + PADDING_H);
-                return dst < (W * (1 + PADDING_H));
+                    return dst >= width * (8 + padding_height);
+                return dst < (width * (1 + padding_height));
             }
-            else if (trim_sengo(koma) == KEI)
+            else if (trim_sengo(koma) == kei)
             {
                 if (is_gote(koma))
-                    return dst >= W * (7 + PADDING_H);
-                return dst < W * (2 + PADDING_H);
+                    return dst >= width * (7 + padding_height);
+                return dst < width * (2 + padding_height);
             }
             return false;
         }
@@ -626,7 +635,7 @@ namespace shogipp
             pos_t cur = src + offset;
             for (; !ban_t::out(cur); cur += offset)
             {
-                if (ban[cur] == EMPTY)
+                if (ban[cur] == empty)
                     *result++ = cur;
                 else
                 {
@@ -647,7 +656,7 @@ namespace shogipp
         void find_near_dst(OutputIterator result, pos_t src, pos_t offset) const
         {
             pos_t cur = src + offset;
-            if (!ban_t::out(cur) && (ban[cur] == EMPTY || is_gote(ban[cur]) != is_gote(ban[src])))
+            if (!ban_t::out(cur) && (ban[cur] == empty || is_gote(ban[cur]) != is_gote(ban[src])))
                 *result++ = cur;
         }
 
@@ -675,31 +684,31 @@ namespace shogipp
          */
         inline bool can_put(koma_t koma, pos_t dst)
         {
-            if (ban[dst] != EMPTY)
+            if (ban[dst] != empty)
                 return false;
             if (is_goteban(tesu))
             {
-                if ((koma == FU || koma == KYO) && dst >= W * 8)
+                if ((koma == fu || koma == kyo) && dst >= width * 8)
                     return false;
-                if (koma == KEI && dst >= W * 7)
+                if (koma == kei && dst >= width * 7)
                     return false;
             }
-            if ((koma == FU || koma == KYO) && dst < W)
+            if ((koma == fu || koma == kyo) && dst < width)
                 return false;
-            if (koma == KEI && dst < W * 2)
+            if (koma == kei && dst < width * 2)
                 return false;
-            if (koma == FU)
+            if (koma == fu)
             {
-                for (pos_t dan = 0; dan < H; ++dan)
+                for (pos_t dan = 0; dan < height; ++dan)
                 {
-                    koma_t cur = ban[dst % W + W * dan];
-                    if (trim_sengo(cur) == FU && is_goteban(tesu) == is_gote(cur))
+                    koma_t cur = ban[dst % width + width * dan];
+                    if (trim_sengo(cur) == fu && is_goteban(tesu) == is_gote(cur))
                         return false;
                 }
 
                 // 打ち歩詰め
-                pos_t pos = dst + FRONT * (is_goteban(tesu) ? -1 : 1);
-                if (!ban_t::out(pos) && trim_sengo(ban[pos]) == OU && is_gote(ban[pos]) != is_goteban(tesu))
+                pos_t pos = dst + front * (is_goteban(tesu) ? -1 : 1);
+                if (!ban_t::out(pos) && trim_sengo(ban[pos]) == ou && is_gote(ban[pos]) != is_goteban(tesu))
                 {
                     te_t te{ npos, dst, koma };
                     std::vector<te_t> te_list;
@@ -720,8 +729,8 @@ namespace shogipp
         template<typename OutputIterator>
         void find_src(OutputIterator result) const
         {
-            for (pos_t i = 0; i < W * H; ++i)
-                if (ban[i] != EMPTY && ban[i] != X && is_gote(ban[i]) == is_goteban(tesu))
+            for (pos_t i = 0; i < width * height; ++i)
+                if (ban[i] != empty && ban[i] != x && is_gote(ban[i]) == is_goteban(tesu))
                     *result++ = i;
         }
 
@@ -734,7 +743,7 @@ namespace shogipp
         inline pos_t search(pos_t pos, pos_t offset) const
         {
             pos_t cur;
-            for (cur = pos + offset; !ban_t::out(cur) && ban[cur] == EMPTY; cur += offset);
+            for (cur = pos + offset; !ban_t::out(cur) && ban[cur] == empty; cur += offset);
             if (ban_t::out(cur))
                 return npos;
             return cur;
@@ -791,27 +800,27 @@ namespace shogipp
             using pair = std::pair<pos_t, std::vector<koma_t>>;
             static const pair near[]
             {
-                { KEI_LEFT   , { KEI } },
-                { KEI_RIGHT  , { KEI } },
-                { FRONT_LEFT , { GIN, KIN, KAKU, OU, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU } },
-                { FRONT      , { FU, KYO, GIN, KIN, HI, OU, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU } },
-                { FRONT_RIGHT, { GIN, KIN, KAKU, OU, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU } },
-                { LEFT       , { KIN, OU, HI, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU } },
-                { RIGHT      , { KIN, OU, HI, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU } },
-                { BACK_LEFT  , { GIN, OU, KAKU, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU } },
-                { BACK       , { KIN, OU, HI, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU } },
-                { BACK_RIGHT , { GIN, OU, KAKU, NARI_FU, NARI_KYO, NARI_KEI, NARI_GIN, UMA, RYU } },
+                { kei_left   , { kei } },
+                { kei_right  , { kei } },
+                { front_left , { gin, kin, kaku, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+                { front      , { fu, kyo, gin, kin, hi, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+                { front_right, { gin, kin, kaku, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+                { left       , { kin, ou, hi, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+                { right      , { kin, ou, hi, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+                { back_left  , { gin, ou, kaku, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+                { back       , { kin, ou, hi, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+                { back_right , { gin, ou, kaku, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
             };
             static const pair far[]
             {
-                { FRONT_LEFT , { KAKU, UMA } },
-                { FRONT      , { KYO, HI, RYU } },
-                { FRONT_RIGHT, { KAKU, UMA } },
-                { LEFT       , { HI, RYU } },
-                { RIGHT      , { HI, RYU } },
-                { BACK_LEFT  , { KAKU, UMA } },
-                { BACK       , { HI, RYU } },
-                { BACK_RIGHT , { KAKU, UMA } }
+                { front_left , { kaku, uma } },
+                { front      , { kyo, hi, ryu } },
+                { front_right, { kaku, uma } },
+                { left       , { hi, ryu } },
+                { right      , { hi, ryu } },
+                { back_left  , { kaku, uma } },
+                { back       , { hi, ryu } },
+                { back_right , { kaku, uma } }
             };
 
             pos_t reverse = gote ? -1 : 1;
@@ -838,14 +847,14 @@ namespace shogipp
             using pair = std::pair<pos_t, std::vector<koma_t>>;
             static const std::vector<pair> table
             {
-                { FRONT, { KYO, HI, RYU } },
-                { LEFT, { HI, RYU } },
-                { RIGHT, { HI, RYU } },
-                { BACK, { HI, RYU } },
-                { FRONT_LEFT, { KAKU, UMA } },
-                { FRONT_RIGHT, { KAKU, UMA } },
-                { BACK_LEFT, { KAKU, UMA } },
-                { BACK_RIGHT, { KAKU, UMA } },
+                { front, { kyo, hi, ryu } },
+                { left, { hi, ryu } },
+                { right, { hi, ryu } },
+                { back, { hi, ryu } },
+                { front_left, { kaku, uma } },
+                { front_right, { kaku, uma } },
+                { back_left, { kaku, uma } },
+                { back_right, { kaku, uma } },
             };
 
             pos_t ou_pos = this->ou_pos[gote ? 1 : 0];
@@ -912,7 +921,7 @@ namespace shogipp
                             print_te(te);
                         }
 #endif
-                        SHOGIPP_ASSERT(trim_sengo(ban[dst]) != OU);
+                        SHOGIPP_ASSERT(trim_sengo(ban[dst]) != ou);
 
                         // 合駒は利きの範囲にしか移動できない。
                         if (is_aigoma)
@@ -923,7 +932,7 @@ namespace shogipp
                         }
 
                         // 利いている場所に王を移動させてはならない
-                        if (trim_sengo(ban[src]) == OU)
+                        if (trim_sengo(ban[src]) == ou)
                         {
                             std::vector<kiki_t> kiki_list;
                             search_kiki(std::back_inserter(kiki_list), dst, is_goteban(tesu));
@@ -938,10 +947,10 @@ namespace shogipp
                     }
                 }
 
-                for (koma_t koma = FU; koma <= HI; ++koma)
+                for (koma_t koma = fu; koma <= hi; ++koma)
                 {
                     if (mochigoma_list[tesu % 2][koma])
-                        for (pos_t dst = 0; dst < W * H; ++dst)
+                        for (pos_t dst = 0; dst < width * height; ++dst)
                             if (can_put(koma, dst))
                                 *result++ = { npos, dst, koma };
                 }
@@ -952,11 +961,11 @@ namespace shogipp
                 pos_t src = ou_pos[tesu % 2];
 
                 // 王を移動して王手を解除できる手を検索する。
-                for (const pos_t * p = near_move_offsets(OU); *p; ++p)
+                for (const pos_t * p = near_move_offsets(ou); *p; ++p)
                 {
                     pos_t dst = src + *p * reverse;
                     if (!ban_t::out(dst)
-                        && (ban[dst] == EMPTY || is_gote(ban[dst]) != is_gote(ban[src])))
+                        && (ban[dst] == empty || is_gote(ban[dst]) != is_gote(ban[src])))
                     {
                         te_t te{ src, dst, ban[src], ban[dst], false };
                         do_te(te);
@@ -975,7 +984,7 @@ namespace shogipp
                     if (oute.front().aigoma)
                     {
                         pos_t offset = oute.front().offset;
-                        for (pos_t dst = ou_pos[tesu % 2] + offset; !ban_t::out(dst) && ban[dst] == EMPTY; dst += offset)
+                        for (pos_t dst = ou_pos[tesu % 2] + offset; !ban_t::out(dst) && ban[dst] == empty; dst += offset)
                         {
                             // 駒を移動させる合駒
                             std::vector<kiki_t> kiki;
@@ -989,7 +998,7 @@ namespace shogipp
                             }
 
                             // 駒を打つ合駒
-                            for (koma_t koma = FU; koma <= HI; ++koma)
+                            for (koma_t koma = fu; koma <= hi; ++koma)
                                 if (mochigoma_list[tesu % 2][koma])
                                     if (can_put(koma, dst))
                                         *result++ = { npos, dst, koma };
@@ -1004,7 +1013,7 @@ namespace shogipp
                         for (auto & k : kiki)
                         {
                             // 王を動かす手は既に検索済み
-                            if (trim_sengo(ban[k.pos]) != OU)
+                            if (trim_sengo(ban[k.pos]) != ou)
                             {
                                 te_t te{ k.pos, dst, ban[k.pos], ban[dst], false };
                                 std::vector<kiki_t> kiki;
@@ -1036,14 +1045,14 @@ namespace shogipp
             hash_t hash = 0;
 
             // 盤上の駒のハッシュ値をXOR演算
-            for (pos_t pos = 0; pos < W * H; ++pos)
+            for (pos_t pos = 0; pos < width * height; ++pos)
                 if (!ban_t::out(pos))
-                    if (koma_t koma = ban[pos]; koma != EMPTY)
+                    if (koma_t koma = ban[pos]; koma != empty)
                         hash ^= hash_table.koma_hash(koma, pos);
 
             // 持ち駒のハッシュ値をXOR演算
             for (std::size_t i = 0; i < std::size(mochigoma_list); ++i)
-                for (koma_t koma = FU; koma <= HI; ++koma)
+                for (koma_t koma = fu; koma <= hi; ++koma)
                     hash ^= hash_table.mochigoma_hash(koma, mochigoma_list[i][koma], is_goteban(i));
 
             return hash;
@@ -1071,7 +1080,7 @@ namespace shogipp
             {
                 SHOGIPP_ASSERT(!(!is_promotable(te.srckoma) && te.promote));
                 hash ^= hash_table.koma_hash(te.srckoma, te.src);
-                if (te.dstkoma != EMPTY)
+                if (te.dstkoma != empty)
                 {
                     std::size_t mochigoma_count = mochigoma_list[tesu % 2][te.srckoma];
                     hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count, is_goteban(tesu));
@@ -1116,7 +1125,8 @@ namespace shogipp
         {
             for (std::size_t i = 0; first != last; ++i)
             {
-                std::cout << "#" << (i + 1) << " ";
+                std::printf("#%3d ", i + 1);
+                //std::cout << "#" << (i + 1) << " ";
                 print_te(*first++);
             }
         }
@@ -1185,11 +1195,11 @@ namespace shogipp
             else
             {
                 SHOGIPP_ASSERT(!(!is_promotable(te.srckoma) && te.promote));
-                if (ban[te.dst] != EMPTY)
+                if (ban[te.dst] != empty)
                     ++mochigoma_list[tesu % 2][ban[te.dst]];
                 ban[te.dst] = te.promote ? to_promoted(ban[te.src]) : ban[te.src];
-                ban[te.src] = EMPTY;
-                if (trim_sengo(te.srckoma) == OU)
+                ban[te.src] = empty;
+                if (trim_sengo(te.srckoma) == ou)
                     ou_pos[tesu % 2] = te.dst;
             }
             ++tesu;
@@ -1208,15 +1218,15 @@ namespace shogipp
             if (te.src == npos)
             {
                 ++mochigoma_list[tesu % 2][te.srckoma];
-                ban[te.dst] = EMPTY;
+                ban[te.dst] = empty;
             }
             else
             {
-                if (trim_sengo(te.srckoma) == OU)
+                if (trim_sengo(te.srckoma) == ou)
                     ou_pos[tesu % 2] = te.src;
                 ban[te.src] = te.srckoma;
                 ban[te.dst] = te.dstkoma;
-                if (ban[te.dst] != EMPTY)
+                if (ban[te.dst] != empty)
                     --mochigoma_list[tesu % 2][ban[te.dst]];
             }
             hash_stack.pop();
@@ -1353,19 +1363,19 @@ namespace shogipp
             static const int komascore[]{ 5, 30, 35, 55, 60, 95, 100, 0xFFFF };
             static const int pkomascore[]{ 60, 60, 60, 60, 0, 115, 120, 0 };
             int score = 0;
-            for (int i = 0; i < W * H; ++i)
+            for (int i = 0; i < width * height; ++i)
             {
                 koma_t koma = kyokumen.ban[i];
                 pos_t reverse = is_gote(koma) == is_goteban(kyokumen.tesu) ? 1 : -1;
-                if (koma != EMPTY)
+                if (koma != empty)
                 {
                     if (is_promoted(koma))
-                        score += pkomascore[trim_sengo(koma) - FU] * reverse;
+                        score += pkomascore[trim_sengo(koma) - fu] * reverse;
                     else
-                        score += komascore[trim_sengo(koma) - FU] * reverse;
+                        score += komascore[trim_sengo(koma) - fu] * reverse;
                 }
             }
-            for (int i = FU; i <= HI; ++i)
+            for (int i = fu; i <= hi; ++i)
             {
                 mochigoma_t * m0 = &kyokumen.mochigoma_list[kyokumen.tesu % 2];
                 mochigoma_t * m1 = &kyokumen.mochigoma_list[(kyokumen.tesu + 1) % 2];

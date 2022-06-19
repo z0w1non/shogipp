@@ -1753,6 +1753,7 @@ namespace shogipp
             unsigned int * search_count;
             cache_t * cache;
             unsigned int depth;
+            pos_t prev_destination;
             te_t selected_te;
             int selected_score;
             int te_number;
@@ -1760,6 +1761,8 @@ namespace shogipp
 
         void min_max(search_info_t & search_info)
         {
+            constexpr unsigned int max_depth = 2;
+
             std::vector<te_t> te_list;
             search_info.kyokumen->search_te(std::back_inserter(te_list));
             search_info.te_number = te_list.size();
@@ -1775,20 +1778,15 @@ namespace shogipp
                 int score;
                 hash_t hash;
 
-                if (search_info.depth >= 2)
-                {
-                    search_info.kyokumen->do_te(te);
-                    hash = search_info.kyokumen->hash();
-                    score = eval(*search_info.kyokumen);
-                    search_info.kyokumen->undo_te(te);
-                }
-                else
+                bool uchite = te.src == npos;
+                if (search_info.depth < max_depth || (!uchite && search_info.prev_destination == te.dst))
                 {
                     search_info_t temp;
                     temp.kyokumen = search_info.kyokumen;
                     temp.search_count = search_info.search_count;
                     temp.cache = search_info.cache;
                     temp.depth = search_info.depth + 1;
+                    temp.prev_destination = (te.src == npos || te.dstkoma == empty) ? npos : te.dst;
                     temp.selected_score = 0;
 
                     search_info.kyokumen->do_te(te);
@@ -1800,6 +1798,13 @@ namespace shogipp
                     else // ‹l‚Ý
                         score = (search_info.kyokumen->tesu % 2 == 0) ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
 
+                    search_info.kyokumen->undo_te(te);
+                }
+                else
+                {
+                    search_info.kyokumen->do_te(te);
+                    hash = search_info.kyokumen->hash();
+                    score = eval(*search_info.kyokumen);
                     search_info.kyokumen->undo_te(te);
                 }
 
@@ -1846,6 +1851,7 @@ namespace shogipp
             search_info.kyokumen = &kyokumen;
             search_info.cache = &cache;
             search_info.depth = 0;
+            search_info.prev_destination = npos;
             search_info.search_count = &search_count;
             search_info.selected_score = 0;
 

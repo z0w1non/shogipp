@@ -1994,7 +1994,6 @@ namespace shogipp
                 }
             }
 
-            pos_t default_ou_pos_list[]{ suji_dan_to_pos(4, 8), suji_dan_to_pos(4, 0) };
             for (std::size_t sengo = 0; sengo < 2; ++sengo)
             {
                 int reverse = is_goteban(sengo) ? -1 : 1;

@@ -33,7 +33,7 @@
 
 namespace shogipp
 {
-    inline unsigned long long total_eval_count = 0;
+    inline unsigned long long total_search_count = 0;
 
     inline void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
     {
@@ -1435,6 +1435,7 @@ namespace shogipp
          */
         inline void do_te(const te_t & te)
         {
+            ++total_search_count;
             hash_t hash = make_hash(hash_stack.top(), te);
             if (te.src == npos)
             {
@@ -1696,15 +1697,15 @@ namespace shogipp
 
         end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-        double eps = (double)total_eval_count / duration * 1000;
+        double sps = (double)total_search_count / duration * 1000;
 
         if (dump_details)
         {
             std::cout
                 << std::endl << std::endl
-                << "total evaluation count: " << total_eval_count << std::endl
+                << "total search count: " << total_search_count << std::endl
                 << "duration[ms]: " << duration << std::endl
-                << "eps: " << eps;
+                << "sps: " << sps;
             std::cout.flush();
         }
     }
@@ -1918,7 +1919,6 @@ namespace shogipp
                 /* ryu      */ 12
             };
 
-            ++total_eval_count;
             int score = kyokumen_map_score(kyokumen, map);
             return score;
         }

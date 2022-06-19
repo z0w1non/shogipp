@@ -30,6 +30,7 @@
 #endif
 
 //#define VALIDATE_MOVEMENT_CACHE
+#define DISABLE_MOVEMENT_CACHE
 
 namespace shogipp
 {
@@ -642,8 +643,8 @@ namespace shogipp
      */
     struct kiki_t
     {
-        pos_t offset;   // 利きの相対座標
         pos_t pos;      // 利いている駒の座標
+        pos_t offset;   // 利きの相対座標
         bool aigoma;    // 合駒が可能か
     };
 
@@ -874,7 +875,7 @@ namespace shogipp
         void search_source(OutputIterator result, bool is_goteban) const
         {
             for (pos_t i = 0; i < width * height; ++i)
-                if (ban[i] != empty && ban[i] != x && is_gote(ban[i]) == is_goteban)
+                if (!ban_t::out(i) && ban[i] != empty && is_gote(ban[i]) == is_goteban)
                     *result++ = i;
         }
 
@@ -894,85 +895,6 @@ namespace shogipp
         }
 
         /**
-         * @breif 座標posの駒に対する隣接する駒の利きを検索する。
-         * @param result 利きの出力イテレータ
-         * @param pos 座標
-         * @param offset 利きの相対座標
-         * @param gote 後手視点か
-         * @param first 利く駒の入力イテレータ(begin)
-         * @param last 利く駒の入力イテレータ(end)
-         */
-        template<typename OutputIterator, typename InputIterator>
-        void search_kiki_near_internal(OutputIterator result, pos_t pos, pos_t offset, bool gote, InputIterator first, InputIterator last)
-        {
-            if (pos_t cur = pos + offset; !ban_t::out(cur) && ban[cur] != empty && gote != is_gote(ban[cur]))
-                if (std::find(first, last, trim_sengo(ban[cur])) != last)
-                    *result++ = { offset, cur, false };
-        }
-
-        /**
-         * @breif 座標posの駒に対する隣接しない駒の利きを検索する。
-         * @param result 利きの出力イテレータ
-         * @param pos 座標
-         * @param offset 利きの相対座標
-         * @param gote 後手視点か
-         * @param first 利く駒の入力イテレータ(begin)
-         * @param last 利く駒の入力イテレータ(end)
-         */
-        template<typename OutputIterator, typename InputIterator>
-        void search_kiki_far_internal(OutputIterator result, pos_t pos, pos_t offset, bool gote, InputIterator first, InputIterator last)
-        {
-            if (pos_t found = search(pos, offset); found != npos && gote != is_gote(ban[found]))
-            {
-                bool adjacency = found == pos + offset;
-                if (!adjacency)
-                    if (std::find(first, last, trim_sengo(ban[found])) != last)
-                        *result++ = { offset, found, adjacency };
-            }
-        }
-
-        /**
-         * @breif 座標posに対する隣接する駒の利きを検索する。
-         * @param result 利きの出力イテレータ
-         * @param pos 座標
-         * @param gote 後手視点か
-         */
-        template<typename OutputIterator>
-        void search_kiki_near(OutputIterator result, pos_t pos, bool gote)
-        {
-            pos_t reverse = gote ? -1 : 1;
-            for (auto & [offset, koma_list] : near_kiki_list)
-                search_kiki_near_internal(result, pos, offset * reverse, gote, koma_list.begin(), koma_list.end());
-        }
-
-        /**
-         * @breif 座標posに対する隣接しない駒の利きを検索する。
-         * @param result 利きの出力イテレータ
-         * @param pos 座標
-         * @param gote 後手視点か
-         */
-        template<typename OutputIterator>
-        void search_kiki_far(OutputIterator result, pos_t pos, bool gote)
-        {
-            pos_t reverse = gote ? -1 : 1;
-            for (auto & [offset, koma_list] : far_kiki_list)
-                search_kiki_far_internal(result, pos, offset * reverse, gote, koma_list.begin(), koma_list.end());
-        }
-
-        /**
-         * @breif 座標posに対する利きを検索する。
-         * @param result 利きの出力イテレータ
-         * @param pos 座標
-         * @param gote 後手視点か
-         */
-        template<typename OutputIterator>
-        void search_kiki(OutputIterator result, pos_t pos, bool gote)
-        {
-            search_kiki_near(result, pos, gote);
-            search_kiki_far(result, pos, gote);
-        }
-
-        /**
          * @breif 座標posを利いている駒あるいは紐を付けている駒を検索する。
          * @param result 利きの出力イテレータ
          * @param pos 座標
@@ -980,13 +902,15 @@ namespace shogipp
          * @param gote 後手視点か
          * @param first 利く駒の入力イテレータ(begin)
          * @param last 利く駒の入力イテレータ(end)
+         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
+         * @param transform (pos, offset, aigoma) を出力イテレータに出力する変数に変換する関数
          */
-        template<typename OutputIterator, typename InputIterator>
-        void search_kiki_or_himo_near_internal(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last)
+        template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
+        inline void search_koma_near_internal(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform)
         {
             if (pos_t cur = pos + offset; !ban_t::out(cur) && ban[cur] != empty)
-                if (std::find(first, last, trim_sengo(ban[cur])) != last)
-                    *result++ = cur;
+                if (is_collected(is_gote(ban[cur])) && std::find(first, last, trim_sengo(ban[cur])) != last)
+                    *result++ = transform(cur, offset, false);
         }
 
         /**
@@ -996,34 +920,78 @@ namespace shogipp
          * @param offset 利きの相対座標
          * @param first 利く駒の入力イテレータ(begin)
          * @param last 利く駒の入力イテレータ(end)
+         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
+         * @param transform (pos, offset, aigoma) を出力イテレータに出力する変数に変換する関数
          * @sa search_kiki_far
          */
-        template<typename OutputIterator, typename InputIterator>
-        void search_kiki_or_himo_far_internal(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last)
+        template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
+        inline void search_koma_far_internal(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform)
         {
-            if (pos_t found = search(pos, offset); found != npos)
-                if (std::find(first, last, trim_sengo(ban[found])) != last)
-                    *result++ = found;
+            if (pos_t found = search(pos, offset); found != npos && ban[found] != empty)
+                if (is_collected(is_gote(ban[found])) && std::find(first, last, trim_sengo(ban[found])) != last)
+                    *result++ = transform(found, offset, found != pos + offset);
         }
 
         /**
          * @breif 座標posに利いている駒あるいは紐を付けている駒を検索する。
          * @param result 座標の出力イテレータ
          * @param pos 座標
+         * @param gote 後手視点か
+         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
+         * @param transform (pos, offset, aigoma) を出力イテレータに出力する変数に変換する関数
+         */
+        template<typename OutputIterator, typename IsCollected, typename Transform>
+        inline void search_koma(OutputIterator result, pos_t pos, bool gote, IsCollected is_collected, Transform transform)
+        {
+            pos_t reverse = gote ? -1 : 1;
+            for (auto & [offset, koma_list] : near_kiki_list)
+                search_koma_near_internal(result, pos, offset * reverse, koma_list.begin(), koma_list.end(), is_collected, transform);
+            for (auto & [offset, koma_list] : far_kiki_list_synmmetric)
+                search_koma_far_internal(result, pos, offset, koma_list.begin(), koma_list.end(), is_collected, transform);
+            for (auto & [offset, koma_list] : far_kiki_list_asynmmetric)
+                search_koma_far_internal(result, pos, offset * reverse, koma_list.begin(), koma_list.end(), is_collected, transform);
+        }
+
+        /**
+         * @breif 座標posに紐を付けている駒を検索する。
+         * @param result 座標の出力イテレータ
+         * @param pos 座標
+         * @param gote 後手視点か
          */
         template<typename OutputIterator>
-        void search_kiki_or_himo(OutputIterator result, pos_t pos)
+        inline void search_himo(OutputIterator result, pos_t pos, bool gote)
         {
-            for (auto & [offset, koma_list] : far_kiki_list_synmmetric)
-                search_kiki_or_himo_far_internal(result, pos, offset, koma_list.begin(), koma_list.end());
-            for (int teban = 0; teban < 2; ++teban)
-            {
-                pos_t reverse = is_goteban(teban) ? -1 : 1;
-                for (auto & [offset, koma_list] : near_kiki_list)
-                    search_kiki_or_himo_near_internal(result, pos, offset * reverse, koma_list.begin(), koma_list.end());
-                for (auto & [offset, koma_list] : far_kiki_list_asynmmetric)
-                    search_kiki_or_himo_far_internal(result, pos, offset * reverse, koma_list.begin(), koma_list.end());
-            }
+            search_koma(result, pos, gote,
+                [gote](bool g) { return g == gote; },
+                [](pos_t pos, pos_t offset, bool aigoma) -> pos_t { return pos; });
+        }
+
+        /**
+         * @breif 座標posに利いている駒を検索する。
+         * @param result 座標の出力イテレータ
+         * @param pos 座標
+         * @param gote 後手視点か
+         */
+        template<typename OutputIterator>
+        inline void search_kiki(OutputIterator result, pos_t pos, bool gote)
+        {
+            search_koma(result, pos, gote,
+                [gote](bool g) { return g != gote; },
+                [](pos_t pos, pos_t offset, bool aigoma) -> kiki_t { return { pos, offset, aigoma }; });
+        }
+
+        /**
+         * @breif 座標posに利いている駒あるいは紐を付けている駒を検索する。
+         * @param result 座標の出力イテレータ
+         * @param pos 座標
+         * @param gote 後手視点か
+         */
+        template<typename OutputIterator>
+        inline void search_kiki_or_himo(OutputIterator result, pos_t pos, bool gote)
+        {
+            search_koma(result, pos, gote,
+                [](bool) { return true; },
+                [](pos_t pos, pos_t offset, bool aigoma) -> pos_t { return pos; });
         }
 
         /**
@@ -1043,14 +1011,14 @@ namespace shogipp
             using pair = std::pair<pos_t, std::vector<koma_t>>;
             static const std::vector<pair> table
             {
-                { front, { kyo, hi, ryu } },
-                { left, { hi, ryu } },
-                { right, { hi, ryu } },
-                { back, { hi, ryu } },
-                { front_left, { kaku, uma } },
+                { front      , { kyo, hi, ryu } },
+                { left       , { hi, ryu } },
+                { right      , { hi, ryu } },
+                { back       , { hi, ryu } },
+                { front_left , { kaku, uma } },
                 { front_right, { kaku, uma } },
-                { back_left, { kaku, uma } },
-                { back_right, { kaku, uma } },
+                { back_left  , { kaku, uma } },
+                { back_right , { kaku, uma } },
             };
 
             pos_t ou_pos = this->ou_pos[gote ? 1 : 0];
@@ -1089,18 +1057,17 @@ namespace shogipp
             {
                 aigoma_info_t aigoma_info;
                 search_aigoma(aigoma_info, is_goteban(tesu));
-
-#ifndef NDEBUG
-                for (auto & [pos, candidates] : aigoma_info)
+#ifdef DISABLE_MOVEMENT_CACHE
+                std::vector<pos_t> source_list;
+                search_source(std::back_inserter(source_list), is_goteban(tesu));
+                for (auto source : source_list)
                 {
-                    std::cout << "合駒：";
-                    print_pos(pos);
-                    std::cout << to_string(trim_sengo(ban[pos])) << std::endl;
-                }
-#endif
-
+                    std::vector<pos_t> destination_list;
+                    search_destination(std::back_inserter(destination_list), source, is_goteban(tesu));
+#else
                 for (auto & [source, destination_list] : move_table_list[tesu % 2])
                 {
+#endif
                     auto aigoma_iter = aigoma_info.find(source);
                     bool is_aigoma = aigoma_iter != aigoma_info.end();
 
@@ -1109,6 +1076,7 @@ namespace shogipp
 #ifndef NDEBUG
                         if (ban[destination] != empty && trim_sengo(ban[destination]) == ou)
                         {
+                            ban.print();
                             std::cout << pos_to_string(source) << std::endl;
                             te_t te{ source, destination, ban[source], ban[destination], false };
                             print_te(te, is_goteban(tesu));
@@ -1170,7 +1138,7 @@ namespace shogipp
                     }
                 }
 
-                auto & oute = this->oute_list[tesu % 2];
+                auto & oute = oute_list[tesu % 2];
                 if (oute.size() == 1)
                 {
                     // 合駒の手を検索する。
@@ -1180,14 +1148,18 @@ namespace shogipp
                         for (pos_t dst = ou_pos[tesu % 2] + offset; !ban_t::out(dst) && ban[dst] == empty; dst += offset)
                         {
                             // 駒を移動させる合駒
-                            std::vector<kiki_t> kiki;
-                            search_kiki(std::back_inserter(kiki), dst, is_goteban(tesu));
-                            for (auto & k : kiki)
+                            std::vector<kiki_t> kiki_list;
+                            search_kiki(std::back_inserter(kiki_list), dst, !is_goteban(tesu));
+                            for (kiki_t & kiki : kiki_list)
                             {
-                                if (can_promote(ban[k.pos], dst))
-                                    *result++ = { k.pos, dst, ban[k.pos], ban[dst], true };
-                                if (!must_promote(ban[k.pos], dst))
-                                    *result++ = { k.pos, dst, ban[k.pos], ban[dst], false };
+                                // 王で合駒はできない。
+                                if (trim_sengo(ban[kiki.pos]) != ou)
+                                {
+                                    if (can_promote(ban[kiki.pos], dst))
+                                        *result++ = { kiki.pos, dst, ban[kiki.pos], ban[dst], true };
+                                    if (!must_promote(ban[kiki.pos], dst))
+                                        *result++ = { kiki.pos, dst, ban[kiki.pos], ban[dst], false };
+                                }
                             }
 
                             // 駒を打つ合駒
@@ -1196,9 +1168,7 @@ namespace shogipp
                                     if (can_put(koma, dst))
                                         *result++ = { npos, dst, koma };
                         }
-                    }
-                    else
-                    {
+
                         // 王手している駒を取る手を検索する。
                         pos_t dst = oute.front().pos;
                         std::vector<kiki_t> kiki;
@@ -1320,7 +1290,6 @@ namespace shogipp
             for (std::size_t i = 0; first != last; ++i)
             {
                 std::printf("#%3d ", i + 1);
-                //std::cout << "#" << (i + 1) << " ";
                 print_te(*first++, is_goteban(tesu));
                 std::cout << std::endl;
             }
@@ -1429,6 +1398,15 @@ namespace shogipp
         }
 #endif
 
+        inline void validate_ban_out()
+        {
+            for (pos_t pos = 0; pos < width * height; ++pos)
+            {
+                if (ban_t::out(pos))
+                    SHOGIPP_ASSERT(ban[pos] == x);
+            }
+        }
+
         /**
          * @breif 合法手を実行する。
          * @param te 合法手
@@ -1456,12 +1434,16 @@ namespace shogipp
             ++tesu;
             hash_stack.push(hash);
             update_oute();
+
+#ifndef DISABLE_MOVEMENT_CACHE
             do_updating_move_table_list(te);
+#endif
 
 #ifdef VALIDATE_MOVEMENT_CACHE
             validate_move_table();
 #endif
             kifu.push_back(te);
+            validate_ban_out();
         }
 
         /**
@@ -1488,7 +1470,10 @@ namespace shogipp
             }
             hash_stack.pop();
             update_oute();
+
+#ifndef DISABLE_MOVEMENT_CACHE
             undo_updating_move_table_list(te);
+#endif
 
 #ifdef VALIDATE_MOVEMENT_CACHE
             validate_move_table();
@@ -1521,7 +1506,7 @@ namespace shogipp
     {
         bool gote = is_goteban(tesu);
         std::vector<pos_t> kiki_or_himo_list;
-        search_kiki_or_himo(std::back_inserter(kiki_or_himo_list), source);
+        search_kiki_or_himo(std::back_inserter(kiki_or_himo_list), source, gote);
         if (kiki_or_himo_list.size())
         {
             for (pos_t pos : kiki_or_himo_list)
@@ -1720,6 +1705,7 @@ namespace shogipp
     inline int kyokumen_map_score(kyokumen_t & kyokumen, MapKomaInt & map)
     {
         int score = 0;
+
         for (pos_t pos = 0; pos < width * height; ++pos)
         {
             koma_t koma = kyokumen.ban[pos];
@@ -1807,6 +1793,15 @@ namespace shogipp
                   comparator = [](const pair & a, const pair & b) -> bool { return a.second > b.second; }
                 : comparator = [](const pair & a, const pair & b) -> bool { return a.second < b.second; };
             std::sort(scores.begin(), scores.end(), comparator);
+
+            if (search_info.depth == 0)
+            {
+                for (auto & [te, score] : scores)
+                {
+                    search_info.kyokumen->print_te(*te, search_info.kyokumen->tesu % 2);
+                    std::cout << " -> " << score << std::endl;
+                }
+            }
 
             if (!te_list.empty())
             {
@@ -1926,6 +1921,69 @@ namespace shogipp
         const char * name() override
         {
             return "sample evaluator";
+        }
+    };
+
+    struct hiyoko_evaluator_t
+        : public minimax_evaluator_t
+    {
+        int eval(kyokumen_t & kyokumen) override
+        {
+            static const int map[]
+            {
+                /* empty    */  0,
+                /* fu       */  1,
+                /* kyo      */  3,
+                /* kei      */  4,
+                /* gin      */  5,
+                /* kin      */  6,
+                /* kaku     */  8,
+                /* hi       */ 10,
+                /* ou       */  0,
+                /* tokin    */  7,
+                /* nari_kyo */  6,
+                /* nari_kei */  6,
+                /* nari_gin */  6,
+                /* uma      */ 10,
+                /* ryu      */ 12
+            };
+            constexpr int himo_score = 2;
+            constexpr int kiki_score = 1;
+            constexpr int ou_destination_score = 3;
+
+            int score = kyokumen_map_score(kyokumen, map);
+            score *= 100;
+
+            bool gote = kyokumen.tesu % 2;
+
+            // 紐が付いている数だけ加点する。
+            for (pos_t pos = 0; pos < width * height; ++pos)
+            {
+                if (!ban_t::out(pos) && kyokumen.ban[pos] != empty)
+                {
+                    if (is_gote(kyokumen.ban[pos]) == gote)
+                    {
+                        std::vector<pos_t> himo_list;
+                        kyokumen.search_himo(std::back_inserter(himo_list), pos, gote);
+                        score += himo_list.size() * himo_score;
+
+                        std::vector<kiki_t> kiki_list;
+                        kyokumen.search_kiki(std::back_inserter(kiki_list), pos, gote);
+                        score += kiki_list.size() * kiki_score;
+                    }
+                }
+            }
+
+            std::vector<pos_t> ou_destination;
+            kyokumen.search_destination(std::back_inserter(ou_destination), kyokumen.ou_pos[kyokumen.tesu % 2], gote);
+            score += ou_destination.size() * ou_destination_score;
+
+            return score;
+        }
+
+        const char * name() override
+        {
+            return "ひよこ10級";
         }
     };
 

@@ -79,6 +79,15 @@ namespace shogipp
         return pos % width - padding_width;
     }
 
+    inline pos_t distance(pos_t a, pos_t b)
+    {
+        int asuji = pos_to_suji(a);
+        int adan = pos_to_dan(a);
+        int bsuji = pos_to_suji(b);
+        int bdan = pos_to_dan(b);
+        return std::abs(asuji - bsuji) + std::abs(adan - bdan);
+    }
+
     constexpr pos_t front = -width;
     constexpr pos_t left = -1;
     constexpr pos_t right = 1;
@@ -101,9 +110,9 @@ namespace shogipp
         { front_right, { gin, kin, kaku, ou, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
         { left       , { kin, ou, hi, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
         { right      , { kin, ou, hi, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
-        { back_left  , { gin, ou, kaku, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+        { back_left  , { gin, ou, kaku, uma, ryu } },
         { back       , { kin, ou, hi, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
-        { back_right , { gin, ou, kaku, tokin, nari_kyo, nari_kei, nari_gin, uma, ryu } },
+        { back_right , { gin, ou, kaku, uma, ryu } },
     };
 
     static const pos_to_koma_pair far_kiki_list[]
@@ -1053,10 +1062,11 @@ namespace shogipp
         template<typename OutputIterator>
         void search_te(OutputIterator result)
         {
+            aigoma_info_t aigoma_info;
+            search_aigoma(aigoma_info, is_goteban(tesu));
+
             if (oute_list[tesu % 2].empty())
             {
-                aigoma_info_t aigoma_info;
-                search_aigoma(aigoma_info, is_goteban(tesu));
 #ifdef DISABLE_MOVEMENT_CACHE
                 std::vector<pos_t> source_list;
                 search_source(std::back_inserter(source_list), is_goteban(tesu));
@@ -1155,6 +1165,12 @@ namespace shogipp
                                 // 王で合駒はできない。
                                 if (trim_sengo(ban[kiki.pos]) != ou)
                                 {
+                                    // 既に合駒として使っている駒は移動できない。
+                                    auto aigoma_iter = aigoma_info.find(kiki.pos);
+                                    bool is_aigoma = aigoma_iter != aigoma_info.end();
+                                    if (is_aigoma)
+                                        continue;
+
                                     if (can_promote(ban[kiki.pos], dst))
                                         *result++ = { kiki.pos, dst, ban[kiki.pos], ban[dst], true };
                                     if (!must_promote(ban[kiki.pos], dst))
@@ -1178,20 +1194,16 @@ namespace shogipp
                             // 王を動かす手は既に検索済み
                             if (trim_sengo(ban[k.pos]) != ou)
                             {
-                                te_t te{ k.pos, dst, ban[k.pos], ban[dst], false };
-                                std::vector<kiki_t> kiki;
-                                do_te(te);
-                                bool sucide = oute.size() > 0;
-                                undo_te(te);
+                                // 既に合駒として使っている駒は移動できない。
+                                auto aigoma_iter = aigoma_info.find(k.pos);
+                                bool is_aigoma = aigoma_iter != aigoma_info.end();
+                                if (is_aigoma)
+                                    continue;
 
-                                // 駒を取った後王手されていてはいけない
-                                if (!sucide)
-                                {
-                                    if (can_promote(ban[k.pos], dst))
-                                        *result++ = { k.pos, dst, ban[k.pos], ban[dst], true };
-                                    if (!must_promote(ban[k.pos], dst))
-                                        *result++ = { k.pos, dst, ban[k.pos], ban[dst], false };
-                                }
+                                if (can_promote(ban[k.pos], dst))
+                                    *result++ = { k.pos, dst, ban[k.pos], ban[dst], true };
+                                if (!must_promote(ban[k.pos], dst))
+                                    *result++ = { k.pos, dst, ban[k.pos], ban[dst], false };
                             }
                         }
                     }
@@ -1682,7 +1694,7 @@ namespace shogipp
 
         end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-        double sps = (double)total_search_count / duration * 1000;
+        unsigned long long sps = (unsigned long long)total_search_count * 1000 / duration;
 
         if (dump_details)
         {
@@ -1794,6 +1806,7 @@ namespace shogipp
                 : comparator = [](const pair & a, const pair & b) -> bool { return a.second < b.second; };
             std::sort(scores.begin(), scores.end(), comparator);
 
+#ifdef PRINT_EVALUATION_VALUE
             if (search_info.depth == 0)
             {
                 for (auto & [te, score] : scores)
@@ -1802,6 +1815,7 @@ namespace shogipp
                     std::cout << " -> " << score << std::endl;
                 }
             }
+#endif
 
             if (!te_list.empty())
             {
@@ -1949,10 +1963,12 @@ namespace shogipp
             };
             constexpr int himo_score = 2;
             constexpr int kiki_score = 1;
-            constexpr int ou_destination_score = 3;
+            constexpr int ou_destination_score = 1;
+            constexpr int anti_igyoku_score = 1;
 
-            int score = kyokumen_map_score(kyokumen, map);
-            score *= 100;
+            int score = 0;
+            score += kyokumen_map_score(kyokumen, map);
+            //score *= 100;
 
             bool gote = kyokumen.tesu % 2;
 
@@ -1968,7 +1984,7 @@ namespace shogipp
                         score += himo_list.size() * himo_score;
 
                         std::vector<kiki_t> kiki_list;
-                        kyokumen.search_kiki(std::back_inserter(kiki_list), pos, gote);
+                        kyokumen.search_kiki(std::back_inserter(kiki_list), pos, !gote);
                         score += kiki_list.size() * kiki_score;
                     }
                 }
@@ -1977,6 +1993,11 @@ namespace shogipp
             std::vector<pos_t> ou_destination;
             kyokumen.search_destination(std::back_inserter(ou_destination), kyokumen.ou_pos[kyokumen.tesu % 2], gote);
             score += ou_destination.size() * ou_destination_score;
+
+            pos_t default_ou_pos_list[]{ suji_dan_to_pos(4, 8), suji_dan_to_pos(4, 0) };
+            pos_t default_ou_pos = default_ou_pos_list[kyokumen.tesu % 2];
+            pos_t ou_pos = kyokumen.ou_pos[kyokumen.tesu % 2];
+            score += distance(ou_pos, default_ou_pos) * anti_igyoku_score;
 
             return score;
         }

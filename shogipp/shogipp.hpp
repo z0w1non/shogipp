@@ -492,7 +492,7 @@ namespace shogipp
         return width * (dan + padding_height) + suji + padding_width;
     }
 
-    void print_pos(pos_t pos)
+    inline void print_pos(pos_t pos)
     {
         std::cout << sujistr(pos_to_suji(pos)) << danstr(pos_to_dan(pos));
         std::cout.flush();
@@ -781,7 +781,7 @@ namespace shogipp
          * @param offset 移動先の相対座標
          */
         template<typename OutputIterator>
-        void search_far_destination(OutputIterator result, pos_t src, pos_t offset) const
+        inline void search_far_destination(OutputIterator result, pos_t src, pos_t offset) const
         {
             pos_t cur = src + offset;
             for (; !ban_t::out(cur); cur += offset)
@@ -804,7 +804,7 @@ namespace shogipp
          * @param offset 移動先の相対座標
          */
         template<typename OutputIterator>
-        void search_near_destination(OutputIterator result, pos_t src, pos_t offset) const
+        inline void search_near_destination(OutputIterator result, pos_t src, pos_t offset) const
         {
             pos_t cur = src + offset;
             if (!ban_t::out(cur) && (ban[cur] == empty || is_gote(ban[cur]) != is_gote(ban[src])))
@@ -818,7 +818,7 @@ namespace shogipp
          * @param is_goteban 後手の移動か
          */
         template<typename OutputIterator>
-        void search_destination(OutputIterator result, pos_t src, bool is_goteban) const
+        inline void search_destination(OutputIterator result, pos_t src, bool is_goteban) const
         {
             koma_t koma = trim_sengo(ban[src]);
             pos_t reverse = is_goteban ? -1 : 1;
@@ -881,7 +881,7 @@ namespace shogipp
          * @param is_goteban 後手の移動か
          */
         template<typename OutputIterator>
-        void search_source(OutputIterator result, bool is_goteban) const
+        inline void search_source(OutputIterator result, bool is_goteban) const
         {
             for (pos_t i = 0; i < width * height; ++i)
                 if (!ban_t::out(i) && ban[i] != empty && is_gote(ban[i]) == is_goteban)
@@ -1060,7 +1060,7 @@ namespace shogipp
          * @param result 合法手の出力イテレータ
          */
         template<typename OutputIterator>
-        void search_te(OutputIterator result)
+        inline void search_te(OutputIterator result)
         {
             aigoma_info_t aigoma_info;
             search_aigoma(aigoma_info, is_goteban(tesu));
@@ -1297,7 +1297,7 @@ namespace shogipp
          * @param last 合法手の入力イテレータのend
          */
         template<typename InputIterator>
-        void print_te(InputIterator first, InputIterator last) const
+        inline void print_te(InputIterator first, InputIterator last) const
         {
             for (std::size_t i = 0; first != last; ++i)
             {
@@ -1359,7 +1359,7 @@ namespace shogipp
          * @breif 局面のハッシュ値を返す。
          * @return 局面のハッシュ値
          */
-        hash_t hash() const
+        inline hash_t hash() const
         {
             return hash_stack.top();
         }

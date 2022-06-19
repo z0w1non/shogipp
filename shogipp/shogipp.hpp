@@ -492,6 +492,12 @@ namespace shogipp
         return width * (dan + padding_height) + suji + padding_width;
     }
 
+    static const pos_t default_ou_pos_list[]
+    {
+        suji_dan_to_pos(4, 8),
+        suji_dan_to_pos(4, 0)
+    };
+
     inline void print_pos(pos_t pos)
     {
         std::cout << sujistr(pos_to_suji(pos)) << danstr(pos_to_dan(pos));
@@ -1964,40 +1970,43 @@ namespace shogipp
             constexpr int himo_score = 2;
             constexpr int kiki_score = 1;
             constexpr int ou_destination_score = 1;
-            constexpr int anti_igyoku_score = 1;
+            constexpr int anti_igyoku_score = 3;
 
             int score = 0;
             score += kyokumen_map_score(kyokumen, map);
-            //score *= 100;
-
-            bool gote = kyokumen.tesu % 2;
+            score *= 100;
 
             // •R‚ª•t‚¢‚Ä‚¢‚é”‚¾‚¯‰Á“_‚·‚éB
             for (pos_t pos = 0; pos < width * height; ++pos)
             {
                 if (!ban_t::out(pos) && kyokumen.ban[pos] != empty)
                 {
-                    if (is_gote(kyokumen.ban[pos]) == gote)
-                    {
-                        std::vector<pos_t> himo_list;
-                        kyokumen.search_himo(std::back_inserter(himo_list), pos, gote);
-                        score += himo_list.size() * himo_score;
+                    bool gote = is_gote(kyokumen.ban[pos]);
+                    int reverse = gote ? -1 : 1;
 
-                        std::vector<kiki_t> kiki_list;
-                        kyokumen.search_kiki(std::back_inserter(kiki_list), pos, !gote);
-                        score += kiki_list.size() * kiki_score;
-                    }
+                    std::vector<pos_t> himo_list;
+                    kyokumen.search_himo(std::back_inserter(himo_list), pos, gote);
+                    score += himo_list.size() * reverse * himo_score;
+
+                    std::vector<kiki_t> kiki_list;
+                    kyokumen.search_kiki(std::back_inserter(kiki_list), pos, !gote);
+                    score += kiki_list.size() * reverse * -1 * kiki_score;
                 }
             }
 
-            std::vector<pos_t> ou_destination;
-            kyokumen.search_destination(std::back_inserter(ou_destination), kyokumen.ou_pos[kyokumen.tesu % 2], gote);
-            score += ou_destination.size() * ou_destination_score;
-
             pos_t default_ou_pos_list[]{ suji_dan_to_pos(4, 8), suji_dan_to_pos(4, 0) };
-            pos_t default_ou_pos = default_ou_pos_list[kyokumen.tesu % 2];
-            pos_t ou_pos = kyokumen.ou_pos[kyokumen.tesu % 2];
-            score += distance(ou_pos, default_ou_pos) * anti_igyoku_score;
+            for (std::size_t sengo = 0; sengo < 2; ++sengo)
+            {
+                int reverse = is_goteban(sengo) ? -1 : 1;
+
+                std::vector<pos_t> ou_destination;
+                kyokumen.search_destination(std::back_inserter(ou_destination), kyokumen.ou_pos[sengo], is_goteban(sengo));
+                score += ou_destination.size() * ou_destination_score;
+
+                pos_t default_ou_pos = default_ou_pos_list[sengo];
+                pos_t ou_pos = kyokumen.ou_pos[sengo];
+                score += distance(ou_pos, default_ou_pos) * reverse * anti_igyoku_score;
+            }
 
             return score;
         }

@@ -679,7 +679,7 @@ namespace shogipp
          */
         inline void init_move_table_list()
         {
-            for (sengo_t sengo = sente; sengo < sengo_size; sengo = sengo_next(sengo))
+            for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
             {
                 auto & move_table = move_table_list[sengo];
                 move_table.clear();
@@ -886,7 +886,7 @@ namespace shogipp
         /**
          * @breif 移動元の座標を検索する。
          * @param result 出力イテレータ
-         * @param is_goteban 後手の移動か
+         * @param sengo 後手の移動か
          */
         template<typename OutputIterator>
         inline void search_source(OutputIterator result, sengo_t sengo) const
@@ -916,7 +916,6 @@ namespace shogipp
          * @param result 利きの出力イテレータ
          * @param pos 座標
          * @param offset 利きの相対座標
-         * @param gote 後手視点か
          * @param first 利く駒の入力イテレータ(begin)
          * @param last 利く駒の入力イテレータ(end)
          * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
@@ -973,7 +972,7 @@ namespace shogipp
          * @breif 座標posに紐を付けている駒を検索する。
          * @param result 座標の出力イテレータ
          * @param pos 座標
-         * @param gote 後手視点か
+         * @param sengo 先手か後手か
          */
         template<typename OutputIterator>
         inline void search_himo(OutputIterator result, pos_t pos, sengo_t sengo)
@@ -987,7 +986,7 @@ namespace shogipp
          * @breif 座標posに利いている駒を検索する。
          * @param result 座標の出力イテレータ
          * @param pos 座標
-         * @param gote 後手視点か
+         * @param sengo 先手か後手か
          */
         template<typename OutputIterator>
         inline void search_kiki(OutputIterator result, pos_t pos, sengo_t sengo)
@@ -1001,7 +1000,7 @@ namespace shogipp
          * @breif 座標posに利いている駒あるいは紐を付けている駒を検索する。
          * @param result 座標の出力イテレータ
          * @param pos 座標
-         * @param gote 後手視点か
+         * @param sengo 先手か後手か
          */
         template<typename OutputIterator>
         inline void search_kiki_or_himo(OutputIterator result, pos_t pos, sengo_t sengo)
@@ -1324,13 +1323,13 @@ namespace shogipp
 
         inline void print_oute()
         {
-            for (std::size_t i = 0; i < std::size(oute_list); ++i)
+            for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
             {
-                auto & oute = oute_list[i];
-                if (oute_list[i].size() > 0)
+                auto & oute = oute_list[sengo];
+                if (oute_list[sengo].size() > 0)
                 {
                     std::cout << "王手：";
-                    for (std::size_t j = 0; j < oute_list[i].size(); ++j)
+                    for (std::size_t j = 0; j < oute_list[sengo].size(); ++j)
                     {
                         kiki_t & kiki = oute[j];
                         if (j > 0)
@@ -1582,7 +1581,7 @@ namespace shogipp
     {
         sengo_t sengo = tesu_to_sengo(tesu);
         auto & self_move_table = move_table_list[sengo];
-        auto & nonself_move_table = move_table_list[sengo == gote ? sente : gote];
+        auto & nonself_move_table = move_table_list[sengo_next(sengo)];
 
         if (te.src == npos)
         {
@@ -1639,7 +1638,7 @@ namespace shogipp
 
     struct game_t
     {
-        std::shared_ptr<abstract_evaluator_t> evaluators[2];
+        std::shared_ptr<abstract_evaluator_t> evaluators[sengo_size];
         kyokumen_t kyokumen;
         bool sente_win;
 
@@ -1654,8 +1653,8 @@ namespace shogipp
 
             if (kyokumen.tesu == 0)
             {
-                for (std::size_t i = 0; i < 2; ++i)
-                    std::cout << tebanstr(static_cast<tesu_t>(i)) << "：" << evaluators[i]->name() << std::endl;
+                for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+                    std::cout << tebanstr(static_cast<tesu_t>(sengo)) << "：" << evaluators[sengo]->name() << std::endl;
                 std::cout << std::endl;
             }
 
@@ -1734,7 +1733,7 @@ namespace shogipp
                 score += map[trim_sengo(koma)] * r;
         }
 
-        for (std::size_t sengo = 0; sengo < std::size(kyokumen.mochigoma_list); ++sengo)
+        for (unsigned char sengo = 0; sengo < sengo_size; ++sengo)
             for (koma_t koma = fu; koma <= hi; ++koma)
                 score += map[koma] * kyokumen.mochigoma_list[sengo][koma] * tesu_to_sengo(sengo) ? -1 : 1;
 

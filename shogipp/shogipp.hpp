@@ -163,7 +163,12 @@ namespace shogipp
         return static_cast<sengo_t>(tesu % sengo_size);
     }
 
-    inline int reverse(sengo_t sengo)
+    /**
+     * @breif 後手の場合に -1 を、先手の場合に 1 を返す。
+     * @param 先手か後手か
+     * @return 符号反転用の数値
+     */
+    inline pos_t reverse(sengo_t sengo)
     {
         return sengo ? -1 : 1;
     }
@@ -393,7 +398,7 @@ namespace shogipp
 
             std::size_t index = map[koma];
             index += count;
-            index *= 2;
+            index *= sengo_size;
             if (sengo)
                 ++index;
             return ban_table[index];
@@ -541,7 +546,7 @@ namespace shogipp
                 if ((*this)[koma] > 0)
                 {
                     std::cout << to_string(koma);
-                    if ((*this)[koma] >= 2)
+                    if ((*this)[koma] > 1)
                         std::cout << numberstr((*this)[koma]);
                     ++kind;
                 }
@@ -823,7 +828,7 @@ namespace shogipp
          * @breif 座標srcから移動可能の移動先を検索する。
          * @param result 移動先の座標の出力イテレータ
          * @param src 移動元の座標
-         * @param is_goteban 後手の移動か
+         * @param sengo 先手・後手どちらの移動か
          */
         template<typename OutputIterator>
         inline void search_destination(OutputIterator result, pos_t src, sengo_t sengo) const
@@ -886,7 +891,7 @@ namespace shogipp
         /**
          * @breif 移動元の座標を検索する。
          * @param result 出力イテレータ
-         * @param sengo 後手の移動か
+         * @param sengo 先手・後手どちらの移動か
          */
         template<typename OutputIterator>
         inline void search_source(OutputIterator result, sengo_t sengo) const
@@ -2004,7 +2009,7 @@ namespace shogipp
                 if (!ban_t::out(pos) && kyokumen.ban[pos] != empty)
                 {
                     sengo_t sengo = to_sengo(kyokumen.ban[pos]);
-                    int r = reverse(sengo);
+                    pos_t r = reverse(sengo);
 
                     std::vector<pos_t> himo_list;
                     kyokumen.search_himo(std::back_inserter(himo_list), pos, sengo);

@@ -67,7 +67,9 @@ namespace shogipp
 
     sengo_t sengo_next(sengo_t sengo)
     {
-        return static_cast<sengo_t>(sengo + 1 % sengo_size);
+        SHOGIPP_ASSERT(sengo >= sente);
+        SHOGIPP_ASSERT(sengo <= gote);
+        return static_cast<sengo_t>((sengo + 1) % 2);
     }
 
     using pos_t = int;
@@ -160,7 +162,7 @@ namespace shogipp
     
     inline sengo_t tesu_to_sengo(tesu_t tesu)
     {
-        return static_cast<sengo_t>(tesu % sengo_size);
+        return static_cast<sengo_t>(tesu % 2);
     }
 
     /**
@@ -650,7 +652,7 @@ namespace shogipp
                 for (pos_t suji = 0; suji < 9; ++suji)
                 {
                     koma_t koma = data[suji_dan_to_pos(suji, dan)];
-                    std::cout << (to_sengo(koma) ? "v" : " ") << to_string(koma);
+                    std::cout << ((koma != empty && to_sengo(koma)) ? "v" : " ") << to_string(koma);
                 }
                 std::cout << "| " << danstr(dan) << std::endl;
             }
@@ -796,8 +798,7 @@ namespace shogipp
         template<typename OutputIterator>
         inline void search_far_destination(OutputIterator result, pos_t src, pos_t offset) const
         {
-            pos_t cur = src + offset;
-            for (; !ban_t::out(cur); cur += offset)
+            for (pos_t cur = src + offset; !ban_t::out(cur); cur += offset)
             {
                 if (ban[cur] == empty)
                     *result++ = cur;
@@ -1102,6 +1103,7 @@ namespace shogipp
                             std::cout << pos_to_string(source) << std::endl;
                             te_t te{ source, destination, ban[source], ban[destination], false };
                             print_te(te, tesu_to_sengo(tesu));
+                            print_te(kifu.begin(), kifu.end());
                             SHOGIPP_ASSERT(false);
                         }
 #endif
@@ -1286,7 +1288,7 @@ namespace shogipp
          */
         inline void print_te(const te_t & te, sengo_t sengo) const
         {
-            std::cout << (sengo ? "△" : "▲");
+            std::cout << (sengo == sente ? "▲" : "△");
             if (te.src != npos)
             {
                 const char * naristr;
@@ -1733,14 +1735,13 @@ namespace shogipp
         for (pos_t pos = 0; pos < width * height; ++pos)
         {
             koma_t koma = kyokumen.ban[pos];
-            pos_t r = reverse(to_sengo(koma));
             if (!ban_t::out(pos) && koma != empty)
-                score += map[trim_sengo(koma)] * r;
+                score += map[trim_sengo(koma)] * reverse(to_sengo(koma));
         }
 
         for (unsigned char sengo = 0; sengo < sengo_size; ++sengo)
             for (koma_t koma = fu; koma <= hi; ++koma)
-                score += map[koma] * kyokumen.mochigoma_list[sengo][koma] * tesu_to_sengo(sengo) ? -1 : 1;
+                score += map[koma] * kyokumen.mochigoma_list[sengo][koma] * reverse(tesu_to_sengo(sengo));
 
         return score;
     }
@@ -1754,108 +1755,50 @@ namespace shogipp
      * @param sengo 先手か後手か
      */
     template<typename RandomAccessIterator>
-    void sort_te_by_score(RandomAccessIterator first, RandomAccessIterator last, sengo_t sengo)
+    void sort_te_by_score(RandomAccessIterator first, RandomAccessIterator last)
     {
-        using comparator_t = bool(const scored_te &, const scored_te &);
-        static comparator_t * comparator[]
-        {
-            [](const scored_te & a, const scored_te & b) -> bool { return a.second < b.second; },
-            [](const scored_te & a, const scored_te & b) -> bool { return a.second > b.second; }
-        };
-        std::sort(first, last, comparator[sengo]);
+        std::sort(first, last, [](const scored_te & a, const scored_te & b) -> bool { return a.second > b.second; });
     }
 
     /**
-     * @breif minimax で合法手を選択する評価関数オブジェクトの抽象クラス
+     * @breif negamax で合法手を選択する評価関数オブジェクトの抽象クラス
      */
-    struct minimax_evaluator_t
+    struct negamax_evaluator_t
         : public abstract_evaluator_t
     {
-        using cache_t = std::unordered_map<hash_t, int>;
-        
-        struct search_info_t
+        std::tuple<
+            std::optional<te_t>,
+            int
+        > negamax(
+            kyokumen_t & kyokumen,
+            int depth,
+            unsigned int & search_count)
         {
-            kyokumen_t * kyokumen;
-            unsigned int * search_count;
-            cache_t * cache;
-            unsigned int depth;
-            pos_t prev_destination;
-            te_t selected_te;
-            int selected_score;
-            int te_number;
-        };
-
-        void min_max(search_info_t & search_info)
-        {
-            constexpr unsigned int max_depth = 2;
+            if (depth <= 0)
+                return { std::nullopt, eval(kyokumen) * reverse(tesu_to_sengo(kyokumen.tesu)) };
 
             std::vector<te_t> te_list;
-            search_info.kyokumen->search_te(std::back_inserter(te_list));
-            search_info.te_number = te_list.size();
+            kyokumen.search_te(std::back_inserter(te_list));
 
-            std::vector<scored_te> scores;
-            auto back_inserter = std::back_inserter(scores);
+            if (te_list.empty())
+                return { std::nullopt, -std::numeric_limits<int>::max() };
+
+            std::vector<scored_te> scored_te_list;
+            auto inserter = std::back_inserter(scored_te_list);
 
             for (te_t & te : te_list)
             {
-                ++*search_info.search_count;
-
-                int score;
-                hash_t hash;
-
-                bool uchite = te.src == npos;
-                if (search_info.depth < max_depth || (!uchite && search_info.prev_destination == te.dst))
-                {
-                    search_info_t temp;
-                    temp.kyokumen = search_info.kyokumen;
-                    temp.search_count = search_info.search_count;
-                    temp.cache = search_info.cache;
-                    temp.depth = search_info.depth + 1;
-                    temp.prev_destination = (te.src == npos || te.dstkoma == empty) ? npos : te.dst;
-                    temp.selected_score = 0;
-
-                    search_info.kyokumen->do_te(te);
-                    hash = search_info.kyokumen->hash();
-
-                    min_max(temp);
-                    if (temp.te_number)
-                        score = temp.selected_score;
-                    else // 詰み
-                        score = (tesu_to_sengo(search_info.kyokumen->tesu) == sente) ? std::numeric_limits<int>::min() : std::numeric_limits<int>::max();
-
-                    search_info.kyokumen->undo_te(te);
-                }
-                else
-                {
-                    search_info.kyokumen->do_te(te);
-                    hash = search_info.kyokumen->hash();
-                    score = eval(*search_info.kyokumen);
-                    search_info.kyokumen->undo_te(te);
-                }
-
-                *back_inserter++ = { &te, score };
+                ++search_count;
+                kyokumen.do_te(te);
+                auto [te_, score_] = negamax(kyokumen, depth - 1, search_count);
+                kyokumen.undo_te(te);
+                score_ *= -1;
+                *inserter++ = { &te, score_ };
             }
 
-            sort_te_by_score(scores.begin(), scores.end(), tesu_to_sengo(search_info.kyokumen->tesu));
-
-#ifdef PRINT_EVALUATION_VALUE
-            if (search_info.depth == 0)
-            {
-                for (auto & [te, score] : scores)
-                {
-                    search_info.kyokumen->print_te(*te, tesu_to_sengo(search_info.kyokumen->tesu));
-                    std::cout << " -> " << score << std::endl;
-                }
-            }
-#endif
-
-            if (!te_list.empty())
-            {
-                search_info.selected_te = *scores.front().first;
-                search_info.selected_score = scores.front().second;
-            }
-
-            search_info.te_number = te_list.size();
+            SHOGIPP_ASSERT(!te_list.empty());
+            sort_te_by_score(scored_te_list.begin(), scored_te_list.end());
+            return { *scored_te_list.front().first, scored_te_list.front().second };
         }
 
         /**
@@ -1866,26 +1809,82 @@ namespace shogipp
         te_t select_te(kyokumen_t & kyokumen) override
         {
             unsigned int search_count = 0;
-            cache_t cache;
-
-            search_info_t search_info;
-            search_info.kyokumen = &kyokumen;
-            search_info.cache = &cache;
-            search_info.depth = 0;
-            search_info.prev_destination = npos;
-            search_info.search_count = &search_count;
-            search_info.selected_score = 0;
-
-            min_max(search_info);
-
+            int default_max_depth = 2;
+            auto [selected_te, score] = negamax(kyokumen, default_max_depth, search_count);
             std::cout << "読み手数：" << search_count << std::endl;
+            std::cout << "評価値：" << score << std::endl;
+            SHOGIPP_ASSERT(selected_te.has_value());
+            return *selected_te;
+        }
 
-            //std::cout << "hash begin" << std::endl;
-            //for (auto & [hash, score] : score_cache)
-            //    std::printf("%08x: %d\n", hash, score);
-            //std::cout << "hash end" << std::endl;
+        /**
+         * @breif 局面に対して評価値を返す。
+         * @param kyokumen 局面
+         * @return 局面の評価値
+         */
+        virtual int eval(kyokumen_t & kyokumen) = 0;
+    };
 
-            return search_info.selected_te;
+    /**
+ * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
+ */
+    struct alphabeta_evaluator_t
+        : public abstract_evaluator_t
+    {
+        std::tuple<
+            std::optional<te_t>,
+            int
+        > alphabeta(
+            kyokumen_t & kyokumen,
+            int depth,
+            int alpha,
+            int beta,
+            unsigned int & search_count)
+        {
+            if (depth <= 0)
+                return { std::nullopt, eval(kyokumen) * reverse(tesu_to_sengo(kyokumen.tesu)) };
+
+            std::vector<te_t> te_list;
+            kyokumen.search_te(std::back_inserter(te_list));
+
+            if (te_list.empty())
+                return { std::nullopt, -std::numeric_limits<int>::max() };
+
+            std::vector<scored_te> scored_te_list;
+            auto inserter = std::back_inserter(scored_te_list);
+
+            for (te_t & te : te_list)
+            {
+                ++search_count;
+                kyokumen.do_te(te);
+                auto [te_, score_] = alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count);
+                kyokumen.undo_te(te);
+                score_ *= -1;
+                alpha = std::max(alpha, -score_);
+                if (alpha >= beta)
+                    break;
+                *inserter++ = { &te, score_ };
+            }
+
+            SHOGIPP_ASSERT(!te_list.empty());
+            sort_te_by_score(scored_te_list.begin(), scored_te_list.end());
+            return { *scored_te_list.front().first, scored_te_list.front().second };
+        }
+
+        /**
+         * @breif 局面に対して minimax で合法手を選択する。
+         * @param kyokumen 局面
+         * @return 選択された合法手
+         */
+        te_t select_te(kyokumen_t & kyokumen) override
+        {
+            unsigned int search_count = 0;
+            int default_max_depth = 2;
+            auto [selected_te, score] = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count);
+            std::cout << "読み手数：" << search_count << std::endl;
+            std::cout << "評価値：" << score << std::endl;
+            SHOGIPP_ASSERT(selected_te.has_value());
+            return *selected_te;
         }
 
         /**
@@ -1912,8 +1911,7 @@ namespace shogipp
             std::vector<te_t> te;
             kyokumen.search_te(std::back_inserter(te));
 
-            using pair = std::pair<te_t *, int>;
-            std::vector<pair> scores;
+            std::vector<scored_te> scores;
             auto back_inserter = std::back_inserter(scores);
             for (te_t & t : te)
             {
@@ -1938,7 +1936,7 @@ namespace shogipp
      * @breif 評価関数オブジェクトの実装例
      */
     struct sample_evaluator_t
-        : public minimax_evaluator_t
+        : public alphabeta_evaluator_t
     {
         int eval(kyokumen_t & kyokumen) override
         {
@@ -1972,7 +1970,7 @@ namespace shogipp
     };
 
     struct hiyoko_evaluator_t
-        : public minimax_evaluator_t
+        : public negamax_evaluator_t
     {
         int eval(kyokumen_t & kyokumen) override
         {
@@ -2004,35 +2002,33 @@ namespace shogipp
             score *= 100;
 
             // 紐が付いている数だけ加点する。
-            for (pos_t pos = 0; pos < width * height; ++pos)
-            {
-                if (!ban_t::out(pos) && kyokumen.ban[pos] != empty)
-                {
-                    sengo_t sengo = to_sengo(kyokumen.ban[pos]);
-                    pos_t r = reverse(sengo);
+            //for (pos_t pos = 0; pos < width * height; ++pos)
+            //{
+            //    if (!ban_t::out(pos) && kyokumen.ban[pos] != empty)
+            //    {
+            //        sengo_t sengo = to_sengo(kyokumen.ban[pos]);
+            //        pos_t r = reverse(sengo);
 
-                    std::vector<pos_t> himo_list;
-                    kyokumen.search_himo(std::back_inserter(himo_list), pos, sengo);
-                    score += himo_list.size() * r * himo_score;
+            //        std::vector<pos_t> himo_list;
+            //        kyokumen.search_himo(std::back_inserter(himo_list), pos, sengo);
+            //        score += himo_list.size() * r * himo_score;
 
-                    std::vector<kiki_t> kiki_list;
-                    kyokumen.search_kiki(std::back_inserter(kiki_list), pos, sengo_next(sengo));
-                    score += kiki_list.size() * r * -1 * kiki_score;
-                }
-            }
+            //        std::vector<kiki_t> kiki_list;
+            //        kyokumen.search_kiki(std::back_inserter(kiki_list), pos, sengo);
+            //        score += kiki_list.size() * r * -1 * kiki_score;
+            //    }
+            //}
 
-            for (std::size_t sengo = 0; sengo < 2; ++sengo)
-            {
-                int reverse = tesu_to_sengo(sengo) ? -1 : 1;
+            //for (unsigned char sengo = 0; sengo < sengo_size; ++sengo)
+            //{
+            //    std::vector<pos_t> ou_destination;
+            //    kyokumen.search_destination(std::back_inserter(ou_destination), kyokumen.ou_pos[sengo], tesu_to_sengo(sengo));
+            //    score += ou_destination.size() * ou_destination_score;
 
-                std::vector<pos_t> ou_destination;
-                kyokumen.search_destination(std::back_inserter(ou_destination), kyokumen.ou_pos[sengo], tesu_to_sengo(sengo));
-                score += ou_destination.size() * ou_destination_score;
-
-                pos_t default_ou_pos = default_ou_pos_list[sengo];
-                pos_t ou_pos = kyokumen.ou_pos[sengo];
-                score += distance(ou_pos, default_ou_pos) * reverse * anti_igyoku_score;
-            }
+            //    pos_t default_ou_pos = default_ou_pos_list[sengo];
+            //    pos_t ou_pos = kyokumen.ou_pos[sengo];
+            //    score += distance(ou_pos, default_ou_pos) * reverse(tesu_to_sengo(sengo)) * anti_igyoku_score;
+            //}
 
             return score;
         }

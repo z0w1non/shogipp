@@ -1826,8 +1826,8 @@ namespace shogipp
     };
 
     /**
- * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
- */
+     * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
+     */
     struct alphabeta_evaluator_t
         : public abstract_evaluator_t
     {
@@ -1858,6 +1858,96 @@ namespace shogipp
                 ++search_count;
                 kyokumen.do_te(te);
                 auto [te_, score_] = alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count);
+                kyokumen.undo_te(te);
+                score_ *= -1;
+                alpha = std::max(alpha, -score_);
+                if (alpha >= beta)
+                    break;
+                *inserter++ = { &te, score_ };
+            }
+
+            SHOGIPP_ASSERT(!te_list.empty());
+            sort_te_by_score(scored_te_list.begin(), scored_te_list.end());
+            return { *scored_te_list.front().first, scored_te_list.front().second };
+        }
+
+        /**
+         * @breif 局面に対して minimax で合法手を選択する。
+         * @param kyokumen 局面
+         * @return 選択された合法手
+         */
+        te_t select_te(kyokumen_t & kyokumen) override
+        {
+            unsigned int search_count = 0;
+            int default_max_depth = 2;
+            auto [selected_te, score] = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count);
+            std::cout << "読み手数：" << search_count << std::endl;
+            std::cout << "評価値：" << score << std::endl;
+            SHOGIPP_ASSERT(selected_te.has_value());
+            return *selected_te;
+        }
+
+        /**
+         * @breif 局面に対して評価値を返す。
+         * @param kyokumen 局面
+         * @return 局面の評価値
+         */
+        virtual int eval(kyokumen_t & kyokumen) = 0;
+    };
+
+    /**
+      * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
+      */
+    struct alphabeta_fukayomi_evaluator_t
+        : public abstract_evaluator_t
+    {
+        std::tuple<
+            std::optional<te_t>,
+            int
+        > alphabeta(
+            kyokumen_t & kyokumen,
+            int depth,
+            int alpha,
+            int beta,
+            pos_t previous_destination,
+            unsigned int & search_count)
+        {
+            if (depth <= 0)
+            {
+                // 前回駒取りが発生していた場合、取り合いを深読みする。
+                if (previous_destination != npos)
+                {
+                    std::vector<pos_t> himo_list;
+                    kyokumen.search_himo(std::back_inserter(himo_list), previous_destination, tesu_to_sengo(kyokumen.tesu));
+                    if (himo_list.empty())
+                        return { std::nullopt, eval(kyokumen) * reverse(tesu_to_sengo(kyokumen.tesu)) };
+                    else
+                    {
+                        for (pos_t source : himo_list)
+                        {
+                            // 駒の移動元と移動先から成不成の手を生成する関数がほしい
+                        }
+                    }
+                }
+                else
+                    return { std::nullopt, eval(kyokumen) * reverse(tesu_to_sengo(kyokumen.tesu)) };
+            }
+
+            std::vector<te_t> te_list;
+            kyokumen.search_te(std::back_inserter(te_list));
+
+            if (te_list.empty())
+                return { std::nullopt, -std::numeric_limits<int>::max() };
+
+            std::vector<scored_te> scored_te_list;
+            auto inserter = std::back_inserter(scored_te_list);
+
+            for (te_t & te : te_list)
+            {
+                ++search_count;
+                pos_t destination = te.src != npos && te.dstkoma != empty ? te.dst : npos;
+                kyokumen.do_te(te);
+                auto [te_, score_] = alphabeta(kyokumen, depth - 1, -beta, -alpha, destination, search_count);
                 kyokumen.undo_te(te);
                 score_ *= -1;
                 alpha = std::max(alpha, -score_);

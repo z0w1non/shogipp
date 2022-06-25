@@ -1,5 +1,4 @@
 #include "shogipp.hpp"
-#include <chrono>
 
 int main(int ac, char ** av)
 {

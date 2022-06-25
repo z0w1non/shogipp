@@ -19,6 +19,7 @@
 #include <array>
 #include <chrono>
 #include <filesystem>
+#include <stdexcept>
 
 //#define NONDETERMINISM
 #ifdef NONDETERMINISM
@@ -64,6 +65,12 @@ namespace shogipp
             std::terminate();
         }
     }
+
+    class file_format_error
+        : public std::runtime_error
+    {
+        using std::runtime_error::runtime_error;
+    };
 
     using koma_t = unsigned char;
     enum : koma_t
@@ -1896,9 +1903,9 @@ namespace shogipp
                     rest.remove_prefix(sengo_string[sente].size());
 
                     if (rest.size() < mochigoma_string.size())
-                        throw std::exception();
+                        throw file_format_error("read_kyokumen_file 1-1");
                     if (rest.substr(0, mochigoma_string.size()) != mochigoma_string)
-                        throw std::exception();
+                        throw file_format_error("read_kyokumen_file 1-2");
                     rest.remove_prefix(mochigoma_string.size());
 
                     if (rest.size() >= nothing_string.size() && rest == nothing_string)
@@ -1909,12 +1916,12 @@ namespace shogipp
                         unsigned char count = 1;
                         auto koma_iterator = string_to_koma.find(std::string{ rest.substr(0, 2) });
                         if (koma_iterator == string_to_koma.end())
-                            throw std::exception();
+                            throw file_format_error("read_kyokumen_file 1-3");
                         koma_t koma = koma_iterator->second;
                         if (koma < fu)
-                            throw std::exception();
+                            throw file_format_error("read_kyokumen_file 1-4");
                         if (koma > hi)
-                            throw std::exception();
+                            throw file_format_error("read_kyokumen_file 1-5");
                         rest.remove_prefix(2);
 
                         if (rest.size() >= 2)
@@ -1932,7 +1939,7 @@ namespace shogipp
                             count = digit;
                         }
                         if (count > 18)
-                            throw std::exception();
+                            throw file_format_error("read_kyokumen_file 1-6");
 
                         mochigoma_list[*sengo][koma] = count;
                     }
@@ -1945,7 +1952,7 @@ namespace shogipp
                 for (pos_t suji = 0; suji < suji_size; ++suji)
                 {
                     if (rest.size() < 1)
-                        throw std::exception();
+                        throw file_format_error("read_kyokumen_file 2-1");
                     auto sengo_iterator = string_to_sengo.find(std::string{ rest[0] });
                     if (sengo_iterator == string_to_sengo.end())
                         throw std::exception();
@@ -1953,10 +1960,10 @@ namespace shogipp
                     rest.remove_prefix(1);
 
                     if (rest.size() < 2)
-                        throw std::exception();
+                        throw file_format_error("read_kyokumen_file 2-2");
                     auto koma_iterator = string_to_koma.find(std::string{ rest.substr(0, 2) });
                     if (koma_iterator == string_to_koma.end())
-                        throw std::exception();
+                        throw file_format_error("read_kyokumen_file 2-3");
                     koma_t koma = koma_iterator->second;
                     rest.remove_prefix(2);
 

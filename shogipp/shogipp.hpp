@@ -1146,10 +1146,10 @@ namespace shogipp
         inline sengo_t sengo() const;
 
         ban_t ban;                                      // 盤
-        mochigoma_t mochigoma_list[sengo_size];         // 持ち駒 { 先手, 後手 }
+        mochigoma_t mochigoma_list[sengo_size];         // 持ち駒
         tesu_t tesu;                                    // 手数
-        pos_t ou_pos[sengo_size];                       // 王の座標 { 先手, 後手 }
-        std::vector<kiki_t> oute_list[sengo_size];      // 王に対する利き { 先手, 後手 }
+        pos_t ou_pos[sengo_size];                       // 王の座標
+        std::vector<kiki_t> oute_list[sengo_size];      // 王に対する利き
         std::stack<hash_t> hash_stack;                  // それまでの各手番におけるハッシュ値を格納するスタック
         std::vector<te_t> kifu;                         // 棋譜
         move_table_t move_table_list[sengo_size];       // 合法手の表

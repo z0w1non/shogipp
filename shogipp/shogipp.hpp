@@ -299,7 +299,6 @@ namespace shogipp
         return map[koma];
     }
 
-
     /*
      * @breif ‹î‚ğ¬‚é‘O‚Ì‹î‚É•ÏŠ·‚·‚éB
      * @param koma ‹î
@@ -1706,9 +1705,9 @@ namespace shogipp
 
     inline void kyokumen_t::print_kifu()
     {
-        for (std::size_t i = 0; i < kifu.size(); ++i)
+        for (tesu_t tesu = 0; tesu < static_cast<tesu_t>(kifu.size()); ++tesu)
         {
-            print_te(kifu[i], tesu_to_sengo(i));
+            print_te(kifu[tesu], tesu_to_sengo(tesu));
             std::cout << std::endl;
         }
     }

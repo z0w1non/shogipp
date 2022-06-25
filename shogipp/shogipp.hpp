@@ -598,6 +598,10 @@ namespace shogipp
         suji_dan_to_pos(4, 0)
     };
 
+    /**
+     * @breif 座標を標準出力に出力する。
+     * @param pos 座標
+     */
     inline void print_pos(pos_t pos)
     {
         std::cout << suji_to_string(pos_to_suji(pos)) << dan_to_string(pos_to_dan(pos));

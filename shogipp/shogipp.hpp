@@ -1,3 +1,6 @@
+#ifndef SHOGIPP_DEFINED
+#define SHOGIPP_DEFINED
+
 #include <iostream>
 
 #include <cstdlib>
@@ -723,7 +726,8 @@ namespace shogipp
 
     inline void ban_t::init()
     {
-        static const koma_t temp[]{
+        static const koma_t temp[]
+        {
             x, x, x, x, x, x, x, x, x, x, x,
             x, x, x, x, x, x, x, x, x, x, x,
             x, gote_kyo, gote_kei, gote_gin, gote_kin, gote_ou, gote_kin, gote_gin, gote_kei, gote_kyo, x,
@@ -744,7 +748,8 @@ namespace shogipp
     inline bool ban_t::out(pos_t pos)
     {
 #define _ empty
-        static const koma_t table[]{
+        static const koma_t table[]
+        {
             x, x, x, x, x, x, x, x, x, x, x,
             x, x, x, x, x, x, x, x, x, x, x,
             x, _, _, _, _, _, _, _, _, _, x,
@@ -1117,11 +1122,13 @@ namespace shogipp
     /**
      * @breif コピーコンストラクトされてからデストラクトされるまでに局面が変更されていないことを検証する。
      */
-    struct kyokumen_rollback_validator_t
+    class kyokumen_rollback_validator_t
     {
+    public:
         kyokumen_rollback_validator_t(const kyokumen_t & kyokumen);
         ~kyokumen_rollback_validator_t();
 
+    private:
         const kyokumen_t & kyokumen;
         koma_t data[width * height];
         mochigoma_t mochigoma_list[sengo_size];
@@ -2431,3 +2438,5 @@ namespace shogipp
     };
 
 } // namespace shogipp
+
+#endif // SHOGIPP_DEFINED

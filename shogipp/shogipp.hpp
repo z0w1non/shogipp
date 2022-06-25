@@ -529,8 +529,6 @@ namespace shogipp
         return map[koma];
     }
 
-    static const bool kin_nari[]{ false, true, true, true, true, false, false, false, false };
-
     /**
      * @breif ‹î‚ğ•¶š—ñ‚É•ÏŠ·‚·‚éB
      * @param koma ‹î

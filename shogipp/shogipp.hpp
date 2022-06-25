@@ -1204,8 +1204,8 @@ namespace shogipp
         for (mochigoma_t & m : mochigoma_list)
             m.init();
         tesu = 0;
-        ou_pos[0] = suji_dan_to_pos(4, 8);
-        ou_pos[1] = suji_dan_to_pos(4, 0);
+        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+            ou_pos[sengo] = default_ou_pos_list[sengo];
         for (auto & k : oute_list)
             k.clear();
         while (hash_stack.size())

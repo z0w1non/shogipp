@@ -393,7 +393,7 @@ namespace shogipp
      * @retval false çáívÇµÇ»Ç¢
      */
     template<koma_t target_koma>
-    bool match(koma_t koma)
+    inline bool match(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
         static const struct impl_t

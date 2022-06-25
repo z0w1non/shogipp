@@ -1845,7 +1845,16 @@ namespace shogipp
     {
         static const std::string mochigoma_string = "éùÇøãÓÅF";
         static const std::string nothing_string = "Ç»Çµ";
-        static const std::string sengo_string[]{ "êÊéË", "å„éË" };
+        static const std::string tesu_suffix = "éËñ⁄";
+        static const std::string sengo_suffix = "î‘";
+
+        static const std::map<std::string, sengo_t> sengo_string_to_sengo
+        {
+            { "êÊéË" , sente },
+            { "å„éË" , gote }
+        };
+        static constexpr std::size_t sengo_string_size = 4;
+
         static const std::map<std::string, unsigned char> digit_string_to_digit
         {
             { "ÇO", 0 },
@@ -1859,7 +1868,9 @@ namespace shogipp
             { "ÇW", 8 },
             { "ÇX", 9 }
         };
-        static const std::map<std::string, koma_t> string_to_koma
+        static constexpr std::size_t digit_string_size = 2;
+
+        static const std::map<std::string, koma_t> koma_string_to_koma
         {
             { "ÅE", empty },
             { "ï‡", fu },
@@ -1877,11 +1888,14 @@ namespace shogipp
             { "în", uma },
             { "ó≥", hi }
         };
-        static const std::map<std::string, sengo_t> string_to_sengo
+        static constexpr std::size_t koma_string_size = 2;
+
+        static const std::map<std::string, sengo_t> sengo_prefix_string_to_sengo
         {
             { " ", sente },
             { "v", gote }
         };
+        static constexpr std::size_t sengo_prefix_string_size = 1;
 
         init();
         std::ifstream stream{ kyokumen_file };
@@ -1890,88 +1904,119 @@ namespace shogipp
 
         while (std::getline(stream, line))
         {
-            if (line.size() >= sengo_string[sente].size())
+            std::string_view rest = line;
+            if (line.size() >= 1 && std::isdigit(line[0]))
             {
-                std::optional<sengo_t> sengo;
-                if (line.substr(0, sengo_string[sente].size()) == sengo_string[sente])
-                    sengo = sente;
-                else if (line.substr(0, sengo_string[sente].size()) == sengo_string[gote])
-                    sengo = gote;
-                if (sengo.has_value())
+                tesu_t temp_tesu = 0;
+                do
                 {
-                    std::string_view rest = line;
-                    rest.remove_prefix(sengo_string[sente].size());
+                    temp_tesu *= 10;
+                    temp_tesu += rest[0] - '0';
+                    rest.remove_prefix(1);
+                } while (rest.size() >= 1 && std::isdigit(rest[0]));
+                if (temp_tesu == 0)
+                    throw file_format_error("read_kyokumen_file 1-1");
+                --temp_tesu;
 
-                    if (rest.size() < mochigoma_string.size())
-                        throw file_format_error("read_kyokumen_file 1-1");
-                    if (rest.substr(0, mochigoma_string.size()) != mochigoma_string)
-                        throw file_format_error("read_kyokumen_file 1-2");
-                    rest.remove_prefix(mochigoma_string.size());
+                if (rest.size() < tesu_suffix.size())
+                    throw file_format_error("read_kyokumen_file 1-2");
+                if (rest.substr(0, tesu_suffix.size()) != tesu_suffix)
+                    throw file_format_error("read_kyokumen_file 1-3");
+                rest.remove_prefix(tesu_suffix.size());
 
-                    if (rest.size() >= nothing_string.size() && rest == nothing_string)
-                        continue;
+                if (rest.size() < sengo_string_size)
+                    throw file_format_error("read_kyokumen_file 1-4");
+                auto sengo_iterator = sengo_string_to_sengo.find(std::string{ rest.substr(0, sengo_string_size) });
+                if (sengo_iterator == sengo_string_to_sengo.end())
+                    throw file_format_error("read_kyokumen_file 1-5");
+                sengo_t sengo = sengo_iterator->second;
+                rest.remove_prefix(sengo_string_size);
 
-                    while (true)
-                    {
-                        unsigned char count = 1;
-                        auto koma_iterator = string_to_koma.find(std::string{ rest.substr(0, 2) });
-                        if (koma_iterator == string_to_koma.end())
-                            throw file_format_error("read_kyokumen_file 1-3");
-                        koma_t koma = koma_iterator->second;
-                        if (koma < fu)
-                            throw file_format_error("read_kyokumen_file 1-4");
-                        if (koma > hi)
-                            throw file_format_error("read_kyokumen_file 1-5");
-                        rest.remove_prefix(2);
+                if (tesu_to_sengo(temp_tesu) != sengo)
+                    throw file_format_error("read_kyokumen_file 1-6");
+                if (rest.size() < 2)
+                    throw file_format_error("read_kyokumen_file 1-7");
+                if (rest.substr(0, sengo_suffix.size()) != sengo_suffix)
+                    throw file_format_error("read_kyokumen_file 1-8");
 
-                        if (rest.size() >= 2)
-                        {
-                            unsigned char digit = 0;
-                            do
-                            {
-                                auto digit_iterator = digit_string_to_digit.find(std::string{ rest.substr(0, 2) });
-                                if (digit_iterator == digit_string_to_digit.end())
-                                    break;
-                                digit *= 10;
-                                digit += digit_iterator->second;
-                                rest.remove_prefix(2);
-                            } while (rest.size() >= 2);
-                            count = digit;
-                        }
-                        if (count > 18)
-                            throw file_format_error("read_kyokumen_file 1-6");
-
-                        mochigoma_list[*sengo][koma] = count;
-                    }
-                }
+                tesu = temp_tesu;
             }
             else if (line.size() >= 1 && line[0] == '|')
             {
-                std::string_view rest = line;
                 rest.remove_prefix(1);
                 for (pos_t suji = 0; suji < suji_size; ++suji)
                 {
-                    if (rest.size() < 1)
+                    if (rest.size() < sengo_prefix_string_size)
                         throw file_format_error("read_kyokumen_file 2-1");
-                    auto sengo_iterator = string_to_sengo.find(std::string{ rest[0] });
-                    if (sengo_iterator == string_to_sengo.end())
+                    auto sengo_iterator = sengo_string_to_sengo.find(std::string{ rest.substr(0, sengo_prefix_string_size)});
+                    if (sengo_iterator == sengo_string_to_sengo.end())
                         throw std::exception();
                     sengo_t sengo = sengo_iterator->second;
-                    rest.remove_prefix(1);
+                    rest.remove_prefix(sengo_prefix_string_size);
 
-                    if (rest.size() < 2)
+                    if (rest.size() < koma_string_size)
                         throw file_format_error("read_kyokumen_file 2-2");
-                    auto koma_iterator = string_to_koma.find(std::string{ rest.substr(0, 2) });
-                    if (koma_iterator == string_to_koma.end())
+                    auto koma_iterator = koma_string_to_koma.find(std::string{ rest.substr(0, koma_string_size) });
+                    if (koma_iterator == koma_string_to_koma.end())
                         throw file_format_error("read_kyokumen_file 2-3");
                     koma_t koma = koma_iterator->second;
-                    rest.remove_prefix(2);
+                    rest.remove_prefix(koma_string_size);
 
                     if (sengo == gote)
                         koma = to_gote(koma);
                     ban[suji_dan_to_pos(suji, dan)] = koma;
                 }
                 ++dan;
+            }
+            else if (line.size() >= sengo_string_size)
+            {
+                auto sengo_iterator = sengo_string_to_sengo.find(std::string{ rest.substr(0, sengo_string_size) });
+                if (sengo_iterator == sengo_string_to_sengo.end())
+                    throw file_format_error("read_kyokumen_file 2-1");
+                sengo_t sengo = sengo_iterator->second;
+                rest.remove_prefix(sengo_string_size);
+
+                if (rest.size() < mochigoma_string.size())
+                    throw file_format_error("read_kyokumen_file 2-2");
+                if (rest.substr(0, mochigoma_string.size()) != mochigoma_string)
+                    throw file_format_error("read_kyokumen_file 2-3");
+                rest.remove_prefix(mochigoma_string.size());
+
+                if (rest.size() >= nothing_string.size() && rest == nothing_string)
+                    continue;
+
+                while (true)
+                {
+                    unsigned char count = 1;
+                    auto koma_iterator = koma_string_to_koma.find(std::string{ rest.substr(0, koma_string_size) });
+                    if (koma_iterator == koma_string_to_koma.end())
+                        throw file_format_error("read_kyokumen_file 2-4");
+                    koma_t koma = koma_iterator->second;
+                    if (koma < fu)
+                        throw file_format_error("read_kyokumen_file 2-5");
+                    if (koma > hi)
+                        throw file_format_error("read_kyokumen_file 2-6");
+                    rest.remove_prefix(koma_string_size);
+
+                    if (rest.size() >= digit_string_size)
+                    {
+                        unsigned char digit = 0;
+                        do
+                        {
+                            auto digit_iterator = digit_string_to_digit.find(std::string{ rest.substr(0, digit_string_size) });
+                            if (digit_iterator == digit_string_to_digit.end())
+                                break;
+                            digit *= 10;
+                            digit += digit_iterator->second;
+                            rest.remove_prefix(digit_string_size);
+                        } while (rest.size() >= digit_string_size);
+                        count = digit;
+                    }
+                    if (count > 18)
+                        throw file_format_error("read_kyokumen_file 2-7");
+
+                    mochigoma_list[sengo][koma] = count;
+                }
             }
         }
     }

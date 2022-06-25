@@ -1143,6 +1143,10 @@ namespace shogipp
          */
         inline void undo_te(const te_t & te);
 
+        /**
+         * @breif è”Ô‚ğæ“¾‚·‚éB
+         * @return è”Ô
+         */
         inline sengo_t sengo() const;
 
         ban_t ban;                                      // ”Õ

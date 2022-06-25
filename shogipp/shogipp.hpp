@@ -1186,8 +1186,8 @@ namespace shogipp
     class kyokumen_rollback_validator_t
     {
     public:
-        kyokumen_rollback_validator_t(const kyokumen_t & kyokumen);
-        ~kyokumen_rollback_validator_t();
+        inline kyokumen_rollback_validator_t(const kyokumen_t & kyokumen);
+        inline ~kyokumen_rollback_validator_t();
 
     private:
         const kyokumen_t & kyokumen;
@@ -1195,7 +1195,7 @@ namespace shogipp
         mochigoma_t mochigoma_list[sengo_size];
     };
 
-    kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen)
+    inline kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen)
         : kyokumen{ kyokumen }
     {
         std::copy(std::begin(kyokumen.ban.data), std::end(kyokumen.ban.data), std::begin(data));
@@ -1220,7 +1220,7 @@ namespace shogipp
         }
     }
 
-    kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t()
+    inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t()
     {
         for (std::size_t i = 0; i < std::size(data); ++i)
             SHOGIPP_ASSERT(data[i] == kyokumen.ban.data[i]);

@@ -2,7 +2,6 @@
 #define SHOGIPP_DEFINED
 
 #include <iostream>
-
 #include <cstdlib>
 #include <ctime>
 #include <vector>

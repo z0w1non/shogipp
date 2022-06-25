@@ -91,7 +91,7 @@ namespace shogipp
     {
         SHOGIPP_ASSERT(sengo >= sente);
         SHOGIPP_ASSERT(sengo <= gote);
-        return static_cast<sengo_t>((sengo + 1) % 2);
+        return static_cast<sengo_t>((sengo + 1) % sengo_size);
     }
 
     using pos_t = int;
@@ -200,7 +200,7 @@ namespace shogipp
     
     inline sengo_t tesu_to_sengo(tesu_t tesu)
     {
-        return static_cast<sengo_t>(tesu % 2);
+        return static_cast<sengo_t>(tesu % sengo_size);
     }
 
     /**

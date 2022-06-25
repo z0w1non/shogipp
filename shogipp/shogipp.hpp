@@ -2043,7 +2043,6 @@ namespace shogipp
         {
             for (pos_t pos : kiki_or_himo_list)
             {
-                ///*DEBUG*/std::cout << pos_to_string(source) << " " << pos_to_string(pos) << std::endl;
                 sengo_t sengo = to_sengo(ban[pos]);
                 std::vector<pos_t> new_destination_list;
                 search_destination(std::back_inserter(new_destination_list), pos, sengo);

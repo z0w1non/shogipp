@@ -166,7 +166,7 @@ namespace shogipp
     constexpr pos_t back_right = back + right;
 
     using pos_to_koma_pair = std::pair<pos_t, std::vector<koma_t>>;
-    
+
     static const pos_to_koma_pair near_kiki_list[]
     {
         { kei_left   , { kei } },
@@ -211,7 +211,7 @@ namespace shogipp
     };
 
     using tesu_t = unsigned int;
-    
+
     inline sengo_t tesu_to_sengo(tesu_t tesu)
     {
         return static_cast<sengo_t>(tesu % sengo_size);
@@ -525,7 +525,8 @@ namespace shogipp
      * @return 全角文字列
      * @details 持ち駒の最大枚数18を超える値を指定してこの関数を呼び出してはならない。
      */
-    inline const char * to_zenkaku_digit(unsigned int value) {
+    inline const char * to_zenkaku_digit(unsigned int value)
+    {
         const char * map[]
         {
             "０", "１", "２", "３", "４", "５", "６", "７", "８", "９",
@@ -534,7 +535,7 @@ namespace shogipp
         SHOGIPP_ASSERT(value <= std::size(map));
         return map[value];
     }
-    
+
     /**
      * @breif 駒の移動先の相対座標の配列の先頭を指すポインタを取得する。
      * @param koma 駒
@@ -679,14 +680,74 @@ namespace shogipp
     /**
      * @breif 合法手
      */
-    struct te_t
+    class te_t
     {
-        pos_t src;      // 移動元の座標(src == npos の場合、持ち駒を打つ)
-        pos_t dst;      // 移動先の座標(src == npos の場合、 dst は打つ座標)
-        koma_t srckoma; // 移動元の駒(src == npos の場合、 srckoma は打つ持ち駒)
-        koma_t dstkoma; // 移動先の駒(src == npos の場合、 dstkoma は未定義)
-        bool promote;   // 成る場合 true
+    public:
+        inline te_t(pos_t destination, koma_t source_koma);
+        inline te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote);
+        inline bool is_uchite() const;
+        inline pos_t source() const;
+        inline pos_t destination() const;
+        inline koma_t source_koma() const;
+        inline koma_t captured_koma() const;
+        inline bool promote() const;
+
+    private:
+        pos_t   m_source;           // 移動元の座標(src == npos の場合、持ち駒を打つ)
+        pos_t   m_destination;      // 移動先の座標(src == npos の場合、 dst は打つ座標)
+        koma_t  m_source_koma;      // 移動元の駒(src == npos の場合、 source_koma() は打つ持ち駒)
+        koma_t  m_captured_koma;    // 移動先の駒(src == npos の場合、 dstkoma は未定義)
+        bool    m_promote;          // 成る場合 true
     };
+
+    inline te_t::te_t(pos_t destination, koma_t source_koma)
+    {
+        m_source = npos;
+        m_destination = destination;
+        m_source_koma = source_koma;
+        m_captured_koma = empty;
+        m_promote = false;
+    }
+
+    inline te_t::te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote)
+    {
+        m_source = source;
+        m_destination = destination;
+        m_source_koma = source_koma;
+        m_captured_koma = captured_koma;
+        m_promote = promote;
+    }
+
+    inline bool te_t::is_uchite() const
+    {
+        return m_source == npos;
+    }
+
+    inline pos_t te_t::source() const
+    {
+        return m_source;
+    }
+
+    inline pos_t te_t::destination() const
+    {
+        return m_destination;
+    }
+
+    inline koma_t te_t::source_koma() const
+    {
+        return m_source_koma;
+    }
+
+    inline koma_t te_t::captured_koma() const
+    {
+        return m_captured_koma;
+    }
+
+    inline bool te_t::promote() const
+    {
+        SHOGIPP_ASSERT(!is_uchite());
+        return m_promote;
+    }
 
     /**
      * @breif 持ち駒
@@ -1359,7 +1420,7 @@ namespace shogipp
             pos_t pos = dst + front * (reverse(sengo()));
             if (!ban_t::out(pos) && ban[pos] != empty && trim_sengo(ban[pos]) == ou && to_sengo(ban[pos]) != sengo())
             {
-                te_t te{ npos, dst, koma };
+                te_t te{ dst, koma };
                 std::vector<te_t> te_list;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(*this);
@@ -1563,7 +1624,7 @@ namespace shogipp
                 if (mochigoma_list[sengo()][koma])
                     for (pos_t dst = 0; dst < pos_size; ++dst)
                         if (can_put(koma, dst))
-                            *result++ = { npos, dst, koma };
+                            *result++ = { dst, koma };
             }
             }
         else // 王手されている場合
@@ -1621,7 +1682,7 @@ namespace shogipp
                         for (koma_t koma = fu; koma <= hi; ++koma)
                             if (mochigoma_list[sengo()][koma])
                                 if (can_put(koma, dst))
-                                    *result++ = { npos, dst, koma };
+                                    *result++ = { dst, koma };
                     }
 
                     // 王手している駒を取る手を検索する。
@@ -1666,26 +1727,26 @@ namespace shogipp
 
     inline hash_t kyokumen_t::make_hash(hash_t hash, const te_t & te) const
     {
-        if (te.src == npos)
+        if (te.is_uchite())
         {
-            std::size_t mochigoma_count = mochigoma_list[sengo()][te.srckoma];
+            std::size_t mochigoma_count = mochigoma_list[sengo()][te.source_koma()];
             SHOGIPP_ASSERT(mochigoma_count > 0);
-            hash ^= hash_table.koma_hash(te.srckoma, te.dst);
-            hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count, sengo());
-            hash ^= hash_table.mochigoma_hash(te.srckoma, mochigoma_count - 1, sengo());
+            hash ^= hash_table.koma_hash(te.source_koma(), te.destination());
+            hash ^= hash_table.mochigoma_hash(te.source_koma(), mochigoma_count, sengo());
+            hash ^= hash_table.mochigoma_hash(te.source_koma(), mochigoma_count - 1, sengo());
         }
         else
         {
-            SHOGIPP_ASSERT(!(!is_promotable(te.srckoma) && te.promote));
-            hash ^= hash_table.koma_hash(te.srckoma, te.src);
-            if (te.dstkoma != empty)
+            SHOGIPP_ASSERT(!(!is_promotable(te.source_koma()) && te.promote()));
+            hash ^= hash_table.koma_hash(te.source_koma(), te.source());
+            if (te.captured_koma() != empty)
             {
-                std::size_t mochigoma_count = mochigoma_list[sengo()][te.dstkoma];
-                hash ^= hash_table.mochigoma_hash(to_mochigoma(te.dstkoma), mochigoma_count, sengo());
-                hash ^= hash_table.mochigoma_hash(to_mochigoma(te.dstkoma), mochigoma_count + 1, sengo());
-                hash ^= hash_table.koma_hash(te.dstkoma, te.dst);
+                std::size_t mochigoma_count = mochigoma_list[sengo()][te.captured_koma()];
+                hash ^= hash_table.mochigoma_hash(to_mochigoma(te.captured_koma()), mochigoma_count, sengo());
+                hash ^= hash_table.mochigoma_hash(to_mochigoma(te.captured_koma()), mochigoma_count + 1, sengo());
+                hash ^= hash_table.koma_hash(te.captured_koma(), te.destination());
             }
-            hash ^= hash_table.koma_hash(te.promote ? to_unpromoted(te.srckoma) : te.srckoma, te.dst);
+            hash ^= hash_table.koma_hash(te.promote() ? to_unpromoted(te.source_koma()) : te.source_koma(), te.destination());
         }
         return hash;
     }
@@ -1693,19 +1754,19 @@ namespace shogipp
     inline void kyokumen_t::print_te(const te_t & te, sengo_t sengo) const
     {
         std::cout << (sengo == sente ? "▲" : "△");
-        if (te.src != npos)
+        if (te.is_uchite())
         {
-            const char * naristr;
-            if (can_promote(te.srckoma, te.dst))
-                naristr = te.promote ? "成" : "不成";
-            else
-                naristr = "";
-            std::cout << suji_to_string(pos_to_suji(te.dst)) << dan_to_string(pos_to_dan(te.dst)) << koma_to_string(trim_sengo(te.srckoma)) << naristr
-                << "（" << suji_to_string(pos_to_suji(te.src)) << dan_to_string(pos_to_dan(te.src)) << "）";
+            std::cout << suji_to_string(pos_to_suji(te.destination())) << dan_to_string(pos_to_dan(te.destination())) << koma_to_string(trim_sengo(te.source_koma())) << "打";
         }
         else
         {
-            std::cout << suji_to_string(pos_to_suji(te.dst)) << dan_to_string(pos_to_dan(te.dst)) << koma_to_string(trim_sengo(te.srckoma)) << "打";
+            const char * naristr;
+            if (can_promote(te.source_koma(), te.destination()))
+                naristr = te.promote() ? "成" : "不成";
+            else
+                naristr = "";
+            std::cout << suji_to_string(pos_to_suji(te.destination())) << dan_to_string(pos_to_dan(te.destination())) << koma_to_string(trim_sengo(te.source_koma())) << naristr
+                << "（" << suji_to_string(pos_to_suji(te.source())) << dan_to_string(pos_to_dan(te.source())) << "）";
         }
     }
 
@@ -1782,21 +1843,21 @@ namespace shogipp
     inline void kyokumen_t::do_te(const te_t & te)
     {
         hash_t hash = make_hash(hash_stack.top(), te);
-        if (te.src == npos)
+        if (te.is_uchite())
         {
-            SHOGIPP_ASSERT(mochigoma_list[sengo()][te.srckoma] > 0);
-            ban[te.dst] = sengo() ? to_gote(te.srckoma) : te.srckoma;
-            --mochigoma_list[sengo()][te.srckoma];
+            SHOGIPP_ASSERT(mochigoma_list[sengo()][te.source_koma()] > 0);
+            ban[te.destination()] = sengo() ? to_gote(te.source_koma()) : te.source_koma();
+            --mochigoma_list[sengo()][te.source_koma()];
         }
         else
         {
-            SHOGIPP_ASSERT(!(!is_promotable(te.srckoma) && te.promote));
-            if (ban[te.dst] != empty)
-                ++mochigoma_list[sengo()][ban[te.dst]];
-            ban[te.dst] = te.promote ? to_promoted(ban[te.src]) : ban[te.src];
-            ban[te.src] = empty;
-            if (trim_sengo(te.srckoma) == ou)
-                ou_pos[sengo()] = te.dst;
+            SHOGIPP_ASSERT(!(!is_promotable(te.source_koma()) && te.promote()));
+            if (ban[te.destination()] != empty)
+                ++mochigoma_list[sengo()][ban[te.destination()]];
+            ban[te.destination()] = te.promote() ? to_promoted(ban[te.source()]) : ban[te.source()];
+            ban[te.source()] = empty;
+            if (trim_sengo(te.source_koma()) == ou)
+                ou_pos[sengo()] = te.destination();
         }
         ++tesu;
         hash_stack.push(hash);
@@ -1817,19 +1878,19 @@ namespace shogipp
     {
         SHOGIPP_ASSERT(tesu > 0);
         --tesu;
-        if (te.src == npos)
+        if (te.is_uchite())
         {
-            ++mochigoma_list[sengo()][te.srckoma];
-            ban[te.dst] = empty;
+            ++mochigoma_list[sengo()][te.source_koma()];
+            ban[te.destination()] = empty;
         }
         else
         {
-            if (trim_sengo(te.srckoma) == ou)
-                ou_pos[sengo()] = te.src;
-            ban[te.src] = te.srckoma;
-            ban[te.dst] = te.dstkoma;
-            if (te.dstkoma != empty)
-                --mochigoma_list[sengo()][te.dstkoma];
+            if (trim_sengo(te.source_koma()) == ou)
+                ou_pos[sengo()] = te.source();
+            ban[te.source()] = te.source_koma();
+            ban[te.destination()] = te.captured_koma();
+            if (te.captured_koma() != empty)
+                --mochigoma_list[sengo()][te.captured_koma()];
         }
         hash_stack.pop();
         update_oute();
@@ -2065,33 +2126,33 @@ namespace shogipp
         auto & self_move_table = move_table_list[sengo];
         auto & nonself_move_table = move_table_list[sengo];
 
-        if (te.src == npos)
+        if (te.is_uchite())
         {
             // 手の移動先を移動元とする自分の手を更新する。
             std::vector<pos_t> new_destination_list;
-            search_destination(std::back_inserter(new_destination_list), te.dst, sengo);
-            update_move_table(self_move_table, te.dst, std::move(new_destination_list));
+            search_destination(std::back_inserter(new_destination_list), te.destination(), sengo);
+            update_move_table(self_move_table, te.destination(), std::move(new_destination_list));
 
             // 手の移動先に利いている走り駒の移動先を更新する。
-            update_move_table_relative_to(te.dst);
+            update_move_table_relative_to(te.destination());
         }
         else
         {
             // 手の移動先を移動元とする自分の手を更新する。
             std::vector<pos_t> new_destination_list;
-            search_destination(std::back_inserter(new_destination_list), te.dst, sengo);
-            update_move_table(self_move_table, te.dst, std::move(new_destination_list));
+            search_destination(std::back_inserter(new_destination_list), te.destination(), sengo);
+            update_move_table(self_move_table, te.destination(), std::move(new_destination_list));
 
             // 手の移動先に駒があった場合、手の移動先を移動元とする相手の手を削除する。
-            if (te.dstkoma != empty)
-                nonself_move_table.erase(te.dst);
+            if (te.captured_koma() != empty)
+                nonself_move_table.erase(te.destination());
 
             // 手の移動元を移動元とする自分の手を削除する。
-            self_move_table.erase(te.src);
+            self_move_table.erase(te.source());
 
             // 手の移動元あるいは移動先に利いているあるいは紐を付けている駒の移動先を更新する。
-            update_move_table_relative_to(te.src);
-            update_move_table_relative_to(te.dst);
+            update_move_table_relative_to(te.source());
+            update_move_table_relative_to(te.destination());
         }
     }
 
@@ -2100,35 +2161,35 @@ namespace shogipp
         auto & self_move_table = move_table_list[sengo()];
         auto & nonself_move_table = move_table_list[!sengo()];
 
-        if (te.src == npos)
+        if (te.is_uchite())
         {
             // 手の移動先を移動元とする自分の手を削除する。
-            self_move_table.erase(te.dst);
+            self_move_table.erase(te.destination());
 
             // 手の移動先に利いている走り駒の移動先を更新する。
-            update_move_table_relative_to(te.dst);
+            update_move_table_relative_to(te.destination());
         }
         else
         {
             // 手の移動先を移動元とする自分の手を削除する。
-            self_move_table.erase(te.dst);
+            self_move_table.erase(te.destination());
 
             // 手の移動先に駒があった場合、手の移動先を移動元とする相手の手を更新する。
-            if (te.dstkoma != empty)
+            if (te.captured_koma() != empty)
             {
                 std::vector<pos_t> new_destination_list;
-                search_destination(std::back_inserter(new_destination_list), te.dst, !sengo());
-                update_move_table(nonself_move_table, te.dst, std::move(new_destination_list));
+                search_destination(std::back_inserter(new_destination_list), te.destination(), !sengo());
+                update_move_table(nonself_move_table, te.destination(), std::move(new_destination_list));
             }
 
             // 手の移動元を移動元とする自分の手を更新する。
             std::vector<pos_t> new_destination_list;
-            search_destination(std::back_inserter(new_destination_list), te.src, sengo());
-            update_move_table(self_move_table, te.src, std::move(new_destination_list));
+            search_destination(std::back_inserter(new_destination_list), te.source(), sengo());
+            update_move_table(self_move_table, te.source(), std::move(new_destination_list));
 
             // 手の移動元あるいは移動先に利いているあるいは紐を付けている駒の移動先を更新する。
-            update_move_table_relative_to(te.src);
-            update_move_table_relative_to(te.dst);
+            update_move_table_relative_to(te.source());
+            update_move_table_relative_to(te.destination());
         }
     }
 
@@ -2483,7 +2544,7 @@ namespace shogipp
                     kyokumen.search_te(std::back_inserter(te_list));
                     for (te_t & te : te_list)
                     {
-                        if (te.src != npos && te.dst == previous_destination)
+                        if (!te.is_uchite() && te.destination() == previous_destination)
                         {
                             std::optional<te_t> selected_te_;
                             int evaluation_value;
@@ -2522,7 +2583,7 @@ namespace shogipp
             for (te_t & te : te_list)
             {
                 std::optional<te_t> selected_te_;
-                pos_t destination = (te.src != npos && te.dstkoma != empty) ? te.dst : npos;
+                pos_t destination = (!te.is_uchite() && te.captured_koma() != empty) ? te.destination() : npos;
                 int evaluation_value;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);

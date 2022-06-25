@@ -87,7 +87,7 @@ namespace shogipp
      * @retval sente sengo == gote ‚Ìê‡
      * @retval gote sengo == sente ‚Ìê‡
      */
-    sengo_t sengo_next(sengo_t sengo)
+    inline static sengo_t operator !(sengo_t sengo)
     {
         SHOGIPP_ASSERT(sengo >= sente);
         SHOGIPP_ASSERT(sengo <= gote);
@@ -1527,7 +1527,7 @@ namespace shogipp
                     VALIDATE_KYOKUMEN_ROLLBACK(*this);
                     do_te(te);
                     std::vector<kiki_t> kiki;
-                    search_kiki(std::back_inserter(kiki), dst, sengo_next(sengo()));
+                    search_kiki(std::back_inserter(kiki), dst, !sengo());
                     undo_te(te);
                     if (kiki.empty())
                         *result++ = te;
@@ -1545,7 +1545,7 @@ namespace shogipp
                     {
                         // ‹î‚ğˆÚ“®‚³‚¹‚é‡‹î
                         std::vector<kiki_t> kiki_list;
-                        search_kiki(std::back_inserter(kiki_list), dst, sengo_next(sengo()));
+                        search_kiki(std::back_inserter(kiki_list), dst, !sengo());
                         for (kiki_t & kiki : kiki_list)
                         {
                             // ‰¤‚Å‡‹î‚Í‚Å‚«‚È‚¢B
@@ -1570,7 +1570,7 @@ namespace shogipp
                     // ‰¤è‚µ‚Ä‚¢‚é‹î‚ğæ‚éè‚ğŒŸõ‚·‚éB
                     pos_t dst = oute.front().pos;
                     std::vector<kiki_t> kiki;
-                    search_kiki(std::back_inserter(kiki), dst, sengo_next(sengo()));
+                    search_kiki(std::back_inserter(kiki), dst, !sengo());
                     for (auto & k : kiki)
                     {
                         // ‰¤‚ğ“®‚©‚·è‚ÍŠù‚ÉŒŸõÏ‚İ
@@ -1863,7 +1863,7 @@ namespace shogipp
     inline void kyokumen_t::undo_updating_move_table_list(const te_t & te)
     {
         auto & self_move_table = move_table_list[sengo()];
-        auto & nonself_move_table = move_table_list[sengo_next(sengo())];
+        auto & nonself_move_table = move_table_list[!sengo()];
 
         if (te.src == npos)
         {
@@ -1882,7 +1882,7 @@ namespace shogipp
             if (te.dstkoma != empty)
             {
                 std::vector<pos_t> new_destination_list;
-                search_destination(std::back_inserter(new_destination_list), te.dst, sengo_next(sengo()));
+                search_destination(std::back_inserter(new_destination_list), te.dst, !sengo());
                 update_move_table(nonself_move_table, te.dst, std::move(new_destination_list));
             }
 
@@ -1961,10 +1961,10 @@ namespace shogipp
         kyokumen.search_te(std::back_inserter(te_list));
         if (te_list.empty())
         {
-            auto & winner_evaluator = evaluators[sengo_next(tesu_to_sengo(kyokumen.tesu))];
+            auto & winner_evaluator = evaluators[!kyokumen.sengo()];
             std::cout << kyokumen.tesu << "è‹l‚İ" << std::endl;
             kyokumen.print();
-            std::cout << sengo_to_string(sengo_next(tesu_to_sengo(kyokumen.tesu))) << "Ÿ—˜ (" << winner_evaluator->name() << ")";
+            std::cout << sengo_to_string(!kyokumen.sengo()) << "Ÿ—˜ (" << winner_evaluator->name() << ")";
             std::cout.flush();
             return false;
         }

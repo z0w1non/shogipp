@@ -484,25 +484,25 @@ namespace shogipp
     inline const pos_t * near_move_offsets(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        static const pos_t map[][10]
+        static const std::vector<pos_t> map[]
         {
-            /* empty    */ { },
-            /* fu       */ { front },
-            /* kyo      */ { },
-            /* kei      */ { kei_left, kei_right},
-            /* gin      */ { front_left, front, front_right, back_left, back_right },
-            /* kin      */ { front_left, front, front_right, left, right, back },
-            /* kaku     */ { },
-            /* hi       */ { },
-            /* ou       */ { front_left, front, front_right, left, right, back_left, back, back_right },
-            /* tokin    */ { front_left, front, front_right, left, right, back },
-            /* nari_kyo */ { front_left, front, front_right, left, right, back },
-            /* nari_kei */ { front_left, front, front_right, left, right, back },
-            /* nari_gin */ { front_left, front, front_right, left, right, back },
-            /* uma      */ { front, left, right, back },
-            /* ryu      */ { front_left, front_right, back_left, back_right },
+            /* empty    */ { 0 },
+            /* fu       */ { front, 0 },
+            /* kyo      */ { 0 },
+            /* kei      */ { kei_left, kei_right, 0},
+            /* gin      */ { front_left, front, front_right, back_left, back_right, 0 },
+            /* kin      */ { front_left, front, front_right, left, right, back, 0 },
+            /* kaku     */ { 0 },
+            /* hi       */ { 0 },
+            /* ou       */ { front_left, front, front_right, left, right, back_left, back, back_right, 0 },
+            /* tokin    */ { front_left, front, front_right, left, right, back, 0 },
+            /* nari_kyo */ { front_left, front, front_right, left, right, back, 0 },
+            /* nari_kei */ { front_left, front, front_right, left, right, back, 0 },
+            /* nari_gin */ { front_left, front, front_right, left, right, back, 0 },
+            /* uma      */ { front, left, right, back, 0 },
+            /* ryu      */ { front_left, front_right, back_left, back_right, 0 },
         };
-        return map[koma];
+        return map[koma].data();
     }
 
     inline const pos_t * far_move_offsets(koma_t koma)
@@ -1955,7 +1955,7 @@ namespace shogipp
     }
 
     template<typename Evaluator1, typename Evaluator2>
-    inline void do_game(bool dump_details)
+    inline void do_taikyoku(bool dump_details)
     {
         std::chrono::system_clock::time_point begin, end;
         begin = std::chrono::system_clock::now();

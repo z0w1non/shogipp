@@ -32,10 +32,24 @@
 //#define VALIDATE_MOVEMENT_CACHE
 #define DISABLE_MOVEMENT_CACHE
 
+#ifdef NDEBUG
+#define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen)
+#else
+#define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen) kyokumen_rollback_validator_t kyokumen_rollback_validator{ kyokumen }
+#endif
+
 namespace shogipp
 {
     inline unsigned long long total_search_count = 0;
 
+    /**
+     * @breif SHOGIPP_ASSERT ƒ}ƒNƒ‚ÌÀ‘•
+     * @param assertion ®‚ğ•]‰¿‚µ‚½ bool ’l
+     * @param expr ®‚ğ•\Œ»‚·‚é•¶š—ñ
+     * @param file __FILE__
+     * @param func __func__
+     * @param line __LINE__
+     */
     inline void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
     {
         if (!assertion)
@@ -65,6 +79,12 @@ namespace shogipp
         sengo_size = 2
     };
 
+    /**
+     * @breif ‹t‚Ìè”Ô‚ğæ“¾‚·‚éB
+     * @param sengo æè‚©Œãè‚©
+     * @retval sente sengo == gote ‚Ìê‡
+     * @retval gote sengo == sente ‚Ìê‡
+     */
     sengo_t sengo_next(sengo_t sengo)
     {
         SHOGIPP_ASSERT(sengo >= sente);
@@ -73,7 +93,7 @@ namespace shogipp
     }
 
     using pos_t = int;
-    constexpr pos_t npos = -1;
+    constexpr pos_t npos = -1; // –³Œø‚ÈÀ•W‚ğ•\Œ»‚·‚é’è”
 
     enum : pos_t
     {
@@ -83,16 +103,32 @@ namespace shogipp
         padding_height = 2
     };
 
+    /**
+     * @breif À•W‚©‚ç’i‚ğ’Šo‚·‚éB
+     * @param pos À•W
+     * @return ’i
+     */
     inline pos_t pos_to_dan(pos_t pos)
     {
         return pos / width - padding_height;
     }
 
+    /**
+     * @breif À•W‚©‚ç‹Ø‚ğ’Šo‚·‚éB
+     * @param pos À•W
+     * @return ‹Ø
+     */
     inline pos_t pos_to_suji(pos_t pos)
     {
         return pos % width - padding_width;
     }
 
+    /**
+     * @breif 2‚Â‚ÌÀ•WŠÔ‚Ìƒ}ƒ“ƒnƒbƒ^ƒ“‹——£‚ğŒvZ‚·‚éB
+     * @param a À•WA
+     * @param b À•WB
+     * @return 2‚Â‚ÌÀ•WŠÔ‚Ìƒ}ƒ“ƒnƒbƒ^ƒ“‹——£
+     */
     inline pos_t distance(pos_t a, pos_t b)
     {
         int asuji = pos_to_suji(a);
@@ -407,15 +443,31 @@ namespace shogipp
         }
     } hash_table;
 
-    inline const char * tebanstr(tesu_t tesu)
+    /**
+     * @breif æŒã‚ğ•\Œ»‚·‚é•¶š—ñ‚ğæ“¾‚·‚éB
+     * @param sengo æŒã
+     * @return æŒã‚ğ•\Œ»‚·‚é•¶š—ñ
+     */
+    inline const char * sengo_to_string(sengo_t sengo)
     {
         const char * map[]{ "æè", "Œãè" };
-        return map[tesu_to_sengo(tesu)];
+        return map[sengo];
     }
 
-    inline const char * numberstr(koma_t koma) {
-        const char * map[]{ "‚O", "‚P", "‚Q", "‚R", "‚S", "‚T", "‚U", "‚V", "‚W", "‚X" };
-        return map[koma];
+    /**
+     * @breif ”’l‚ğ‘SŠp•¶š—ñ‚É•ÏŠ·‚·‚éB
+     * @param value ”’l
+     * @return ‘SŠp•¶š—ñ
+     * @details ‚¿‹î‚ÌÅ‘å–‡”18‚ğ’´‚¦‚é’l‚ğw’è‚µ‚Ä‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚Ä‚Í‚È‚ç‚È‚¢B
+     */
+    inline const char * to_zenkaku_digit(unsigned int value) {
+        const char * map[]
+        {
+            "‚O", "‚P", "‚Q", "‚R", "‚S", "‚T", "‚U", "‚V", "‚W", "‚X",
+            "‚P‚O", "‚P‚P", "‚P‚Q", "‚P‚R", "‚P‚S", "‚P‚T", "‚P‚U", "‚P‚V", "‚P‚W"
+        };
+        SHOGIPP_ASSERT(value <= std::size(map));
+        return map[value];
     }
     
     inline const pos_t * near_move_offsets(koma_t koma)
@@ -468,7 +520,12 @@ namespace shogipp
 
     static const bool kin_nari[]{ false, true, true, true, true, false, false, false, false };
 
-    inline const char * to_string(koma_t koma)
+    /**
+     * @breif ‹î‚ğ•¶š—ñ‚É•ÏŠ·‚·‚éB
+     * @param koma ‹î
+     * @return •¶š—ñ
+     */
+    inline const char * koma_to_string(koma_t koma)
     {
         SHOGIPP_ASSERT(koma < koma_enum_number);
         static const char * map[]{
@@ -479,23 +536,48 @@ namespace shogipp
         return map[koma];
     }
 
-    inline const char * danstr(pos_t pos)
+    /**
+     * @breif ’i‚ğ•¶š—ñ‚É•ÏŠ·‚·‚éB
+     * @param dan ’i
+     * @return •¶š—ñ
+     */
+    inline const char * dan_to_string(pos_t dan)
     {
         static const char * map[]{ "ˆê", "“ñ", "O", "l", "ŒÜ", "˜Z", "µ", "”ª", "‹ã" };
-        return map[pos];
+        SHOGIPP_ASSERT(dan >= 0);
+        SHOGIPP_ASSERT(dan < static_cast<pos_t>(std::size(map)));
+        return map[dan];
     }
 
-    inline const char * sujistr(pos_t pos)
+    /**
+     * @breif ‹Ø‚ğ•¶š—ñ‚É•ÏŠ·‚·‚éB
+     * @param dan ‹Ø
+     * @return •¶š—ñ
+     */
+    inline const char * suji_to_string(pos_t suji)
     {
         static const char * map[]{ "‚X", "‚W", "‚V", "‚U", "‚T", "‚S", "‚R", "‚Q", "‚P" };
-        return map[pos];
+        SHOGIPP_ASSERT(suji >= 0);
+        SHOGIPP_ASSERT(suji < static_cast<pos_t>(std::size(map)));
+        return map[suji];
     }
 
+    /**
+     * @breif À•W‚ğ•¶š—ñ‚É•ÏŠ·‚·‚éB
+     * @param pos À•W
+     * @return •¶š—ñ
+     */
     inline std::string pos_to_string(pos_t pos)
     {
-        return std::string{} +sujistr(pos_to_suji(pos)) + danstr(pos_to_dan(pos));
+        return std::string{}.append(suji_to_string(pos_to_suji(pos))).append(dan_to_string(pos_to_dan(pos)));
     }
 
+    /**
+     * @breif ‹Ø‚Æ’i‚©‚çÀ•W‚ğæ“¾‚·‚éB
+     * @param suji ‹Ø
+     * @param dan ’i
+     * @return À•W
+     */
     inline pos_t suji_dan_to_pos(pos_t suji, pos_t dan)
     {
         return width * (dan + padding_height) + suji + padding_width;
@@ -509,7 +591,7 @@ namespace shogipp
 
     inline void print_pos(pos_t pos)
     {
-        std::cout << sujistr(pos_to_suji(pos)) << danstr(pos_to_dan(pos));
+        std::cout << suji_to_string(pos_to_suji(pos)) << dan_to_string(pos_to_dan(pos));
         std::cout.flush();
     }
 
@@ -535,52 +617,68 @@ namespace shogipp
         /**
          * @breif ‚¿‹î‚ğ‰Šú‰»‚·‚éB
          */
-        inline void init()
-        {
-            std::fill(std::begin(count), std::end(count), 0);
-        }
+        inline void init();
 
-        inline void print() const
-        {
-            unsigned int kind = 0;
-            for (koma_t koma = hi; koma >= fu; --koma)
-            {
-                if ((*this)[koma] > 0)
-                {
-                    std::cout << to_string(koma);
-                    if ((*this)[koma] > 1)
-                        std::cout << numberstr((*this)[koma]);
-                    ++kind;
-                }
-            }
-            if (kind == 0)
-                std::cout << "‚È‚µ";
-            std::cout << std::endl;
-        }
+        /**
+         * @breif ‚¿‹î‚ğ•W€o—Í‚Éo—Í‚·‚éB
+         */
+        inline void print() const;
 
         /**
          * @breif ‹î‚Æ‘Î‰‚·‚é‚¿‹î‚Ì”‚ÌQÆ‚ğ•Ô‚·B
          * @param ‹î
          * @return ‹î‚Æ‘Î‰‚·‚é‚¿‹î‚Ì”‚ÌQÆ
          */
-        inline unsigned char & operator [](koma_t koma)
-        {
-            SHOGIPP_ASSERT(koma != empty);
-            SHOGIPP_ASSERT(trim_sengo(koma) != ou);
-            static const std::size_t map[]{
-                0,
-                fu - fu, kyo - fu, kei - fu, gin - fu, kin - fu, kaku - fu, hi - fu, 0,
-                fu - fu, kyo - fu, kei - fu, gin - fu, kaku - fu, hi - fu
-            };
-            SHOGIPP_ASSERT(trim_sengo(koma) < std::size(map));
-            return count[map[trim_sengo(koma)]];
-        }
+        inline unsigned char & operator [](koma_t koma);
 
-        inline const unsigned char & operator [](koma_t koma) const
-        {
-            return (*const_cast<mochigoma_t*>(this))[koma];
-        }
+        /**
+         * @breif ‹î‚Æ‘Î‰‚·‚é‚¿‹î‚Ì”‚ÌQÆ‚ğ•Ô‚·B
+         * @param ‹î
+         * @return ‹î‚Æ‘Î‰‚·‚é‚¿‹î‚Ì”‚ÌQÆ
+         */
+        inline const unsigned char & operator [](koma_t koma) const;
     };
+
+    inline void mochigoma_t::init()
+    {
+        std::fill(std::begin(count), std::end(count), 0);
+    }
+
+    inline void mochigoma_t::print() const
+    {
+        unsigned int kind = 0;
+        for (koma_t koma = hi; koma >= fu; --koma)
+        {
+            if ((*this)[koma] > 0)
+            {
+                std::cout << koma_to_string(koma);
+                if ((*this)[koma] > 1)
+                    std::cout << to_zenkaku_digit((*this)[koma]);
+                ++kind;
+            }
+        }
+        if (kind == 0)
+            std::cout << "‚È‚µ";
+        std::cout << std::endl;
+    }
+
+    inline unsigned char & mochigoma_t::operator [](koma_t koma)
+    {
+        SHOGIPP_ASSERT(koma != empty);
+        SHOGIPP_ASSERT(trim_sengo(koma) != ou);
+        static const std::size_t map[]{
+            0,
+            fu - fu, kyo - fu, kei - fu, gin - fu, kin - fu, kaku - fu, hi - fu, 0,
+            fu - fu, kyo - fu, kei - fu, gin - fu, kaku - fu, hi - fu
+        };
+        SHOGIPP_ASSERT(trim_sengo(koma) < std::size(map));
+        return count[map[trim_sengo(koma)]];
+    }
+
+    inline const unsigned char & mochigoma_t::operator [](koma_t koma) const
+    {
+        return (*const_cast<mochigoma_t *>(this))[koma];
+    }
 
     /**
      * @breif ”Õ
@@ -590,25 +688,7 @@ namespace shogipp
         /**
          * @breif ”Õ‚ğ‰Šú‰»‚·‚éB
          */
-        inline void init()
-        {
-            static const koma_t temp[]{
-                x, x, x, x, x, x, x, x, x, x, x,
-                x, x, x, x, x, x, x, x, x, x, x,
-                x, gote_kyo, gote_kei, gote_gin, gote_kin, gote_ou, gote_kin, gote_gin, gote_kei, gote_kyo, x,
-                x, empty, gote_hi, empty, empty, empty, empty, empty, gote_kaku, empty, x,
-                x, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, x,
-                x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
-                x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
-                x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
-                x, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, x,
-                x, empty, sente_kaku, empty, empty, empty, empty, empty, sente_hi, empty, x,
-                x, sente_kyo, sente_kei, sente_gin, sente_kin, sente_ou, sente_kin, sente_gin, sente_kei, sente_kyo, x,
-                x, x, x, x, x, x, x, x, x, x, x,
-                x, x, x, x, x, x, x, x, x, x, x,
-            };
-            std::copy(std::begin(temp), std::end(temp), std::begin(data));
-        }
+        inline void init();
 
         inline koma_t & operator [](size_t i) { return data[i]; }
         inline const koma_t & operator [](size_t i) const { return data[i]; }
@@ -618,50 +698,74 @@ namespace shogipp
          * @param pos À•W
          * @return ”ÕŠO‚Ìê‡true
          */
-        inline static bool out(pos_t pos)
-        {
-#define _ empty
-            static const koma_t table[]{
-                x, x, x, x, x, x, x, x, x, x, x,
-                x, x, x, x, x, x, x, x, x, x, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, x, x, x, x, x, x, x, x, x, x,
-                x, x, x, x, x, x, x, x, x, x, x,
-            };
-#undef _
-            return pos < 0 || pos >= width * height || table[pos] == x;
-        }
+        inline static bool out(pos_t pos);
 
         /**
          * @breif ”Õ‚ğ•W€o—Í‚Éo—Í‚·‚éB
          */
-        inline void print() const
-        {
-            std::cout << "  ‚X ‚W ‚V ‚U ‚T ‚S ‚R ‚Q ‚P" << std::endl;
-            std::cout << "+---------------------------+" << std::endl;
-            for (pos_t dan = 0; dan < 9; ++dan)
-            {
-                std::cout << "|";
-                for (pos_t suji = 0; suji < 9; ++suji)
-                {
-                    koma_t koma = data[suji_dan_to_pos(suji, dan)];
-                    std::cout << ((koma != empty && to_sengo(koma)) ? "v" : " ") << to_string(koma);
-                }
-                std::cout << "| " << danstr(dan) << std::endl;
-            }
-            std::cout << "+---------------------------+" << std::endl;
-        }
+        inline void print() const;
 
         koma_t data[width * height];
     };
+
+    inline void ban_t::init()
+    {
+        static const koma_t temp[]{
+            x, x, x, x, x, x, x, x, x, x, x,
+            x, x, x, x, x, x, x, x, x, x, x,
+            x, gote_kyo, gote_kei, gote_gin, gote_kin, gote_ou, gote_kin, gote_gin, gote_kei, gote_kyo, x,
+            x, empty, gote_hi, empty, empty, empty, empty, empty, gote_kaku, empty, x,
+            x, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, x,
+            x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
+            x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
+            x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
+            x, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, x,
+            x, empty, sente_kaku, empty, empty, empty, empty, empty, sente_hi, empty, x,
+            x, sente_kyo, sente_kei, sente_gin, sente_kin, sente_ou, sente_kin, sente_gin, sente_kei, sente_kyo, x,
+            x, x, x, x, x, x, x, x, x, x, x,
+            x, x, x, x, x, x, x, x, x, x, x,
+        };
+        std::copy(std::begin(temp), std::end(temp), std::begin(data));
+    }
+
+    inline bool ban_t::out(pos_t pos)
+    {
+#define _ empty
+        static const koma_t table[]{
+            x, x, x, x, x, x, x, x, x, x, x,
+            x, x, x, x, x, x, x, x, x, x, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, x, x, x, x, x, x, x, x, x, x,
+            x, x, x, x, x, x, x, x, x, x, x,
+        };
+#undef _
+        return pos < 0 || pos >= width * height || table[pos] == x;
+    }
+
+    inline void ban_t::print() const
+    {
+        std::cout << "  ‚X ‚W ‚V ‚U ‚T ‚S ‚R ‚Q ‚P" << std::endl;
+        std::cout << "+---------------------------+" << std::endl;
+        for (pos_t dan = 0; dan < 9; ++dan)
+        {
+            std::cout << "|";
+            for (pos_t suji = 0; suji < 9; ++suji)
+            {
+                koma_t koma = data[suji_dan_to_pos(suji, dan)];
+                std::cout << ((koma != empty && to_sengo(koma)) ? "v" : " ") << koma_to_string(koma);
+            }
+            std::cout << "| " << dan_to_string(dan) << std::endl;
+        }
+        std::cout << "+---------------------------+" << std::endl;
+    }
 
     /**
      * @breif —˜‚«
@@ -997,37 +1101,26 @@ namespace shogipp
         move_table_t move_table_list[sengo_size];       // ‡–@è‚Ì•\
     };
 
-#ifdef NDEBUG
-#define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen)
-#else
-#define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen) kyokumen_rollback_validator_t kyokumen_rollback_validator{ kyokumen }
-#endif
     /**
      * @breif ƒRƒs[ƒRƒ“ƒXƒgƒ‰ƒNƒg‚³‚ê‚Ä‚©‚çƒfƒXƒgƒ‰ƒNƒg‚³‚ê‚é‚Ü‚Å‚É‹Ç–Ê‚ª•ÏX‚³‚ê‚Ä‚¢‚È‚¢‚±‚Æ‚ğŒŸØ‚·‚éB
      */
     struct kyokumen_rollback_validator_t
     {
-        kyokumen_rollback_validator_t(const kyokumen_t & kyokumen)
-            : kyokumen{ kyokumen }
-        {
-            std::copy(std::begin(kyokumen.ban.data), std::end(kyokumen.ban.data), std::begin(data));
-            for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
-                std::copy(std::begin(kyokumen.mochigoma_list), std::end(kyokumen.mochigoma_list), std::begin(mochigoma_list));
-        }
-
-        ~kyokumen_rollback_validator_t()
-        {
-            for (std::size_t i = 0; i < std::size(data); ++i)
-                SHOGIPP_ASSERT(data[i] == kyokumen.ban.data[i]);
-            for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
-                for (koma_t koma = fu; koma <= hi; ++koma)
-                    SHOGIPP_ASSERT(mochigoma_list[sengo][koma] == kyokumen.mochigoma_list[sengo][koma]);
-        }
+        kyokumen_rollback_validator_t(const kyokumen_t & kyokumen);
+        ~kyokumen_rollback_validator_t();
 
         const kyokumen_t & kyokumen;
         koma_t data[width * height];
         mochigoma_t mochigoma_list[sengo_size];
     };
+
+    kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen)
+        : kyokumen{ kyokumen }
+    {
+        std::copy(std::begin(kyokumen.ban.data), std::end(kyokumen.ban.data), std::begin(data));
+        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+            std::copy(std::begin(kyokumen.mochigoma_list), std::end(kyokumen.mochigoma_list), std::begin(mochigoma_list));
+    }
 
     inline void kyokumen_t::init_move_table_list()
     {
@@ -1044,6 +1137,15 @@ namespace shogipp
                 move_table[src] = std::move(destination_list);
             }
         }
+    }
+
+    kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t()
+    {
+        for (std::size_t i = 0; i < std::size(data); ++i)
+            SHOGIPP_ASSERT(data[i] == kyokumen.ban.data[i]);
+        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+            for (koma_t koma = fu; koma <= hi; ++koma)
+                SHOGIPP_ASSERT(mochigoma_list[sengo][koma] == kyokumen.mochigoma_list[sengo][koma]);
     }
 
     inline void kyokumen_t::init()
@@ -1491,12 +1593,12 @@ namespace shogipp
                 naristr = te.promote ? "¬" : "•s¬";
             else
                 naristr = "";
-            std::cout << sujistr(pos_to_suji(te.dst)) << danstr(pos_to_dan(te.dst)) << to_string(trim_sengo(te.srckoma)) << naristr
-                << " (" << sujistr(pos_to_suji(te.src)) << danstr(pos_to_dan(te.src)) << ")";
+            std::cout << suji_to_string(pos_to_suji(te.dst)) << dan_to_string(pos_to_dan(te.dst)) << koma_to_string(trim_sengo(te.srckoma)) << naristr
+                << " (" << suji_to_string(pos_to_suji(te.src)) << dan_to_string(pos_to_dan(te.src)) << ")";
         }
         else
         {
-            std::cout << sujistr(pos_to_suji(te.dst)) << danstr(pos_to_dan(te.dst)) << to_string(trim_sengo(te.srckoma)) << "‘Å";
+            std::cout << suji_to_string(pos_to_suji(te.dst)) << dan_to_string(pos_to_dan(te.dst)) << koma_to_string(trim_sengo(te.srckoma)) << "‘Å";
         }
     }
 
@@ -1532,7 +1634,7 @@ namespace shogipp
                     if (j > 0)
                         std::cout << "@";
                     print_pos(kiki.pos);
-                    std::cout << to_string(trim_sengo(ban[kiki.pos])) << std::endl;
+                    std::cout << koma_to_string(trim_sengo(ban[kiki.pos])) << std::endl;
                 }
             }
         }
@@ -1766,58 +1868,74 @@ namespace shogipp
         virtual const char * name() = 0;
     };
 
-    struct game_t
+    /**
+     * @breif ‘Î‹Ç
+     */
+    struct taikyoku_t
     {
+        /**
+         * @breif ‘Î‹Ç‚ğ‰Šú‰»‚·‚éB
+         */
+        inline void init();
+
+        /**
+         * @breif ‘Î‹Ç‚ğÀs‚·‚éB
+         * @retval true ‘Î‹Ç‚ªI—¹‚µ‚Ä‚¢‚È‚¢
+         * @retval false ‘Î‹Ç‚ªI—¹‚µ‚½
+         * @details ‚±‚ÌŠÖ”‚ª true ‚ğ•Ô‚µ‚½ê‡AÄ“x‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚·B
+         */
+        inline bool procedure();
+
         std::shared_ptr<abstract_evaluator_t> evaluators[sengo_size];
         kyokumen_t kyokumen;
         bool sente_win;
-
-        inline void init()
-        {
-            kyokumen.init();
-        }
-
-        inline bool procedure()
-        {
-            auto & evaluator = evaluators[tesu_to_sengo(kyokumen.tesu)];
-
-            if (kyokumen.tesu == 0)
-            {
-                for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
-                    std::cout << tebanstr(static_cast<tesu_t>(sengo)) << "F" << evaluators[sengo]->name() << std::endl;
-                std::cout << std::endl;
-            }
-
-            std::vector<te_t> te_list;
-            kyokumen.search_te(std::back_inserter(te_list));
-            if (te_list.empty())
-            {
-                auto & winner_evaluator = evaluators[sengo_next(tesu_to_sengo(kyokumen.tesu))];
-                std::cout << kyokumen.tesu << "è‹l‚İ" << std::endl;
-                kyokumen.print();
-                std::cout << tebanstr(kyokumen.tesu + 1) << "Ÿ—˜ (" << winner_evaluator->name() << ")";
-                std::cout.flush();
-                return false;
-            }
-            else
-            {
-                std::cout << (kyokumen.tesu + 1) << "è–Ú" << tebanstr(kyokumen.tesu) << "”Ô" << std::endl;
-                kyokumen.print();
-                kyokumen.print_te();
-                kyokumen.print_oute();
-            }
-
-            kyokumen_t temp_kyokumen = kyokumen;
-            te_t selected_te = evaluator->select_te(temp_kyokumen);
-
-            kyokumen.print_te(selected_te, tesu_to_sengo(kyokumen.tesu));
-            std::cout << std::endl << std::endl;
-
-            kyokumen.do_te(selected_te);
-
-            return true;
-        }
     };
+
+    inline void taikyoku_t::init()
+    {
+        kyokumen.init();
+    }
+
+    inline bool taikyoku_t::procedure()
+    {
+        auto & evaluator = evaluators[tesu_to_sengo(kyokumen.tesu)];
+
+        if (kyokumen.tesu == 0)
+        {
+            for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+                std::cout << sengo_to_string(static_cast<sengo_t>(sengo)) << "F" << evaluators[sengo]->name() << std::endl;
+            std::cout << std::endl;
+        }
+
+        std::vector<te_t> te_list;
+        kyokumen.search_te(std::back_inserter(te_list));
+        if (te_list.empty())
+        {
+            auto & winner_evaluator = evaluators[sengo_next(tesu_to_sengo(kyokumen.tesu))];
+            std::cout << kyokumen.tesu << "è‹l‚İ" << std::endl;
+            kyokumen.print();
+            std::cout << sengo_to_string(sengo_next(tesu_to_sengo(kyokumen.tesu))) << "Ÿ—˜ (" << winner_evaluator->name() << ")";
+            std::cout.flush();
+            return false;
+        }
+        else
+        {
+            std::cout << (kyokumen.tesu + 1) << "è–Ú" << sengo_to_string(kyokumen.sengo()) << "”Ô" << std::endl;
+            kyokumen.print();
+            kyokumen.print_te();
+            kyokumen.print_oute();
+        }
+
+        kyokumen_t temp_kyokumen = kyokumen;
+        te_t selected_te = evaluator->select_te(temp_kyokumen);
+
+        kyokumen.print_te(selected_te, tesu_to_sengo(kyokumen.tesu));
+        std::cout << std::endl << std::endl;
+
+        kyokumen.do_te(selected_te);
+
+        return true;
+    }
 
     template<typename Evaluator1, typename Evaluator2>
     inline void do_game(bool dump_details)
@@ -1825,9 +1943,9 @@ namespace shogipp
         std::chrono::system_clock::time_point begin, end;
         begin = std::chrono::system_clock::now();
 
-        game_t game{ { std::make_shared<Evaluator1>(), std::make_shared<Evaluator2>() } };
-        game.init();
-        while (game.procedure());
+        taikyoku_t taikyoku{ { std::make_shared<Evaluator1>(), std::make_shared<Evaluator2>() } };
+        taikyoku.init();
+        while (taikyoku.procedure());
 
         end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();

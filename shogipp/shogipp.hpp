@@ -71,7 +71,7 @@ namespace shogipp
         sente_fu = fu, sente_kyo, sente_kei, sente_gin, sente_kin, sente_kaku, sente_hi, sente_ou, sente_tokin, sente_nari_kyo, sente_nari_kei, sente_nari_gin, sente_uma, sente_ryu,
         gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, gote_uma, gote_ryu,
         koma_enum_number,
-        x = 0xff
+        out_of_range = 0xff
     };
 
     enum sengo_t : unsigned char
@@ -754,6 +754,8 @@ namespace shogipp
         koma_t data[width * height];
     };
 
+#define _ empty
+#define x out_of_range
     inline void ban_t::init()
     {
         static const koma_t temp[]
@@ -761,13 +763,13 @@ namespace shogipp
             x, x, x, x, x, x, x, x, x, x, x,
             x, x, x, x, x, x, x, x, x, x, x,
             x, gote_kyo, gote_kei, gote_gin, gote_kin, gote_ou, gote_kin, gote_gin, gote_kei, gote_kyo, x,
-            x, empty, gote_hi, empty, empty, empty, empty, empty, gote_kaku, empty, x,
+            x, _, gote_hi, _, _, _, _, _, gote_kaku, _, x,
             x, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, x,
-            x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
-            x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
-            x, empty, empty, empty, empty, empty, empty, empty, empty, empty, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
+            x, _, _, _, _, _, _, _, _, _, x,
             x, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, x,
-            x, empty, sente_kaku, empty, empty, empty, empty, empty, sente_hi, empty, x,
+            x, _, sente_kaku, _, _, _, _, _, sente_hi, _, x,
             x, sente_kyo, sente_kei, sente_gin, sente_kin, sente_ou, sente_kin, sente_gin, sente_kei, sente_kyo, x,
             x, x, x, x, x, x, x, x, x, x, x,
             x, x, x, x, x, x, x, x, x, x, x,
@@ -777,7 +779,6 @@ namespace shogipp
 
     inline bool ban_t::out(pos_t pos)
     {
-#define _ empty
         static const koma_t table[]
         {
             x, x, x, x, x, x, x, x, x, x, x,
@@ -794,9 +795,10 @@ namespace shogipp
             x, x, x, x, x, x, x, x, x, x, x,
             x, x, x, x, x, x, x, x, x, x, x,
         };
-#undef _
-        return pos < 0 || pos >= width * height || table[pos] == x;
+        return pos < 0 || pos >= width * height || table[pos] == out_of_range;
     }
+#undef _
+#undef x
 
     inline void ban_t::print() const
     {
@@ -1728,7 +1730,7 @@ namespace shogipp
         for (pos_t pos = 0; pos < width * height; ++pos)
         {
             if (ban_t::out(pos))
-                SHOGIPP_ASSERT(ban[pos] == x);
+                SHOGIPP_ASSERT(ban[pos] == out_of_range);
         }
     }
 

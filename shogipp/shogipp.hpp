@@ -968,7 +968,7 @@ namespace shogipp
          * @param transform (pos, offset, aigoma) を出力イテレータに出力する変数に変換する関数
          */
         template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-        inline void search_koma_near_internal(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform);
+        inline void search_koma_near(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform);
 
         /**
          * @breif 座標posを利いている駒あるいは紐を付けている駒を検索する。
@@ -982,7 +982,7 @@ namespace shogipp
          * @sa search_kiki_far
          */
         template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-        inline void search_koma_far_internal(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform);
+        inline void search_koma_far(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform);
 
         /**
          * @breif 座標posに利いている駒あるいは紐を付けている駒を検索する。
@@ -1368,7 +1368,7 @@ namespace shogipp
     }
     
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_koma_near_internal(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform)
+    inline void kyokumen_t::search_koma_near(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform)
     {
         if (pos_t cur = pos + offset; !ban_t::out(cur) && ban[cur] != empty)
             if (is_collected(to_sengo(ban[cur])) && std::find(first, last, trim_sengo(ban[cur])) != last)
@@ -1376,9 +1376,9 @@ namespace shogipp
     }
 
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_koma_far_internal(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform)
+    inline void kyokumen_t::search_koma_far(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform)
     {
-        if (pos_t found = search(pos, offset); found != npos && ban[found] != empty)
+        if (pos_t found = search(pos + offset, offset); found != npos && ban[found] != empty)
             if (is_collected(to_sengo(ban[found])) && std::find(first, last, trim_sengo(ban[found])) != last)
                 *result++ = transform(found, offset, found != pos + offset);
     }
@@ -1388,11 +1388,11 @@ namespace shogipp
     {
         pos_t r = reverse(sengo);
         for (auto & [offset, koma_list] : near_kiki_list)
-            search_koma_near_internal(result, pos, offset * r, koma_list.begin(), koma_list.end(), is_collected, transform);
+            search_koma_near(result, pos, offset * r, koma_list.begin(), koma_list.end(), is_collected, transform);
         for (auto & [offset, koma_list] : far_kiki_list_synmmetric)
-            search_koma_far_internal(result, pos, offset, koma_list.begin(), koma_list.end(), is_collected, transform);
+            search_koma_far(result, pos, offset, koma_list.begin(), koma_list.end(), is_collected, transform);
         for (auto & [offset, koma_list] : far_kiki_list_asynmmetric)
-            search_koma_far_internal(result, pos, offset * r, koma_list.begin(), koma_list.end(), is_collected, transform);
+            search_koma_far(result, pos, offset * r, koma_list.begin(), koma_list.end(), is_collected, transform);
     }
 
     template<typename OutputIterator>
@@ -1706,13 +1706,13 @@ namespace shogipp
         for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
         {
             auto & oute = oute_list[sengo];
-            if (oute_list[sengo].size() > 0)
+            if (!oute.empty())
             {
                 std::cout << "王手：";
-                for (std::size_t j = 0; j < oute_list[sengo].size(); ++j)
+                for (std::size_t i = 0; i < oute_list[sengo].size(); ++i)
                 {
-                    kiki_t & kiki = oute[j];
-                    if (j > 0)
+                    kiki_t & kiki = oute[i];
+                    if (i > 0)
                         std::cout << "　";
                     print_pos(kiki.pos);
                     std::cout << koma_to_string(trim_sengo(ban[kiki.pos])) << std::endl;

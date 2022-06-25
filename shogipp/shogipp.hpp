@@ -215,6 +215,12 @@ namespace shogipp
 
     using hash_t = std::size_t;
 
+    /*
+     * @breif 駒が成駒か判定する。
+     * @param koma 駒
+     * @retval true 成駒である
+     * @retval false 成駒でない
+     */
     inline bool is_promoted(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
@@ -227,6 +233,12 @@ namespace shogipp
         return map[koma];
     }
 
+    /*
+     * @breif 駒が成れるか判定する。
+     * @param koma 駒
+     * @retval true 成れる
+     * @retval false 成れない
+     */
     inline bool is_promotable(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
@@ -343,7 +355,7 @@ namespace shogipp
         return map[koma];
     }
 
-    /*
+    /**
      * @breif 駒を後手の駒に変換する。
      * @param koma 駒
      * @return 後手の駒
@@ -360,9 +372,13 @@ namespace shogipp
         };
         return map[koma];
     }
-    
-    static const struct hash_table_t
+
+    /**
+     * @breif ハッシュテーブル
+     */
+    class hash_table_t
     {
+    public:
         /**
          * ハッシュテーブルを構築する。
          */
@@ -385,9 +401,12 @@ namespace shogipp
          */
         inline hash_t mochigoma_hash(koma_t koma, std::size_t count, sengo_t sengo) const;
 
+    private:
         hash_t ban_table[koma_enum_number * 9 * 9];
         hash_t mochigoma_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];
-    } hash_table;
+    };
+
+    static const hash_table_t hash_table;
 
     inline hash_table_t::hash_table_t()
     {

@@ -94,16 +94,13 @@ namespace shogipp
         return static_cast<sengo_t>((sengo + 1) % sengo_size);
     }
 
-    using pos_t = int;
+    using pos_t = signed char;
     constexpr pos_t npos = -1; // 無効な座標を表現する定数
-
-    enum : pos_t
-    {
-        width = 11,
-        height = 13,
-        padding_width = 1,
-        padding_height = 2
-    };
+    constexpr pos_t width = 11;
+    constexpr pos_t height = 11;
+    constexpr pos_t pos_size = width * height;
+    constexpr pos_t padding_width = 1;
+    constexpr pos_t padding_height = 1;
 
     /**
      * @breif 座標から段を抽出する。
@@ -133,11 +130,11 @@ namespace shogipp
      */
     inline pos_t distance(pos_t a, pos_t b)
     {
-        int asuji = pos_to_suji(a);
-        int adan = pos_to_dan(a);
-        int bsuji = pos_to_suji(b);
-        int bdan = pos_to_dan(b);
-        return std::abs(asuji - bsuji) + std::abs(adan - bdan);
+        int suji_a = pos_to_suji(a);
+        int dan_a = pos_to_dan(a);
+        int suji_b = pos_to_suji(b);
+        int dan_b = pos_to_dan(b);
+        return static_cast<pos_t>(std::abs(suji_a - suji_b) + std::abs(dan_a - dan_b));
     }
 
     constexpr pos_t front = -width;
@@ -751,7 +748,7 @@ namespace shogipp
          */
         inline void print() const;
 
-        koma_t data[width * height];
+        koma_t data[pos_size];
     };
 
 #define _ empty
@@ -760,7 +757,6 @@ namespace shogipp
     {
         static const koma_t temp[]
         {
-            x, x, x, x, x, x, x, x, x, x, x,
             x, x, x, x, x, x, x, x, x, x, x,
             x, gote_kyo, gote_kei, gote_gin, gote_kin, gote_ou, gote_kin, gote_gin, gote_kei, gote_kyo, x,
             x, _, gote_hi, _, _, _, _, _, gote_kaku, _, x,
@@ -772,7 +768,6 @@ namespace shogipp
             x, _, sente_kaku, _, _, _, _, _, sente_hi, _, x,
             x, sente_kyo, sente_kei, sente_gin, sente_kin, sente_ou, sente_kin, sente_gin, sente_kei, sente_kyo, x,
             x, x, x, x, x, x, x, x, x, x, x,
-            x, x, x, x, x, x, x, x, x, x, x,
         };
         std::copy(std::begin(temp), std::end(temp), std::begin(data));
     }
@@ -782,7 +777,6 @@ namespace shogipp
         static const koma_t table[]
         {
             x, x, x, x, x, x, x, x, x, x, x,
-            x, x, x, x, x, x, x, x, x, x, x,
             x, _, _, _, _, _, _, _, _, _, x,
             x, _, _, _, _, _, _, _, _, _, x,
             x, _, _, _, _, _, _, _, _, _, x,
@@ -792,10 +786,9 @@ namespace shogipp
             x, _, _, _, _, _, _, _, _, _, x,
             x, _, _, _, _, _, _, _, _, _, x,
             x, _, _, _, _, _, _, _, _, _, x,
-            x, x, x, x, x, x, x, x, x, x, x,
             x, x, x, x, x, x, x, x, x, x, x,
         };
-        return pos < 0 || pos >= width * height || table[pos] == out_of_range;
+        return pos < 0 || pos >= pos_size || table[pos] == out_of_range;
     }
 #undef _
 #undef x
@@ -1172,7 +1165,7 @@ namespace shogipp
 
     private:
         const kyokumen_t & kyokumen;
-        koma_t data[width * height];
+        koma_t data[pos_size];
         mochigoma_t mochigoma_list[sengo_size];
     };
 
@@ -1334,9 +1327,9 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_source(OutputIterator result, sengo_t sengo) const
     {
-        for (pos_t i = 0; i < width * height; ++i)
-            if (!ban_t::out(i) && ban[i] != empty && to_sengo(ban[i]) == sengo)
-                *result++ = i;
+        for (pos_t pos = 0; pos < pos_size; ++pos)
+            if (!ban_t::out(pos) && ban[pos] != empty && to_sengo(ban[pos]) == sengo)
+                *result++ = pos;
     }
 
     inline pos_t kyokumen_t::search(pos_t pos, pos_t offset) const
@@ -1518,7 +1511,7 @@ namespace shogipp
             for (koma_t koma = fu; koma <= hi; ++koma)
             {
                 if (mochigoma_list[sengo()][koma])
-                    for (pos_t dst = 0; dst < width * height; ++dst)
+                    for (pos_t dst = 0; dst < pos_size; ++dst)
                         if (can_put(koma, dst))
                             *result++ = { npos, dst, koma };
             }
@@ -1606,7 +1599,7 @@ namespace shogipp
         hash_t hash = 0;
 
         // 盤上の駒のハッシュ値をXOR演算
-        for (pos_t pos = 0; pos < width * height; ++pos)
+        for (pos_t pos = 0; pos < pos_size; ++pos)
             if (!ban_t::out(pos))
                 if (koma_t koma = ban[pos]; koma != empty)
                     hash ^= hash_table.koma_hash(koma, pos);
@@ -1727,7 +1720,7 @@ namespace shogipp
 
     inline void kyokumen_t::validate_ban_out()
     {
-        for (pos_t pos = 0; pos < width * height; ++pos)
+        for (pos_t pos = 0; pos < pos_size; ++pos)
         {
             if (ban_t::out(pos))
                 SHOGIPP_ASSERT(ban[pos] == out_of_range);
@@ -2034,7 +2027,7 @@ namespace shogipp
     {
         int score = 0;
 
-        for (pos_t pos = 0; pos < width * height; ++pos)
+        for (pos_t pos = 0; pos < pos_size; ++pos)
         {
             koma_t koma = kyokumen.ban[pos];
             if (!ban_t::out(pos) && koma != empty)

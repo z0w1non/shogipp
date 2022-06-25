@@ -1695,7 +1695,7 @@ namespace shogipp
             else
                 naristr = "";
             std::cout << suji_to_string(pos_to_suji(te.dst)) << dan_to_string(pos_to_dan(te.dst)) << koma_to_string(trim_sengo(te.srckoma)) << naristr
-                << " (" << suji_to_string(pos_to_suji(te.src)) << dan_to_string(pos_to_dan(te.src)) << ")";
+                << "（" << suji_to_string(pos_to_suji(te.src)) << dan_to_string(pos_to_dan(te.src)) << "）";
         }
         else
         {
@@ -2193,7 +2193,7 @@ namespace shogipp
             auto & winner_evaluator = evaluators[!kyokumen.sengo()];
             std::cout << kyokumen.tesu << "手詰み" << std::endl;
             kyokumen.print();
-            std::cout << sengo_to_string(!kyokumen.sengo()) << "勝利 (" << winner_evaluator->name() << ")";
+            std::cout << sengo_to_string(!kyokumen.sengo()) << "勝利（" << winner_evaluator->name() << "）";
             std::cout.flush();
             return false;
         }

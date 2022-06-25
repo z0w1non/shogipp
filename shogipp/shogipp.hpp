@@ -1046,26 +1046,32 @@ namespace shogipp
         inline hash_t make_hash(hash_t hash, const te_t & te) const;
 
         /**
-         * @breif 合法手を出力する。
+         * @breif 合法手を標準出力に出力する。
          * @param te 合法手
          * @param is_gote 後手の合法手か
          */
         inline void print_te(const te_t & te, sengo_t sengo) const;
 
         /**
-         * @breif 合法手を出力する。
+         * @breif 合法手を標準出力に出力する。
          * @param first 合法手の入力イテレータのbegin
          * @param last 合法手の入力イテレータのend
          */
         template<typename InputIterator>
         inline void print_te(InputIterator first, InputIterator last) const;
 
+        /**
+         * @breif 合法手を標準出力に出力する。
+         */
         inline void print_te();
 
+        /**
+         * @breif 王手を標準出力に出力する。
+         */
         inline void print_oute();
 
         /**
-         * @breif 局面を出力する。
+         * @breif 局面を標準出力に出力する。
          */
         inline void print();
 

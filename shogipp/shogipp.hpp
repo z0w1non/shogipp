@@ -683,9 +683,30 @@ namespace shogipp
     class te_t
     {
     public:
+        /**
+         * @breif 打ち手を構築する。
+         * @param destination 打つ座標
+         * @param source_koma 打つ駒
+         */
         inline te_t(pos_t destination, koma_t source_koma);
+
+        /**
+         * @breif 移動する手を構築する。
+         * @param source 移動元の座標
+         * @param destination 移動先の座標
+         * @param source_koma 移動元の駒
+         * @param captured_koma 移動先の駒
+         * @param promote 成か不成か
+         */
         inline te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote);
+
+        /**
+         * @breif 打ち手か判定する。
+         * @retval true 打ち手である
+         * @retval false 移動する手である
+         */
         inline bool is_uchite() const;
+
         inline pos_t source() const;
         inline pos_t destination() const;
         inline koma_t source_koma() const;

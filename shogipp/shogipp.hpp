@@ -370,6 +370,28 @@ namespace shogipp
     }
 
     /**
+     * @breif koma が target_koma に合致するか判定する。
+     * @param koma 駒
+     * @retval true 合致する
+     * @retval false 合致しない
+     */
+    template<koma_t target_koma>
+    bool match(koma_t koma)
+    {
+        SHOGIPP_ASSERT(koma != empty);
+        static const struct impl_t
+        {
+            impl_t()
+            {
+                for (koma_t koma = fu; koma < koma_enum_number; ++koma)
+                    map[koma] = trim_sengo(koma) == target_koma;
+            }
+            bool map[koma_enum_number]{};
+        } impl;
+        return impl.map[koma];
+    }
+
+    /**
      * @breif ハッシュテーブル
      */
     class hash_table_t
@@ -966,7 +988,7 @@ namespace shogipp
          * @breif 座標posに利いている駒あるいは紐を付けている駒を検索する。
          * @param result 座標の出力イテレータ
          * @param pos 座標
-         * @param sengo 先手か後手か
+         * @param sengo 先後いずれの視点か
          * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
          * @param transform (pos, offset, aigoma) を出力イテレータに出力する変数に変換する関数
          */
@@ -977,7 +999,7 @@ namespace shogipp
          * @breif 座標posに紐を付けている駒を検索する。
          * @param result 座標の出力イテレータ
          * @param pos 座標
-         * @param sengo 先手か後手か
+         * @param sengo 先後いずれの視点か
          */
         template<typename OutputIterator>
         inline void search_himo(OutputIterator result, pos_t pos, sengo_t sengo);
@@ -986,7 +1008,7 @@ namespace shogipp
          * @breif 座標posに利いている駒を検索する。
          * @param result 座標の出力イテレータ
          * @param pos 座標
-         * @param sengo 先手か後手か
+         * @param sengo 先後いずれの視点か
          */
         template<typename OutputIterator>
         inline void search_kiki(OutputIterator result, pos_t pos, sengo_t sengo);
@@ -995,7 +1017,7 @@ namespace shogipp
          * @breif 座標posに利いている駒あるいは紐を付けている駒を検索する。
          * @param result 座標の出力イテレータ
          * @param pos 座標
-         * @param sengo 先手か後手か
+         * @param sengo 先後いずれの視点か
          */
         template<typename OutputIterator>
         inline void search_kiki_or_himo(OutputIterator result, pos_t pos, sengo_t sengo);
@@ -1005,6 +1027,11 @@ namespace shogipp
          */
         inline void update_oute();
 
+        /**
+         * @breif 合駒を検索する。
+         * @param aigoma_info 合駒の出力先
+         * @param sengo 先後いずれの視点か
+         */
         inline void search_aigoma(aigoma_info_t & aigoma_info, sengo_t sengo);
 
         /**

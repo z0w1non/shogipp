@@ -90,6 +90,12 @@ namespace shogipp
         sengo_size = 2
     };
 
+    static constexpr sengo_t sengo_list[]
+    {
+        sente,
+        gote
+    };
+
     /**
      * @breif ‹t‚Ìè”Ô‚ğæ“¾‚·‚éB
      * @param sengo æè‚©Œãè‚©
@@ -1121,16 +1127,16 @@ namespace shogipp
          */
         inline void validate_move_table()
         {
-            for (std::size_t i = 0; i < 2; ++i)
+            for (sengo_t sengo : sengo_list)
             {
-                auto & move_table = move_table_list[i];
+                auto & move_table = move_table_list[sengo];
 
                 std::vector<pos_t> source_list;
-                search_source(std::back_inserter(source_list), is_goteban(i));
+                search_source(std::back_inserter(source_list), sengo);
                 for (pos_t source : source_list)
                 {
                     std::vector<pos_t> destination_list;
-                    search_destination(std::back_inserter(destination_list), source, is_goteban(i));
+                    search_destination(std::back_inserter(destination_list), source, sengo);
                     
                     auto iter = move_table.find(source);
                     if (iter != move_table.end())
@@ -1138,7 +1144,7 @@ namespace shogipp
                         auto & [source2, destination_list2] = *iter;
                         if (!std::equal(destination_list.begin(), destination_list.end(), destination_list2.begin(), destination_list2.end()))
                         {
-                            std::cerr << tebanstr(i) << " source " << pos_to_string(source) << " destination list { ";
+                            std::cerr << sengo_to_string(sengo) << " source " << pos_to_string(source) << " destination list { ";
                             for (pos_t destination : destination_list)
                                 std::cerr << pos_to_string(destination) << " ";
                             std::cerr << "} != { ";
@@ -1150,7 +1156,7 @@ namespace shogipp
                     }
                     else if (destination_list.size())
                     {
-                        std::cerr << tebanstr(i) << " source " << pos_to_string(source) << " is not found ({ ";
+                        std::cerr << sengo_to_string(sengo) << " source " << pos_to_string(source) << " is not found ({ ";
                         for (pos_t destination : destination_list)
                             std::cerr << pos_to_string(destination) << " ";
                         std::cerr << "})"<< std::endl;
@@ -1216,13 +1222,13 @@ namespace shogipp
         : kyokumen{ kyokumen }
     {
         std::copy(std::begin(kyokumen.ban.data), std::end(kyokumen.ban.data), std::begin(data));
-        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+        for (sengo_t sengo : sengo_list)
             std::copy(std::begin(kyokumen.mochigoma_list), std::end(kyokumen.mochigoma_list), std::begin(mochigoma_list));
     }
 
     inline void kyokumen_t::init_move_table_list()
     {
-        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+        for (sengo_t sengo : sengo_list)
         {
             auto & move_table = move_table_list[sengo];
             move_table.clear();
@@ -1241,7 +1247,7 @@ namespace shogipp
     {
         for (std::size_t i = 0; i < std::size(data); ++i)
             SHOGIPP_ASSERT(data[i] == kyokumen.ban.data[i]);
-        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+        for (sengo_t sengo : sengo_list)
             for (koma_t koma = fu; koma <= hi; ++koma)
                 SHOGIPP_ASSERT(mochigoma_list[sengo][koma] == kyokumen.mochigoma_list[sengo][koma]);
     }
@@ -1252,7 +1258,7 @@ namespace shogipp
         for (mochigoma_t & m : mochigoma_list)
             m.init();
         tesu = 0;
-        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+        for (sengo_t sengo : sengo_list)
             ou_pos[sengo] = default_ou_pos_list[sengo];
         for (auto & k : oute_list)
             k.clear();
@@ -1439,7 +1445,7 @@ namespace shogipp
 
     inline void kyokumen_t::update_oute()
     {
-        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+        for (sengo_t sengo : sengo_list)
         {
             oute_list[sengo].clear();
             search_kiki(std::back_inserter(oute_list[sengo]), ou_pos[sengo], static_cast<sengo_t>(sengo));
@@ -1723,7 +1729,7 @@ namespace shogipp
 
     inline void kyokumen_t::print_oute()
     {
-        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+        for (sengo_t sengo : sengo_list)
         {
             auto & oute = oute_list[sengo];
             if (!oute.empty())
@@ -2181,7 +2187,7 @@ namespace shogipp
 
         if (kyokumen.tesu == 0)
         {
-            for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
+            for (sengo_t sengo : sengo_list)
                 std::cout << sengo_to_string(static_cast<sengo_t>(sengo)) << "F" << evaluators[sengo]->name() << std::endl;
             std::cout << std::endl;
         }
@@ -2261,7 +2267,7 @@ namespace shogipp
                 score += map[trim_sengo(koma)] * reverse(to_sengo(koma));
         }
 
-        for (unsigned char sengo = 0; sengo < sengo_size; ++sengo)
+        for (sengo_t sengo : sengo_list)
             for (koma_t koma = fu; koma <= hi; ++koma)
                 score += map[koma] * kyokumen.mochigoma_list[sengo][koma] * reverse(tesu_to_sengo(sengo));
 

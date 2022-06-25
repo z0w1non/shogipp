@@ -1947,7 +1947,7 @@ namespace shogipp
 
     inline bool taikyoku_t::procedure()
     {
-        auto & evaluator = evaluators[tesu_to_sengo(kyokumen.tesu)];
+        auto & evaluator = evaluators[kyokumen.sengo()];
 
         if (kyokumen.tesu == 0)
         {
@@ -1978,7 +1978,7 @@ namespace shogipp
         kyokumen_t temp_kyokumen = kyokumen;
         te_t selected_te = evaluator->select_te(temp_kyokumen);
 
-        kyokumen.print_te(selected_te, tesu_to_sengo(kyokumen.tesu));
+        kyokumen.print_te(selected_te, kyokumen.sengo());
         std::cout << std::endl << std::endl;
 
         kyokumen.do_te(selected_te);
@@ -2070,7 +2070,7 @@ namespace shogipp
             unsigned int & search_count)
         {
             if (depth <= 0)
-                return { std::nullopt, eval(kyokumen) * reverse(tesu_to_sengo(kyokumen.tesu)) };
+                return { std::nullopt, eval(kyokumen) * reverse(kyokumen.sengo()) };
 
             std::vector<te_t> te_list;
             kyokumen.search_te(std::back_inserter(te_list));
@@ -2216,9 +2216,9 @@ namespace shogipp
                 {
                     
                     std::vector<pos_t> himo_list;
-                    kyokumen.search_himo(std::back_inserter(himo_list), previous_destination, tesu_to_sengo(kyokumen.tesu));
+                    kyokumen.search_himo(std::back_inserter(himo_list), previous_destination, kyokumen.sengo());
                     if (himo_list.empty())
-                        return { std::nullopt, eval(kyokumen) * reverse(tesu_to_sengo(kyokumen.tesu)) };
+                        return { std::nullopt, eval(kyokumen) * reverse(kyokumen.sengo()) };
                     else
                     {
                         std::vector<scored_te> scored_te_list;
@@ -2244,7 +2244,7 @@ namespace shogipp
                     }
                 }
                 else
-                    return { std::nullopt, eval(kyokumen) * reverse(tesu_to_sengo(kyokumen.tesu)) };
+                    return { std::nullopt, eval(kyokumen) * reverse(kyokumen.sengo()) };
             }
             std::vector<te_t> te_list;
             kyokumen.search_te(std::back_inserter(te_list));

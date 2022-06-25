@@ -500,9 +500,14 @@ namespace shogipp
         return map[value];
     }
     
+    /**
+     * @breif 駒の移動先の相対座標の配列の先頭を指すポインタを取得する。
+     * @param koma 駒
+     * @return 駒の移動先の相対座標の配列の先頭を指すポインタ
+     * @details この関数が返すポインタの指す座標は 0 で終端化されている。
+     */
     inline const pos_t * near_move_offsets(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != empty);
         static const std::vector<pos_t> map[]
         {
             /* empty    */ { 0 },
@@ -521,31 +526,40 @@ namespace shogipp
             /* uma      */ { front, left, right, back, 0 },
             /* ryu      */ { front_left, front_right, back_left, back_right, 0 },
         };
+        SHOGIPP_ASSERT(koma != empty);
+        SHOGIPP_ASSERT(koma <= std::size(map));
         return map[koma].data();
     }
 
+    /**
+     * @breif 駒の移動先の相対座標の配列の先頭を指すポインタを取得する。
+     * @param koma 駒
+     * @return 駒の移動先の相対座標の配列の先頭を指すポインタ
+     * @details この関数が返すポインタの指す座標は 0 で終端化されている。
+     */
     inline const pos_t * far_move_offsets(koma_t koma)
     {
-        SHOGIPP_ASSERT(koma != empty);
-        static const pos_t map[][10]
+        static const std::vector<pos_t> map[]
         {
-            /* empty    */ { },
-            /* fu       */ { },
-            /* kyo      */ { front },
-            /* kei      */ { },
-            /* gin      */ { },
-            /* kin      */ { },
-            /* kaku     */ { front_left, front_right, back_left, back_right },
-            /* hi       */ { front, left, right, back },
-            /* ou       */ { },
-            /* tokin    */ { },
-            /* nari_kyo */ { },
-            /* nari_kei */ { },
-            /* nari_gin */ { },
-            /* uma      */ { front_left, front_right, back_left, back_right },
-            /* ryu      */ { front, left, right, back },
+            /* empty    */ { 0 },
+            /* fu       */ { 0 },
+            /* kyo      */ { front, 0 },
+            /* kei      */ { 0 },
+            /* gin      */ { 0 },
+            /* kin      */ { 0 },
+            /* kaku     */ { front_left, front_right, back_left, back_right, 0 },
+            /* hi       */ { front, left, right, back, 0 },
+            /* ou       */ { 0 },
+            /* tokin    */ { 0 },
+            /* nari_kyo */ { 0 },
+            /* nari_kei */ { 0 },
+            /* nari_gin */ { 0 },
+            /* uma      */ { front_left, front_right, back_left, back_right, 0 },
+            /* ryu      */ { front, left, right, back, 0 },
         };
-        return map[koma];
+        SHOGIPP_ASSERT(koma != empty);
+        SHOGIPP_ASSERT(koma <= std::size(map));
+        return map[koma].data();
     }
 
     /**

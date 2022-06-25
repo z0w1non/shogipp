@@ -2244,6 +2244,7 @@ namespace shogipp
 
     /**
      * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
+     * @details 前回駒取りが発生していた場合、探索を延長する。
      */
     struct extendable_alphabeta_evaluator_t
         : public abstract_evaluator_t

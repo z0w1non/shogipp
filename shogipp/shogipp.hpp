@@ -1755,7 +1755,6 @@ namespace shogipp
 
     inline void kyokumen_t::do_te(const te_t & te)
     {
-        ++total_search_count;
         hash_t hash = make_hash(hash_stack.top(), te);
         if (te.src == npos)
         {
@@ -2049,7 +2048,7 @@ namespace shogipp
      * @return 局面の点数
      */
     template<typename MapKomaInt>
-    inline int kyokumen_map_score(kyokumen_t & kyokumen, MapKomaInt & map)
+    inline int kyokumen_map_evaluation_value(kyokumen_t & kyokumen, MapKomaInt & map)
     {
         int score = 0;
 
@@ -2067,7 +2066,25 @@ namespace shogipp
         return score;
     }
 
-    using scored_te = std::pair<te_t *, int>;
+    using evaluated_te = std::pair<te_t *, int>;
+
+    /**
+     * @breif 合法手を得点により並び替える。
+     * @param first scored_te の先頭を指すランダムアクセスイテレータ
+     * @param last scored_te の末尾を指すランダムアクセスイテレータ
+     * @param sengo 先手か後手か
+     * @details 評価値の符号を手番により変更するようにしたため、現在この関数を使用する予定はない。
+     */
+    template<typename RandomAccessIterator>
+    void sort_te_by_evaluation_value(RandomAccessIterator first, RandomAccessIterator last, sengo_t sengo)
+    {
+        using comparator = bool (const evaluated_te & a, const evaluated_te & b);
+        comparator * const map[]{
+            [](const evaluated_te & a, const evaluated_te & b) -> bool { return a.second > b.second; },
+            [](const evaluated_te & a, const evaluated_te & b) -> bool { return a.second < b.second; }
+        };
+        std::sort(first, last, map[sengo]);
+    }
 
     /**
      * @breif 合法手を得点により並び替える。
@@ -2076,14 +2093,9 @@ namespace shogipp
      * @param sengo 先手か後手か
      */
     template<typename RandomAccessIterator>
-    void sort_te_by_score(RandomAccessIterator first, RandomAccessIterator last, sengo_t sengo)
+    void sort_te_by_evaluation_value(RandomAccessIterator first, RandomAccessIterator last)
     {
-        using comparator = bool (const scored_te & a, const scored_te & b);
-        comparator * const map[]{
-            [](const scored_te & a, const scored_te & b) -> bool { return a.second > b.second; },
-            [](const scored_te & a, const scored_te & b) -> bool { return a.second < b.second; }
-        };
-        std::sort(first, last, map[sengo]);
+        std::sort(first, last, [](const evaluated_te & a, const evaluated_te & b) -> bool { return a.second > b.second; });
     }
 
     /**
@@ -2092,40 +2104,42 @@ namespace shogipp
     struct negamax_evaluator_t
         : public abstract_evaluator_t
     {
-        std::tuple<
-            std::optional<te_t>,
-            int
-        > negamax(
+        int negamax(
             kyokumen_t & kyokumen,
             int depth,
-            unsigned int & search_count)
+            unsigned int & search_count,
+            std::optional<te_t> & selected_te
+        )
         {
             if (depth <= 0)
-                return { std::nullopt, eval(kyokumen) * reverse(kyokumen.sengo()) };
+            {
+                ++search_count;
+                return eval(kyokumen) * reverse(kyokumen.sengo());
+            }
 
             std::vector<te_t> te_list;
             kyokumen.search_te(std::back_inserter(te_list));
 
             if (te_list.empty())
-                return { std::nullopt, -std::numeric_limits<int>::max() };
+                return -std::numeric_limits<int>::max();
 
-            std::vector<scored_te> scored_te_list;
-            auto inserter = std::back_inserter(scored_te_list);
+            std::vector<evaluated_te> evaluated_te_list;
+            auto inserter = std::back_inserter(evaluated_te_list);
 
             for (te_t & te : te_list)
             {
-                ++search_count;
+                std::optional<te_t> selected_te_;
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_te(te);
-                auto [te_, score_] = negamax(kyokumen, depth - 1, search_count);
+                int evaluation_value = -negamax(kyokumen, depth - 1, search_count, selected_te_);
                 kyokumen.undo_te(te);
-                score_ *= -1;
-                *inserter++ = { &te, score_ };
+                *inserter++ = { &te, evaluation_value };
             }
 
             SHOGIPP_ASSERT(!te_list.empty());
-            sort_te_by_score(scored_te_list.begin(), scored_te_list.end(), sente);
-            return { *scored_te_list.front().first, scored_te_list.front().second };
+            sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
+            selected_te = *evaluated_te_list.front().first;
+            return evaluated_te_list.front().second;
         }
 
         /**
@@ -2136,10 +2150,12 @@ namespace shogipp
         te_t select_te(kyokumen_t & kyokumen) override
         {
             unsigned int search_count = 0;
-            int default_max_depth = 2;
-            auto [selected_te, score] = negamax(kyokumen, default_max_depth, search_count);
+            int default_max_depth = 3;
+            std::optional<te_t> selected_te;
+            int evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_te);
+            total_search_count += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
-            std::cout << "評価値：" << score << std::endl;
+            std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
             return *selected_te;
         }
@@ -2158,45 +2174,46 @@ namespace shogipp
     struct alphabeta_evaluator_t
         : public abstract_evaluator_t
     {
-        std::tuple<
-            std::optional<te_t>,
-            int
-        > alphabeta(
+        int alphabeta(
             kyokumen_t & kyokumen,
             int depth,
             int alpha,
             int beta,
-            unsigned int & search_count)
+            unsigned int & search_count,
+            std::optional<te_t> & selected_te)
         {
             if (depth <= 0)
-                return { std::nullopt, eval(kyokumen) * reverse(kyokumen.sengo()) };
+            {
+                ++search_count;
+                return eval(kyokumen) * reverse(kyokumen.sengo());
+            }
 
             std::vector<te_t> te_list;
             kyokumen.search_te(std::back_inserter(te_list));
 
             if (te_list.empty())
-                return { std::nullopt, -std::numeric_limits<int>::max() };
+                return -std::numeric_limits<int>::max();
 
-            std::vector<scored_te> scored_te_list;
-            auto inserter = std::back_inserter(scored_te_list);
+            std::vector<evaluated_te> evaluated_te_list;
+            auto inserter = std::back_inserter(evaluated_te_list);
 
             for (te_t & te : te_list)
             {
-                ++search_count;
+                std::optional<te_t> selected_te_;
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_te(te);
-                auto [te_, score_] = alphabeta(kyokumen, depth - 1, -alpha, -beta, search_count);
+                int evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count, selected_te_);
                 kyokumen.undo_te(te);
-                score_ *= -1;
-                *inserter++ = { &te, score_ };
-                alpha = std::max(alpha, score_);
+                *inserter++ = { &te, evaluation_value };
+                alpha = std::max(alpha, evaluation_value);
                 if (alpha >= beta)
                     break;
             }
 
             SHOGIPP_ASSERT(!te_list.empty());
-            sort_te_by_score(scored_te_list.begin(), scored_te_list.end(), kyokumen.sengo());
-            return { *scored_te_list.front().first, scored_te_list.front().second };
+            sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
+            selected_te = *evaluated_te_list.front().first;
+            return evaluated_te_list.front().second;
         }
 
         /**
@@ -2208,7 +2225,9 @@ namespace shogipp
         {
             unsigned int search_count = 0;
             int default_max_depth = 3;
-            auto [selected_te, score] = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count);
+            std::optional<te_t> selected_te;
+            int score = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te);
+            total_search_count += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "評価値：" << score << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
@@ -2226,84 +2245,89 @@ namespace shogipp
     /**
      * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
      */
-    struct alphabeta_fukayomi_evaluator_t
+    struct extendable_alphabeta_evaluator_t
         : public abstract_evaluator_t
     {
-        std::tuple<
-            std::optional<te_t>,
-            int
-        > alphabeta(
+        int alphabeta(
             kyokumen_t & kyokumen,
             int depth,
             int alpha,
             int beta,
-            pos_t previous_destination,
-            unsigned int & search_count)
+            unsigned int & search_count,
+            std::optional<te_t> & selected_te,
+            pos_t previous_destination)
         {
             if (depth <= 0)
             {
-                // 前回駒取りが発生していた場合、取り合いを深読みする。
+                // 前回駒取りが発生していた場合、探索を延長する。
                 if (previous_destination != npos)
                 {
-                    
                     std::vector<pos_t> himo_list;
                     kyokumen.search_himo(std::back_inserter(himo_list), previous_destination, kyokumen.sengo());
-                    if (himo_list.empty())
-                        return { std::nullopt, eval(kyokumen) * reverse(kyokumen.sengo()) };
-                    else
+                    if (!himo_list.empty())
                     {
-                        std::vector<scored_te> scored_te_list;
-                        auto inserter = std::back_inserter(scored_te_list);
+                        std::vector<evaluated_te> evaluated_te_list;
+                        auto inserter = std::back_inserter(evaluated_te_list);
                         std::vector<te_t> te_list;
-                        for (pos_t source : himo_list)
-                            kyokumen.search_te_from_positions(std::back_inserter(te_list), source, previous_destination);
+                        kyokumen.search_te(std::back_inserter(te_list));
                         for (te_t & te : te_list)
                         {
-                            ++search_count;
-                            VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                            kyokumen.do_te(te);
-                            auto [te_, score_] = alphabeta(kyokumen, depth - 1, -beta, -alpha, previous_destination, search_count);
-                            kyokumen.undo_te(te);
-                            score_ *= -1;
-                            alpha = std::max(alpha, -score_);
-                            if (alpha >= beta)
-                                break;
-                            *inserter++ = { &te, score_ };
+                            if (te.src != npos)
+                            {
+                                bool same_destination = std::find(himo_list.begin(), himo_list.end(), te.dst) != himo_list.end();
+                                if (same_destination)
+                                {
+                                    std::optional<te_t> selected_te_;
+                                    VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
+                                    kyokumen.do_te(te);
+                                    int evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count, selected_te_, previous_destination);
+                                    kyokumen.undo_te(te);
+                                    *inserter++ = { &te, evaluation_value };
+                                    alpha = std::max(alpha, evaluation_value);
+                                    if (alpha >= beta)
+                                        break;
+                                }
+                            }
                         }
-                        sort_te_by_score(scored_te_list.begin(), scored_te_list.end(), kyokumen.sengo());
-                        return { *scored_te_list.front().first, scored_te_list.front().second };
+                        if (!evaluated_te_list.empty())
+                        {
+                            sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
+                            selected_te = *evaluated_te_list.front().first;
+                            return evaluated_te_list.front().second;
+                        }
                     }
                 }
-                else
-                    return { std::nullopt, eval(kyokumen) * reverse(kyokumen.sengo()) };
+                ++search_count;
+                return eval(kyokumen) * reverse(kyokumen.sengo());
             }
+
             std::vector<te_t> te_list;
             kyokumen.search_te(std::back_inserter(te_list));
 
             if (te_list.empty())
-                return { std::nullopt, -std::numeric_limits<int>::max() };
+                return -std::numeric_limits<int>::max();
 
-            std::vector<scored_te> scored_te_list;
-            auto inserter = std::back_inserter(scored_te_list);
+            std::vector<evaluated_te> evaluated_te_list;
+            auto inserter = std::back_inserter(evaluated_te_list);
 
             for (te_t & te : te_list)
             {
-                ++search_count;
-                pos_t destination = (te.src != npos && te.dstkoma != empty) ? te.dst : npos;
+                std::optional<te_t> selected_te_;
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
+                pos_t destination = (te.src != npos && te.dstkoma != empty) ? te.dst : npos;
                 kyokumen.do_te(te);
-                auto [te_, score_] = alphabeta(kyokumen, depth - 1, -beta, -alpha, destination, search_count);
+                int evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count, selected_te_, destination);
                 kyokumen.undo_te(te);
-                score_ *= -1;
-                alpha = std::max(alpha, -score_);
+                *inserter++ = { &te, evaluation_value };
+                alpha = std::max(alpha, evaluation_value);
                 if (alpha >= beta)
                     break;
-                *inserter++ = { &te, score_ };
             }
 
             SHOGIPP_ASSERT(!te_list.empty());
-            sort_te_by_score(scored_te_list.begin(), scored_te_list.end(), kyokumen.sengo());
-            return { *scored_te_list.front().first, scored_te_list.front().second };
+            sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
+            selected_te = *evaluated_te_list.front().first;
+            return evaluated_te_list.front().second;
         }
 
         /**
@@ -2314,8 +2338,10 @@ namespace shogipp
         te_t select_te(kyokumen_t & kyokumen) override
         {
             unsigned int search_count = 0;
-            int default_max_depth = 2;
-            auto [selected_te, score] = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), npos, search_count);
+            int default_max_depth = 3;
+            std::optional<te_t> selected_te;
+            int score = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te, npos);
+            total_search_count += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "評価値：" << score << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
@@ -2346,7 +2372,7 @@ namespace shogipp
             std::vector<te_t> te;
             kyokumen.search_te(std::back_inserter(te));
 
-            std::vector<scored_te> scores;
+            std::vector<evaluated_te> scores;
             auto back_inserter = std::back_inserter(scores);
             for (te_t & t : te)
             {
@@ -2395,7 +2421,7 @@ namespace shogipp
                 /* ryu      */ 12
             };
 
-            int score = kyokumen_map_score(kyokumen, map);
+            int score = kyokumen_map_evaluation_value(kyokumen, map);
             return score;
         }
 
@@ -2430,7 +2456,7 @@ namespace shogipp
             };
 
             int score = 0;
-            score += kyokumen_map_score(kyokumen, map);
+            score += kyokumen_map_evaluation_value(kyokumen, map);
             return score;
         }
 
@@ -2465,8 +2491,7 @@ namespace shogipp
             };
 
             int score = 0;
-            score += kyokumen_map_score(kyokumen, map);
-            score *= 100;
+            score += kyokumen_map_evaluation_value(kyokumen, map);
 
             return score;
         }
@@ -2474,6 +2499,42 @@ namespace shogipp
         const char * name() override
         {
             return "にわとり9級";
+        }
+    };
+
+    struct niwatori_dou_evaluator_t
+        : public extendable_alphabeta_evaluator_t
+    {
+        int eval(kyokumen_t & kyokumen) override
+        {
+            static const int map[]
+            {
+                /* empty    */  0,
+                /* fu       */  1,
+                /* kyo      */  3,
+                /* kei      */  4,
+                /* gin      */  5,
+                /* kin      */  6,
+                /* kaku     */  8,
+                /* hi       */ 10,
+                /* ou       */  0,
+                /* tokin    */  7,
+                /* nari_kyo */  6,
+                /* nari_kei */  6,
+                /* nari_gin */  6,
+                /* uma      */ 10,
+                /* ryu      */ 12
+            };
+
+            int score = 0;
+            score += kyokumen_map_evaluation_value(kyokumen, map);
+
+            return score;
+        }
+
+        const char * name() override
+        {
+            return "にわとり銅8級";
         }
     };
 

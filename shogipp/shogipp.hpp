@@ -432,14 +432,14 @@ namespace shogipp
     {
         enum
         {
-            fu_offset = 0, fu_max = 18,
-            kyo_offset = fu_offset + fu_max, kyo_max = 4,
-            kei_offset = kyo_offset + kyo_max, kei_max = 4,
-            gin_offset = kei_offset + kei_max, gin_max = 4,
-            kin_offset = gin_offset + gin_max, kin_max = 4,
-            kaku_offset = kin_offset + kin_max, kaku_max = 2,
-            hi_offset = kaku_offset + kaku_max, hi_max = 2,
-            size = hi_offset + hi_max
+            fu_offset   = 0                     , fu_max   = 18,
+            kyo_offset  = fu_offset   + fu_max  , kyo_max  =  4,
+            kei_offset  = kyo_offset  + kyo_max , kei_max  =  4,
+            gin_offset  = kei_offset  + kei_max , gin_max  =  4,
+            kin_offset  = gin_offset  + gin_max , kin_max  =  4,
+            kaku_offset = kin_offset  + kin_max , kaku_max =  2,
+            hi_offset   = kaku_offset + kaku_max, hi_max   =  2,
+            size        = hi_offset   + hi_max
         };
 
         SHOGIPP_ASSERT(koma != empty);

@@ -1794,7 +1794,6 @@ namespace shogipp
         return tesu_to_sengo(tesu);
     }
 
-
     inline void kyokumen_t::update_move_table(move_table_t & move_table, pos_t source, std::vector<pos_t> && destination_list)
     {
         SHOGIPP_ASSERT(!ban_t::out(source));

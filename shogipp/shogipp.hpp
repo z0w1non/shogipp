@@ -2214,8 +2214,13 @@ namespace shogipp
         return true;
     }
 
+    /**
+     * @breif 対局する。
+     * @tparam Evaluator1 abstract_evaluator_t を継承したクラス
+     * @tparam Evaluator2 abstract_evaluator_t を継承したクラス
+     */
     template<typename Evaluator1, typename Evaluator2>
-    inline void do_taikyoku(bool dump_details)
+    inline void do_taikyoku()
     {
         std::chrono::system_clock::time_point begin, end;
         begin = std::chrono::system_clock::now();
@@ -2228,15 +2233,12 @@ namespace shogipp
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
         unsigned long long sps = (unsigned long long)total_search_count * 1000 / duration;
 
-        if (dump_details)
-        {
-            std::cout
-                << std::endl << std::endl
-                << "total search count: " << total_search_count << std::endl
-                << "duration[ms]: " << duration << std::endl
-                << "sps: " << sps;
-            std::cout.flush();
-        }
+        std::cout
+            << std::endl << std::endl
+            << "total search count: " << total_search_count << std::endl
+            << "duration[ms]: " << duration << std::endl
+            << "sps: " << sps;
+        std::cout.flush();
     }
 
     /**

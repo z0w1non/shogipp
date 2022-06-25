@@ -2,6 +2,7 @@
 #define SHOGIPP_DEFINED
 
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <ctime>
 #include <vector>
@@ -17,6 +18,7 @@
 #include <optional>
 #include <array>
 #include <chrono>
+#include <filesystem>
 
 //#define NONDETERMINISM
 #ifdef NONDETERMINISM
@@ -101,6 +103,8 @@ namespace shogipp
     constexpr pos_t pos_size = width * height;
     constexpr pos_t padding_width = 1;
     constexpr pos_t padding_height = 1;
+    constexpr pos_t suji_size = 9;
+    constexpr pos_t dan_size = 9;
 
     /**
      * @breif ç¿ïWÇ©ÇÁíiÇíäèoÇ∑ÇÈÅB
@@ -420,7 +424,7 @@ namespace shogipp
         inline hash_t mochigoma_hash(koma_t koma, std::size_t count, sengo_t sengo) const;
 
     private:
-        hash_t ban_table[koma_enum_number * 9 * 9];
+        hash_t ban_table[koma_enum_number * suji_size * dan_size];
         hash_t mochigoma_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];
     };
 
@@ -439,9 +443,9 @@ namespace shogipp
     inline hash_t hash_table_t::koma_hash(koma_t koma, pos_t pos) const
     {
         std::size_t index = koma;
-        index *= 9;
+        index *= suji_size;
         index += pos_to_suji(pos);
-        index *= 9;
+        index *= dan_size;
         index += pos_to_dan(pos);
         return ban_table[index];
     }
@@ -818,10 +822,10 @@ namespace shogipp
     {
         std::cout << "  ÇX ÇW ÇV ÇU ÇT ÇS ÇR ÇQ ÇP" << std::endl;
         std::cout << "+---------------------------+" << std::endl;
-        for (pos_t dan = 0; dan < 9; ++dan)
+        for (pos_t dan = 0; dan < dan_size; ++dan)
         {
             std::cout << "|";
-            for (pos_t suji = 0; suji < 9; ++suji)
+            for (pos_t suji = 0; suji < suji_size; ++suji)
             {
                 koma_t koma = data[suji_dan_to_pos(suji, dan)];
                 std::cout << ((koma != empty && to_sengo(koma)) ? "v" : " ") << koma_to_string(koma);
@@ -1170,6 +1174,145 @@ namespace shogipp
          */
         inline sengo_t sengo() const;
 
+        /**
+         * @breif ã«ñ ÉtÉ@ÉCÉãÇ©ÇÁã«ñ Çì«Ç›çûÇﬁÅB
+         * @param kyokumen_file ã«ñ ÉtÉ@ÉCÉã
+         */
+        inline void read_kyokumen_file(std::filesystem::path kyokumen_file)
+        {
+            static const std::string mochigoma_string = "éùÇøãÓÅF";
+            static const std::string nothing_string = "Ç»Çµ";
+            static const std::string sengo_string[]{ "êÊéË", "å„éË" };
+            static const std::map<std::string, unsigned char> digit_string_to_digit
+            {
+                { "ÇO", 0 },
+                { "ÇP", 1 },
+                { "ÇQ", 2 },
+                { "ÇR", 3 },
+                { "ÇS", 4 },
+                { "ÇT", 5 },
+                { "ÇU", 6 },
+                { "ÇV", 7 },
+                { "ÇW", 8 },
+                { "ÇX", 9 }
+            };
+            static const std::map<std::string, koma_t> string_to_koma
+            {
+                { "ÅE", empty },
+                { "ï‡", fu },
+                { "çÅ", kyo },
+                { "åj", kei },
+                { "ã‚", gin },
+                { "ã‡", kin },
+                { "äp", kaku },
+                { "îÚ", hi },
+                { "â§", ou },
+                { "Ç∆", tokin },
+                { "à«", nari_kyo },
+                { "å\", nari_kei },
+                { "ëS", nari_gin },
+                { "în", uma },
+                { "ó≥", hi }
+            };
+            static const std::map<std::string, sengo_t> string_to_sengo
+            {
+                { " ", sente },
+                { "v", gote }
+            };
+
+            init();
+            std::ifstream stream{ kyokumen_file };
+            std::string line;
+            pos_t dan = 0;
+
+            while (std::getline(stream, line))
+            {
+                if (line.size() >= sengo_string[sente].size())
+                {
+                    std::optional<sengo_t> sengo;
+                    if (line.substr(0, sengo_string[sente].size()) == sengo_string[sente])
+                        sengo = sente;
+                    else if (line.substr(0, sengo_string[sente].size()) == sengo_string[gote])
+                        sengo = gote;
+                    if (sengo.has_value())
+                    {
+                        std::string_view rest = line;
+                        rest.remove_prefix(sengo_string[sente].size());
+
+                        if (rest.size() < mochigoma_string.size())
+                            throw std::exception();
+                        if (rest.substr(0, mochigoma_string.size()) != mochigoma_string)
+                            throw std::exception();
+                        rest.remove_prefix(mochigoma_string.size());
+
+                        if (rest.size() >= nothing_string.size() && rest == nothing_string)
+                            continue;
+
+                        while (true)
+                        {
+                            unsigned char count = 1;
+                            auto koma_iterator = string_to_koma.find(std::string{ rest.substr(0, 2) });
+                            if (koma_iterator == string_to_koma.end())
+                                throw std::exception();
+                            koma_t koma = koma_iterator->second;
+                            if (koma < fu)
+                                throw std::exception();
+                            if (koma > hi)
+                                throw std::exception();
+                            rest.remove_prefix(2);
+
+                            if (rest.size() >= 2)
+                            {
+                                unsigned char digit = 0;
+                                do
+                                {
+                                    auto digit_iterator = digit_string_to_digit.find(std::string{ rest.substr(0, 2) });
+                                    if (digit_iterator == digit_string_to_digit.end())
+                                        break;
+                                    digit *= 10;
+                                    digit += digit_iterator->second;
+                                    rest.remove_prefix(2);
+                                } while (rest.size() >= 2);
+                                count = digit;
+                            }
+                            if (count > 18)
+                                throw std::exception();
+
+                            mochigoma_list[*sengo][koma] = count;
+                        }
+                    }
+                }
+                else if (line.size() >= 1 && line[0] == '|')
+                {
+                    std::string_view rest = line;
+                    rest.remove_prefix(1);
+                    for (pos_t suji = 0; suji < suji_size; ++suji)
+                    {
+                        if (rest.size() < 1)
+                            throw std::exception();
+                        auto sengo_iterator = string_to_sengo.find(std::string{ rest[0] });
+                        if (sengo_iterator == string_to_sengo.end())
+                            throw std::exception();
+                        sengo_t sengo = sengo_iterator->second;
+                        rest.remove_prefix(1);
+
+                        if (rest.size() < 2)
+                            throw std::exception();
+                        auto koma_iterator = string_to_koma.find(std::string{ rest.substr(0, 2) });
+                        if (koma_iterator == string_to_koma.end())
+                            throw std::exception();
+                        koma_t koma = koma_iterator->second;
+                        rest.remove_prefix(2);
+
+                        if (sengo == gote)
+                            koma = to_gote(koma);
+                        ban[suji_dan_to_pos(suji, dan)] = koma;
+                    }
+                    ++dan;
+                }
+            }
+        }
+
         ban_t ban;                                      // î’
         mochigoma_t mochigoma_list[sengo_size];         // éùÇøãÓ
         tesu_t tesu;                                    // éËêî
@@ -1380,7 +1523,7 @@ namespace shogipp
     {
         if (pos_t found = search(pos + offset, offset); found != npos && ban[found] != empty)
             if (is_collected(to_sengo(ban[found])) && std::find(first, last, trim_sengo(ban[found])) != last)
-                *result++ = transform(found, offset, found != pos + offset);
+                *result++ = transform(found, offset, true);
     }
 
     template<typename OutputIterator, typename IsCollected, typename Transform>
@@ -1421,10 +1564,10 @@ namespace shogipp
 
     inline void kyokumen_t::update_oute()
     {
-        for (std::size_t i = 0; i < 2; ++i)
+        for (unsigned char sengo = sente; sengo < sengo_size; ++sengo)
         {
-            oute_list[i].clear();
-            search_kiki(std::back_inserter(oute_list[i]), ou_pos[i], tesu_to_sengo(i));
+            oute_list[sengo].clear();
+            search_kiki(std::back_inserter(oute_list[sengo]), ou_pos[sengo], static_cast<sengo_t>(sengo));
         }
     }
 
@@ -2305,8 +2448,8 @@ namespace shogipp
             for (te_t & te : te_list)
             {
                 std::optional<te_t> selected_te_;
-                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 pos_t destination = (te.src != npos && te.dstkoma != empty) ? te.dst : npos;
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_te(te);
                 int evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count, selected_te_, destination);
                 kyokumen.undo_te(te);
@@ -2332,10 +2475,10 @@ namespace shogipp
             unsigned int search_count = 0;
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
-            int score = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te, npos);
+            int evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te, npos);
             total_search_count += search_count;
             std::cout << "ì«Ç›éËêîÅF" << search_count << std::endl;
-            std::cout << "ï]âøílÅF" << score << std::endl;
+            std::cout << "ï]âøílÅF" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
             return *selected_te;
         }

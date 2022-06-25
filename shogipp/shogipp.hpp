@@ -2248,7 +2248,7 @@ namespace shogipp
     struct extendable_alphabeta_evaluator_t
         : public abstract_evaluator_t
     {
-        int alphabeta(
+        int extendable_alphabeta(
             kyokumen_t & kyokumen,
             int depth,
             int alpha,
@@ -2262,39 +2262,30 @@ namespace shogipp
                 // 前回駒取りが発生していた場合、探索を延長する。
                 if (previous_destination != npos)
                 {
-                    std::vector<pos_t> himo_list;
-                    kyokumen.search_himo(std::back_inserter(himo_list), previous_destination, kyokumen.sengo());
-                    if (!himo_list.empty())
+                    std::vector<evaluated_te> evaluated_te_list;
+                    auto inserter = std::back_inserter(evaluated_te_list);
+                    std::vector<te_t> te_list;
+                    kyokumen.search_te(std::back_inserter(te_list));
+                    for (te_t & te : te_list)
                     {
-                        std::vector<evaluated_te> evaluated_te_list;
-                        auto inserter = std::back_inserter(evaluated_te_list);
-                        std::vector<te_t> te_list;
-                        kyokumen.search_te(std::back_inserter(te_list));
-                        for (te_t & te : te_list)
+                        if (te.src != npos && te.dst == previous_destination)
                         {
-                            if (te.src != npos)
-                            {
-                                bool same_destination = std::find(himo_list.begin(), himo_list.end(), te.dst) != himo_list.end();
-                                if (same_destination)
-                                {
-                                    std::optional<te_t> selected_te_;
-                                    VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                                    kyokumen.do_te(te);
-                                    int evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count, selected_te_, previous_destination);
-                                    kyokumen.undo_te(te);
-                                    *inserter++ = { &te, evaluation_value };
-                                    alpha = std::max(alpha, evaluation_value);
-                                    if (alpha >= beta)
-                                        break;
-                                }
-                            }
+                            std::optional<te_t> selected_te_;
+                            VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
+                            kyokumen.do_te(te);
+                            int evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count, selected_te_, previous_destination);
+                            kyokumen.undo_te(te);
+                            *inserter++ = { &te, evaluation_value };
+                            alpha = std::max(alpha, evaluation_value);
+                            if (alpha >= beta)
+                                break;
                         }
-                        if (!evaluated_te_list.empty())
-                        {
-                            sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
-                            selected_te = *evaluated_te_list.front().first;
-                            return evaluated_te_list.front().second;
-                        }
+                    }
+                    if (!evaluated_te_list.empty())
+                    {
+                        sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
+                        selected_te = *evaluated_te_list.front().first;
+                        return evaluated_te_list.front().second;
                     }
                 }
                 ++search_count;
@@ -2316,7 +2307,7 @@ namespace shogipp
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 pos_t destination = (te.src != npos && te.dstkoma != empty) ? te.dst : npos;
                 kyokumen.do_te(te);
-                int evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count, selected_te_, destination);
+                int evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, search_count, selected_te_, destination);
                 kyokumen.undo_te(te);
                 *inserter++ = { &te, evaluation_value };
                 alpha = std::max(alpha, evaluation_value);
@@ -2340,7 +2331,7 @@ namespace shogipp
             unsigned int search_count = 0;
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
-            int score = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te, npos);
+            int score = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te, npos);
             total_search_count += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "評価値：" << score << std::endl;

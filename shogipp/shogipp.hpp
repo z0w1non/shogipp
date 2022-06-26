@@ -2100,86 +2100,97 @@ namespace shogipp
         std::string line;
         pos_t dan = 0;
 
-        while (std::getline(stream, line))
+        try
         {
-            if (line.empty() || (!line.empty() && line.front() == '#'))
-                continue;
-
-            std::string_view rest = line;
-            if (line.size() >= 1 && std::isdigit(line[0]))
+            while (std::getline(stream, line))
             {
-                tesu_t temp_tesu = 0;
-                do
-                {
-                    temp_tesu *= 10;
-                    temp_tesu += rest[0] - '0';
-                    rest.remove_prefix(1);
-                } while (rest.size() >= 1 && std::isdigit(rest[0]));
-                if (temp_tesu == 0)
-                    throw file_format_error("read_kyokumen_file 1-1");
-                --temp_tesu;
-
-                parse(rest, tesu_suffix);
-
-                sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
-
-                if (tesu_to_sengo(temp_tesu) != sengo)
-                    throw file_format_error("read_kyokumen_file 1-6");
-    
-                parse(rest, sengo_suffix);
-
-                tesu = temp_tesu;
-            }
-            else if (line.size() >= 1 && line[0] == '|')
-            {
-                rest.remove_prefix(1);
-                for (pos_t suji = 0; suji < suji_size; ++suji)
-                {
-                    sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
-                    koma_t koma = parse(rest, koma_string_map, koma_string_size);
-                    if (sengo == gote)
-                        koma = to_gote(koma);
-                    ban[suji_dan_to_pos(suji, dan)] = koma;
-                }
-                ++dan;
-            }
-            else if (line.size() >= sengo_string_size)
-            {
-                sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
-                parse(rest, mochigoma_string);
-
-                if (rest.size() >= nothing_string.size() && rest == nothing_string)
+                if (line.empty() || (!line.empty() && line.front() == '#'))
                     continue;
 
-                while (true)
+                std::string_view rest = line;
+                if (line.size() >= 1 && std::isdigit(line[0]))
                 {
-                    unsigned char count = 1;
-                    koma_t koma = parse(rest, koma_string_map, koma_string_size);
-                    if (koma < fu)
-                        throw file_format_error("read_kyokumen_file 2-1");
-                    if (koma > hi)
-                        throw file_format_error("read_kyokumen_file 2-2");
-
-                    if (rest.size() >= digit_string_size)
+                    tesu_t temp_tesu = 0;
+                    do
                     {
-                        unsigned char digit = 0;
-                        do
-                        {
-                            auto digit_iterator = digit_string_map.find(std::string{ rest.substr(0, digit_string_size) });
-                            if (digit_iterator == digit_string_map.end())
-                                break;
-                            digit *= 10;
-                            digit += digit_iterator->second;
-                            rest.remove_prefix(digit_string_size);
-                        } while (rest.size() >= digit_string_size);
-                        count = digit;
-                    }
-                    if (count > 18)
-                        throw file_format_error("read_kyokumen_file 2-3");
+                        temp_tesu *= 10;
+                        temp_tesu += rest[0] - '0';
+                        rest.remove_prefix(1);
+                    } while (rest.size() >= 1 && std::isdigit(rest[0]));
+                    if (temp_tesu == 0)
+                        throw file_format_error{ "read_kyokumen_file 1-1" };
+                    --temp_tesu;
 
-                    mochigoma_list[sengo][koma] = count;
+                    parse(rest, tesu_suffix);
+
+                    sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
+
+                    if (tesu_to_sengo(temp_tesu) != sengo)
+                        throw file_format_error{ "read_kyokumen_file 1-6" };
+
+                    parse(rest, sengo_suffix);
+
+                    tesu = temp_tesu;
+                }
+                else if (line.size() >= 1 && line[0] == '|')
+                {
+                    rest.remove_prefix(1);
+                    for (pos_t suji = 0; suji < suji_size; ++suji)
+                    {
+                        sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
+                        koma_t koma = parse(rest, koma_string_map, koma_string_size);
+                        if (sengo == gote)
+                            koma = to_gote(koma);
+                        ban[suji_dan_to_pos(suji, dan)] = koma;
+                    }
+                    ++dan;
+                }
+                else if (line.size() >= sengo_string_size)
+                {
+                    sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
+                    parse(rest, mochigoma_string);
+
+                    if (rest.size() >= nothing_string.size() && rest == nothing_string)
+                        continue;
+
+                    while (true)
+                    {
+                        unsigned char count = 1;
+                        koma_t koma = parse(rest, koma_string_map, koma_string_size);
+                        if (koma < fu)
+                            throw file_format_error{ "read_kyokumen_file 2-1" };
+                        if (koma > hi)
+                            throw file_format_error{ "read_kyokumen_file 2-2" };
+
+                        if (rest.size() >= digit_string_size)
+                        {
+                            unsigned char digit = 0;
+                            do
+                            {
+                                auto digit_iterator = digit_string_map.find(std::string{ rest.substr(0, digit_string_size) });
+                                if (digit_iterator == digit_string_map.end())
+                                    break;
+                                digit *= 10;
+                                digit += digit_iterator->second;
+                                rest.remove_prefix(digit_string_size);
+                            } while (rest.size() >= digit_string_size);
+                            count = digit;
+                        }
+                        if (count > 18)
+                            throw file_format_error{ "read_kyokumen_file 2-3" };
+
+                        mochigoma_list[sengo][koma] = count;
+                    }
                 }
             }
+        }
+        catch (const parse_error & e)
+        {
+            throw file_format_error{ e.what() };
+        }
+        catch (const file_format_error &)
+        {
+            throw;
         }
     }
 
@@ -2197,69 +2208,81 @@ namespace shogipp
         
         kyokumen_t temp_kyokumen;
         temp_kyokumen.init();
-        while (std::getline(stream, line))
+
+        try
         {
-            if (line.empty() || (!line.empty() && line.front() == '#'))
-                continue;
-
-            std::string_view rest = line;
-            sengo_t sengo = parse(rest, sengo_mark_map, sengo_mark_size);
-            pos_t destination_suji = parse(rest, suji_string_map, suji_string_size);
-            pos_t destination_dan = parse(rest, dan_string_map, dan_string_size);
-            pos_t destination = suji_dan_to_pos(destination_suji, destination_dan);
-            koma_t koma = parse(rest, koma_string_map, koma_string_size);
-
-            if (sengo != temp_kyokumen.sengo())
-                throw file_format_error("read_kifu_file 1-2");
-
-            if (temp_kyokumen.sengo() == gote)
-                koma = to_gote(koma);
-
-            bool promote = false;
-            if (rest.size() >= uchite_string.size()
-                && rest.substr(0, uchite_string.size()) == uchite_string)
+            while (std::getline(stream, line))
             {
-                rest.remove_prefix(uchite_string.size());
-                if (koma < fu || koma >hi)
-                    throw file_format_error("read_kifu_file 1-1");
-                if (!rest.empty())
-                    throw file_format_error("read_kifu_file 1-2");
-                te_t te{ destination, koma };
-                do_te(te);
-                continue;
-            }
-            else if (rest.size() >= promote_string.size()
-                && rest.substr(0, promote_string.size()) == promote_string)
-            {
-                promote = true;
-                rest.remove_prefix(promote_string.size());
-            }
-            else if (rest.size() >= nonpromote_string.size()
-                && rest.substr(0, nonpromote_string.size()) == nonpromote_string)
-            {
-                rest.remove_prefix(nonpromote_string.size());
-            }
+                if (line.empty() || (!line.empty() && line.front() == '#'))
+                    continue;
 
-            if (rest.size() >= source_position_prefix.size()
-                && rest.substr(0, source_position_prefix.size()) == source_position_prefix)
-            {
-                rest.remove_prefix(source_position_prefix.size());
-                pos_t source_suji = parse(rest, suji_string_map, suji_string_size);
-                pos_t source_dan = parse(rest, dan_string_map, dan_string_size);
-                pos_t source = suji_dan_to_pos(source_suji, source_dan);
-                if (rest.size() >= source_position_suffix.size()
-                    && rest.substr(0, source_position_suffix.size()) == source_position_suffix)
+                std::string_view rest = line;
+                sengo_t sengo = parse(rest, sengo_mark_map, sengo_mark_size);
+                pos_t destination_suji = parse(rest, suji_string_map, suji_string_size);
+                pos_t destination_dan = parse(rest, dan_string_map, dan_string_size);
+                pos_t destination = suji_dan_to_pos(destination_suji, destination_dan);
+                koma_t koma = parse(rest, koma_string_map, koma_string_size);
+
+                if (sengo != temp_kyokumen.sengo())
+                    throw file_format_error{ "read_kifu_file 1" };
+
+                if (temp_kyokumen.sengo() == gote)
+                    koma = to_gote(koma);
+
+                bool promote = false;
+                if (rest.size() >= uchite_string.size()
+                    && rest.substr(0, uchite_string.size()) == uchite_string)
                 {
-                    rest.remove_prefix(source_position_suffix.size());
+                    rest.remove_prefix(uchite_string.size());
+                    if (koma < fu || koma >hi)
+                        throw file_format_error{ "read_kifu_file 2" };
                     if (!rest.empty())
-                        throw file_format_error("read_kifu_file 1-3");
-                    te_t te{ source, destination, temp_kyokumen.ban[source], temp_kyokumen.ban[destination], promote };
+                        throw file_format_error{ "read_kifu_file 3" };
+                    te_t te{ destination, koma };
                     do_te(te);
                     continue;
                 }
-            }
+                else if (rest.size() >= promote_string.size()
+                    && rest.substr(0, promote_string.size()) == promote_string)
+                {
+                    promote = true;
+                    rest.remove_prefix(promote_string.size());
+                }
+                else if (rest.size() >= nonpromote_string.size()
+                    && rest.substr(0, nonpromote_string.size()) == nonpromote_string)
+                {
+                    rest.remove_prefix(nonpromote_string.size());
+                }
 
-            throw file_format_error("read_kifu_file 1-1");
+                if (rest.size() >= source_position_prefix.size()
+                    && rest.substr(0, source_position_prefix.size()) == source_position_prefix)
+                {
+                    rest.remove_prefix(source_position_prefix.size());
+                    pos_t source_suji = parse(rest, suji_string_map, suji_string_size);
+                    pos_t source_dan = parse(rest, dan_string_map, dan_string_size);
+                    pos_t source = suji_dan_to_pos(source_suji, source_dan);
+                    if (rest.size() >= source_position_suffix.size()
+                        && rest.substr(0, source_position_suffix.size()) == source_position_suffix)
+                    {
+                        rest.remove_prefix(source_position_suffix.size());
+                        if (!rest.empty())
+                            throw file_format_error{ "read_kifu_file 4" };
+                        te_t te{ source, destination, temp_kyokumen.ban[source], temp_kyokumen.ban[destination], promote };
+                        do_te(te);
+                        continue;
+                    }
+                }
+
+                throw file_format_error{ "read_kifu_file 5" };
+            }
+        }
+        catch (const parse_error & e)
+        {
+            throw file_format_error{ e.what() };
+        }
+        catch (const file_format_error &)
+        {
+            throw;
         }
     }
 

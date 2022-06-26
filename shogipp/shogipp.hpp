@@ -2095,10 +2095,12 @@ namespace shogipp
         static const std::string tesu_suffix = "Žè–Ú";
         static const std::string sengo_suffix = "”Ô";
 
-        init();
         std::ifstream stream{ kyokumen_file };
         std::string line;
         pos_t dan = 0;
+
+        kyokumen_t temp_kyokumen;
+        temp_kyokumen.init();
 
         try
         {
@@ -2183,6 +2185,8 @@ namespace shogipp
                     }
                 }
             }
+
+            std::swap(*this, temp_kyokumen);
         }
         catch (const parse_error & e)
         {
@@ -2275,6 +2279,8 @@ namespace shogipp
 
                 throw file_format_error{ "read_kifu_file 5" };
             }
+
+            std::swap(*this, temp_kyokumen);
         }
         catch (const parse_error & e)
         {

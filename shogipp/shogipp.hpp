@@ -100,7 +100,7 @@ namespace shogipp
      * @retval sente sengo == gote の場合
      * @retval gote sengo == sente の場合
      */
-    inline static sengo_t operator !(sengo_t sengo)
+    inline sengo_t operator !(sengo_t sengo)
     {
         SHOGIPP_ASSERT(sengo >= sente);
         SHOGIPP_ASSERT(sengo <= gote);
@@ -122,7 +122,7 @@ namespace shogipp
      * @param pos 座標
      * @return 段
      */
-    inline pos_t pos_to_dan(pos_t pos)
+    inline constexpr pos_t pos_to_dan(pos_t pos)
     {
         return pos / width - padding_height;
     }
@@ -132,7 +132,7 @@ namespace shogipp
      * @param pos 座標
      * @return 筋
      */
-    inline pos_t pos_to_suji(pos_t pos)
+    inline constexpr pos_t pos_to_suji(pos_t pos)
     {
         return pos % width - padding_width;
     }
@@ -145,10 +145,10 @@ namespace shogipp
      */
     inline pos_t distance(pos_t a, pos_t b)
     {
-        int suji_a = pos_to_suji(a);
-        int dan_a = pos_to_dan(a);
-        int suji_b = pos_to_suji(b);
-        int dan_b = pos_to_dan(b);
+        pos_t suji_a = pos_to_suji(a);
+        pos_t dan_a = pos_to_dan(a);
+        pos_t suji_b = pos_to_suji(b);
+        pos_t  dan_b = pos_to_dan(b);
         return static_cast<pos_t>(std::abs(suji_a - suji_b) + std::abs(dan_a - dan_b));
     }
 
@@ -210,7 +210,7 @@ namespace shogipp
 
     using tesu_t = unsigned int;
 
-    inline sengo_t tesu_to_sengo(tesu_t tesu)
+    inline constexpr sengo_t tesu_to_sengo(tesu_t tesu)
     {
         return static_cast<sengo_t>(tesu % sengo_size);
     }
@@ -220,7 +220,7 @@ namespace shogipp
      * @param 先手か後手か
      * @return 符号反転用の数値
      */
-    inline pos_t reverse(sengo_t sengo)
+    inline constexpr pos_t reverse(sengo_t sengo)
     {
         return sengo ? -1 : 1;
     }
@@ -236,7 +236,7 @@ namespace shogipp
     inline bool is_promoted(koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        constexpr static bool map[]
+        constexpr bool map[]
         {
             false,
             false, false, false, false, false, false, false, false, true, true, true, true, true, true,
@@ -802,10 +802,9 @@ namespace shogipp
     /**
      * @breif 持ち駒
      */
-    struct mochigoma_t
+    class mochigoma_t
     {
-        unsigned char count[hi - fu + 1];
-
+    public:
         /**
          * @breif 持ち駒を初期化する。
          */
@@ -829,6 +828,9 @@ namespace shogipp
          * @return 駒と対応する持ち駒の数の参照
          */
         inline const unsigned char & operator [](koma_t koma) const;
+
+    private:
+        unsigned char count[hi - fu + 1];
     };
 
     inline void mochigoma_t::init()
@@ -872,11 +874,14 @@ namespace shogipp
         return (*const_cast<mochigoma_t *>(this))[koma];
     }
 
+    class kyokumen_rollback_validator_t;
+
     /**
      * @breif 盤
      */
-    struct ban_t
+    class ban_t
     {
+    public:
         /**
          * @breif 盤を初期化する。
          */
@@ -897,6 +902,8 @@ namespace shogipp
          */
         inline void print() const;
 
+    private:
+        friend class kyokumen_rollback_validator_t;
         koma_t data[pos_size];
     };
 
@@ -962,8 +969,9 @@ namespace shogipp
     /**
      * @breif 利き
      */
-    struct kiki_t
+    class kiki_t
     {
+    public:
         pos_t pos;      // 利いている駒の座標
         pos_t offset;   // 利きの相対座標
         bool aigoma;    // 合駒が可能か
@@ -974,8 +982,9 @@ namespace shogipp
     /**
      * @breif 局面
      */
-    struct kyokumen_t
+    class kyokumen_t
     {
+    public:
         using move_table_t = std::map<pos_t, std::vector<pos_t>>;
 
         /**
@@ -2246,8 +2255,9 @@ namespace shogipp
     /**
      * @breif 評価関数オブジェクトのインターフェース
      */
-    struct abstract_evaluator_t
+    class abstract_evaluator_t
     {
+    public:
         virtual ~abstract_evaluator_t() {};
 
         /**
@@ -2267,8 +2277,9 @@ namespace shogipp
     /**
      * @breif 対局
      */
-    struct taikyoku_t
+    class taikyoku_t
     {
+    public:
         /**
          * @breif 対局を初期化する。
          */
@@ -2420,9 +2431,10 @@ namespace shogipp
     /**
      * @breif negamax で合法手を選択する評価関数オブジェクトの抽象クラス
      */
-    struct negamax_evaluator_t
+    class negamax_evaluator_t
         : public abstract_evaluator_t
     {
+    public:
         int negamax(
             kyokumen_t & kyokumen,
             int depth,
@@ -2493,9 +2505,10 @@ namespace shogipp
     /**
      * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
      */
-    struct alphabeta_evaluator_t
+    class alphabeta_evaluator_t
         : public abstract_evaluator_t
     {
+    public:
         int alphabeta(
             kyokumen_t & kyokumen,
             int depth,
@@ -2571,9 +2584,10 @@ namespace shogipp
      * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
      * @details 前回駒取りが発生していた場合、探索を延長する。
      */
-    struct extendable_alphabeta_evaluator_t
+    class extendable_alphabeta_evaluator_t
         : public abstract_evaluator_t
     {
+    public:
         int extendable_alphabeta(
             kyokumen_t & kyokumen,
             int depth,
@@ -2682,9 +2696,10 @@ namespace shogipp
     /**
      * @breif 単純に評価値が最も高い手を返す評価関数オブジェクトの抽象クラス
      */
-    struct max_evaluator_t
+    class max_evaluator_t
         : public abstract_evaluator_t
     {
+    public:
         /**
          * @breif 局面に対して評価値が最も高くなる合法手を選択する。
          * @param kyokumen 局面
@@ -2720,9 +2735,10 @@ namespace shogipp
     /**
      * @breif 評価関数オブジェクトの実装例
      */
-    struct sample_evaluator_t
+    class sample_evaluator_t
         : public alphabeta_evaluator_t
     {
+    public:
         int eval(kyokumen_t & kyokumen) override
         {
             static const int map[]
@@ -2754,9 +2770,10 @@ namespace shogipp
         }
     };
 
-    struct hiyoko_evaluator_t
+    class hiyoko_evaluator_t
         : public negamax_evaluator_t
     {
+    public:
         int eval(kyokumen_t & kyokumen) override
         {
             static const int map[]
@@ -2789,9 +2806,10 @@ namespace shogipp
         }
     };
 
-    struct niwatori_evaluator_t
+    class niwatori_evaluator_t
         : public alphabeta_evaluator_t
     {
+    public:
         int eval(kyokumen_t & kyokumen) override
         {
             static const int map[]
@@ -2825,9 +2843,10 @@ namespace shogipp
         }
     };
 
-    struct niwatori_dou_evaluator_t
+    class niwatori_dou_evaluator_t
         : public extendable_alphabeta_evaluator_t
     {
+    public:
         int eval(kyokumen_t & kyokumen) override
         {
             static const int map[]
@@ -2864,9 +2883,10 @@ namespace shogipp
     /**
      * @breif 評価関数オブジェクトの実装例
      */
-    struct random_evaluator_t
+    class random_evaluator_t
         : public max_evaluator_t
     {
+    public:
         inline int eval(kyokumen_t & kyokumen) override
         {
             return uid(rand);

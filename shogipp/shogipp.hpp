@@ -55,13 +55,11 @@ namespace shogipp
      * @param func __func__
      * @param line __LINE__
      */
-    inline void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
+    inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
     {
         if (!assertion)
         {
-            std::ostringstream what;
-            what << "Assertion failed: " << expr << ", file " << file << ", line " << line;
-            std::cerr << what.str() << std::endl;
+            std::cerr << "Assertion failed: " << expr << ", file " << file << ", line " << line << std::endl;
             std::terminate();
         }
     }
@@ -688,7 +686,7 @@ namespace shogipp
          * @param destination 打つ座標
          * @param source_koma 打つ駒
          */
-        inline te_t(pos_t destination, koma_t source_koma);
+        inline constexpr te_t(pos_t destination, koma_t source_koma) noexcept;
 
         /**
          * @breif 移動する手を構築する。
@@ -698,20 +696,49 @@ namespace shogipp
          * @param captured_koma 移動先の駒
          * @param promote 成か不成か
          */
-        inline te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote);
+        inline constexpr te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote) noexcept;
 
         /**
          * @breif 打ち手か判定する。
          * @retval true 打ち手である
          * @retval false 移動する手である
          */
-        inline bool is_uchite() const;
+        inline constexpr bool is_uchite() const noexcept;
 
-        inline pos_t source() const;
-        inline pos_t destination() const;
-        inline koma_t source_koma() const;
-        inline koma_t captured_koma() const;
-        inline bool promote() const;
+        /**
+         * @breif 移動元の座標を取得する。
+         * @return 移動元の座標
+         * @details is_uchite が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
+         */
+        inline constexpr pos_t source() const noexcept;
+
+        /**
+         * @breif 移動先の座標を取得する。
+         * @return 移動先の座標
+         * @details is_uchite が true を返す場合、この関数は打つ先の座標を返す。
+         */
+        inline constexpr pos_t destination() const noexcept;
+
+        /**
+         * @breif 移動元の駒を取得する。
+         * @return 移動元の駒
+         */
+        inline constexpr koma_t source_koma() const noexcept;
+
+        /**
+         * @breif 移動先の駒を取得する。
+         * @return 移動先の駒
+         * @detalis is_uchite が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
+         */
+        inline constexpr koma_t captured_koma() const noexcept;
+
+        /**
+         * @breif 成るか否かを取得する。
+         * @retval true 成る
+         * @retval false 成らない
+         * @detalis is_uchite が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
+         */
+        inline constexpr bool promote() const noexcept;
 
     private:
         pos_t   m_source;           // 移動元の座標(src == npos の場合、持ち駒を打つ)
@@ -721,50 +748,52 @@ namespace shogipp
         bool    m_promote;          // 成る場合 true
     };
 
-    inline te_t::te_t(pos_t destination, koma_t source_koma)
+    inline constexpr te_t::te_t(pos_t destination, koma_t source_koma) noexcept
+        : m_source{ npos }
+        , m_destination{ destination }
+        , m_source_koma{ source_koma }
+        , m_captured_koma{ empty }
+        , m_promote{ false }
     {
-        m_source = npos;
-        m_destination = destination;
-        m_source_koma = source_koma;
-        m_captured_koma = empty;
-        m_promote = false;
     }
 
-    inline te_t::te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote)
+    inline constexpr te_t::te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote) noexcept
+        : m_source{ source }
+        , m_destination{ destination }
+        , m_source_koma{ source_koma }
+        , m_captured_koma{ captured_koma }
+        , m_promote{ promote }
     {
-        m_source = source;
-        m_destination = destination;
-        m_source_koma = source_koma;
-        m_captured_koma = captured_koma;
-        m_promote = promote;
     }
 
-    inline bool te_t::is_uchite() const
+    inline constexpr bool te_t::is_uchite() const noexcept
     {
         return m_source == npos;
     }
 
-    inline pos_t te_t::source() const
+    inline constexpr pos_t te_t::source() const noexcept
     {
+        SHOGIPP_ASSERT(!is_uchite());
         return m_source;
     }
 
-    inline pos_t te_t::destination() const
+    inline constexpr pos_t te_t::destination() const noexcept
     {
         return m_destination;
     }
 
-    inline koma_t te_t::source_koma() const
+    inline constexpr koma_t te_t::source_koma() const noexcept
     {
         return m_source_koma;
     }
 
-    inline koma_t te_t::captured_koma() const
+    inline constexpr koma_t te_t::captured_koma() const noexcept
     {
+        SHOGIPP_ASSERT(!is_uchite());
         return m_captured_koma;
     }
 
-    inline bool te_t::promote() const
+    inline constexpr bool te_t::promote() const noexcept
     {
         SHOGIPP_ASSERT(!is_uchite());
         return m_promote;

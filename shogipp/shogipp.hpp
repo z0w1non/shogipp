@@ -2206,7 +2206,6 @@ namespace shogipp
         static constexpr std::string_view promote_string = "ê¨";
         static constexpr std::string_view nonpromote_string = "ïsê¨";
 
-        init();
         std::ifstream stream{ kifu_file };
         std::string line;
         

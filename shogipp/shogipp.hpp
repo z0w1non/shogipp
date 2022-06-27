@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <memory>
 #include <sstream>
+#include <set>
 #include <map>
 #include <unordered_map>
 #include <random>
@@ -2509,6 +2510,86 @@ namespace shogipp
             << "ŽÀsŽžŠÔ[ms]: " << duration << std::endl
             << "“Ç‚ÝŽè‘¬“x[Žè/s]: " << sps;
         std::cout.flush();
+    }
+
+    void print_help()
+    {
+        std::cout
+            << ""
+            ;
+    }
+
+    template<typename Callback>
+    void parse_program_options(int argc, const char ** argv, Callback && callback)
+    {
+        std::map<char, std::vector<std::string>> params;
+        constexpr char quotations[] = { '\'', '"' };
+
+        char current_option{};
+        for (int i = 0; i < argc; ++i)
+        {
+            unsigned int count = 0;
+            if (argv[i][0] == '-')
+            {
+                const char * p = argv[i] + 1;
+                char option = *p;
+                while (std::isalpha(*p))
+                {
+                    params[*p];
+                    ++p;
+                    ++count;
+                }
+                if (count == 1)
+                    current_option = option;
+                else
+                    current_option = char{};
+            }
+            else if (current_option)
+            {
+                const char * p = argv[i];
+                while (std::isspace(*p))
+                    ++p;
+                while (*p)
+                {
+                    while (std::isspace(*p))
+                        ++p;
+                    if (!*p)
+                        break;
+                    auto qiter = std::find(std::begin(quotations), std::end(quotations), *p);
+                    if (qiter != std::end(quotations))
+                    {
+                        const char * begin = p;
+                        char quotation = *qiter;
+                        while (*p && *p != quotation)
+                            ++p;
+                        if (*p)
+                            ++p;
+                        params[current_option].emplace_back(begin, p);
+                    }
+                    else
+                    {
+                        const char * begin = p;
+                        while (*p && !std::isspace(*p))
+                            ++p;
+                        params[current_option].emplace_back(begin, p);
+                    }
+                }
+            }
+        }
+
+        for (auto & [option, param_list] : params)
+            callback(option, param_list);
+    }
+
+    void parse_command_line(int argc, const char ** argv)
+    {
+        auto callback = [](char option, auto && param_list)
+        {
+            std::cout << option << ":" << std::endl;
+            for (auto && p : param_list)
+                std::cout << "    " << p << std::endl;
+        };
+        parse_program_options(argc, argv, callback);
     }
 
     /**

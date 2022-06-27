@@ -2522,29 +2522,41 @@ namespace shogipp
     template<typename Callback>
     void parse_program_options(int argc, const char ** argv, Callback && callback)
     {
-        std::map<char, std::vector<std::string>> params;
+        std::map<std::string, std::vector<std::string>> params;
         constexpr char quotations[] = { '\'', '"' };
 
-        char current_option{};
+        std::string current_option;
         for (int i = 0; i < argc; ++i)
         {
             unsigned int count = 0;
             if (argv[i][0] == '-')
             {
-                const char * p = argv[i] + 1;
-                char option = *p;
-                while (std::isalpha(*p))
+                if (argv[i][1] == '-')
                 {
-                    params[*p];
-                    ++p;
-                    ++count;
+                    const char * p = argv[i] + 2;
+                    const char * begin = p;
+                    while (*p && !std::isspace(*p))
+                        ++p;
+                    params[std::string{ begin, p }];
+                    current_option = std::string(begin, p);
                 }
-                if (count == 1)
-                    current_option = option;
                 else
-                    current_option = char{};
+                {
+                    const char * p = argv[i] + 1;
+                    char option = *p;
+                    while (std::isalpha(*p))
+                    {
+                        params[std::string{ *p }];
+                        ++p;
+                        ++count;
+                    }
+                    if (count == 1)
+                        current_option = option;
+                    else
+                        current_option.clear();
+                }
             }
-            else if (current_option)
+            else if (!current_option.empty())
             {
                 const char * p = argv[i];
                 while (std::isspace(*p))
@@ -2583,7 +2595,7 @@ namespace shogipp
 
     void parse_command_line(int argc, const char ** argv)
     {
-        auto callback = [](char option, auto && param_list)
+        auto callback = [](auto && option, auto && param_list)
         {
             std::cout << option << ":" << std::endl;
             for (auto && p : param_list)

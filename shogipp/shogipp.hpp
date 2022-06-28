@@ -2105,12 +2105,11 @@ namespace shogipp
         {
             while (std::getline(stream, line))
             {
-                std::cout << line << std::endl;
                 if (line.empty() || (!line.empty() && line.front() == '#'))
                     continue;
 
                 std::string_view rest = line;
-                if (rest.size() >= 1 && std::isdigit(rest[0]))
+                if (rest.size() >= 1 && rest[0] >= '0' && rest[0] <= '9')
                 {
                     tesu_t temp_tesu = 0;
                     do
@@ -2118,7 +2117,7 @@ namespace shogipp
                         temp_tesu *= 10;
                         temp_tesu += rest[0] - '0';
                         rest.remove_prefix(1);
-                    } while (rest.size() >= 1 && std::isdigit(rest[0]));
+                    } while (rest.size() >= 1 && rest[0] >= '0' && rest[0] <= '9');
                     if (temp_tesu == 0)
                         throw file_format_error{ "read_kyokumen_file 1-1" };
                     --temp_tesu;
@@ -2132,7 +2131,7 @@ namespace shogipp
 
                     parse(rest, sengo_suffix);
 
-                    tesu = temp_tesu;
+                    temp_kyokumen.tesu = temp_tesu;
                     continue;
                 }
                 

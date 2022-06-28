@@ -2174,17 +2174,20 @@ namespace shogipp
 
                         if (rest.size() >= digit_string_size)
                         {
-                            unsigned char digit = 0;
-                            do
+                            if (digit_string_map.find(std::string{ rest.substr(0, digit_string_size) }) != digit_string_map.end())
                             {
-                                auto digit_iterator = digit_string_map.find(std::string{ rest.substr(0, digit_string_size) });
-                                if (digit_iterator == digit_string_map.end())
-                                    break;
-                                digit *= 10;
-                                digit += digit_iterator->second;
-                                rest.remove_prefix(digit_string_size);
-                            } while (rest.size() >= digit_string_size);
-                            count = digit;
+                                unsigned char digit = 0;
+                                do
+                                {
+                                    auto digit_iterator = digit_string_map.find(std::string{ rest.substr(0, digit_string_size) });
+                                    if (digit_iterator == digit_string_map.end())
+                                        break;
+                                    digit *= 10;
+                                    digit += digit_iterator->second;
+                                    rest.remove_prefix(digit_string_size);
+                                } while (rest.size() >= digit_string_size);
+                                count = digit;
+                            }
                         }
                         if (count > 18)
                             throw file_format_error{ "read_kyokumen_file 2-3" };

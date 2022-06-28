@@ -2135,22 +2135,22 @@ namespace shogipp
                     continue;
                 }
                 
-                if (line.size() >= 1 && line[0] == '|')
+                if (rest.size() >= 1 && rest[0] == '|')
                 {
                     rest.remove_prefix(1);
                     for (pos_t suji = 0; suji < suji_size; ++suji)
                     {
-                        std::optional<sengo_t> sengo = parse(rest, sengo_string_map, sengo_string_size);
+                        std::optional<sengo_t> sengo = parse(rest, sengo_prefix_string_map, sengo_prefix_string_size);
                         std::optional<koma_t> koma = parse(rest, koma_string_map, koma_string_size);
                         if (*sengo == gote)
                             koma = to_gote(*koma);
-                        ban[suji_dan_to_pos(suji, dan)] = *koma;
+                        temp_kyokumen.ban[suji_dan_to_pos(suji, dan)] = *koma;
                     }
                     ++dan;
                     continue;
                 }
                 
-                if (line.size() >= sengo_string_size)
+                if (rest.size() >= sengo_string_size)
                 {
                     std::optional<sengo_t> sengo = parse(rest, sengo_string_map, sengo_string_size);
                     if (!sengo)
@@ -2189,11 +2189,12 @@ namespace shogipp
                         if (count > 18)
                             throw file_format_error{ "read_kyokumen_file 2-3" };
 
-                        mochigoma_list[*sengo][*koma] = count;
+                        temp_kyokumen.mochigoma_list[*sengo][*koma] = count;
                     }
                 }
             }
-
+            
+            temp_kyokumen.update_oute();
             std::swap(*this, temp_kyokumen);
         }
         catch (const parse_error & e)

@@ -2142,7 +2142,7 @@ namespace shogipp
                     {
                         std::optional<sengo_t> sengo = parse(rest, sengo_prefix_string_map, sengo_prefix_string_size);
                         std::optional<koma_t> koma = parse(rest, koma_string_map, koma_string_size);
-                        if (*sengo == gote)
+                        if (*koma != empty && *sengo == gote)
                             koma = to_gote(*koma);
                         temp_kyokumen.ban[suji_dan_to_pos(suji, dan)] = *koma;
                     }

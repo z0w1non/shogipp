@@ -22,6 +22,7 @@
 #include <filesystem>
 #include <stdexcept>
 #include <type_traits>
+#include <utility>
 
 //#define NONDETERMINISM
 #ifdef NONDETERMINISM
@@ -254,7 +255,7 @@ namespace shogipp
         { "圭", nari_kei },
         { "全", nari_gin },
         { "馬", uma },
-        { "竜", hi }
+        { "竜", ryu }
     };
     static constexpr std::size_t koma_string_size = 2;
 
@@ -301,13 +302,13 @@ namespace shogipp
     static constexpr std::size_t dan_string_size = 2;
 
     template<typename Map>
-    inline typename std::decay_t<Map>::mapped_type parse(std::string_view & rest, Map && map, std::size_t size)
+    inline std::optional<typename std::decay_t<Map>::mapped_type> parse(std::string_view & rest, Map && map, std::size_t size)
     {
         if (rest.size() < size)
-            throw parse_error{ "parse 1-1" };
+            return std::nullopt;
         auto iter = map.find(std::string{ rest.substr(0, size) });
         if (iter == map.end())
-            throw parse_error{ "parse 1-2" };
+            return std::nullopt;
         rest.remove_prefix(size);
         return iter->second;
     }
@@ -799,7 +800,7 @@ namespace shogipp
          * @param destination 打つ座標
          * @param source_koma 打つ駒
          */
-        inline constexpr te_t(pos_t destination, koma_t source_koma) noexcept;
+        inline te_t(pos_t destination, koma_t source_koma) noexcept;
 
         /**
          * @breif 移動する手を構築する。
@@ -809,41 +810,41 @@ namespace shogipp
          * @param captured_koma 移動先の駒
          * @param promote 成か不成か
          */
-        inline constexpr te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote) noexcept;
+        inline te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote) noexcept;
 
         /**
          * @breif 打ち手か判定する。
          * @retval true 打ち手である
          * @retval false 移動する手である
          */
-        inline constexpr bool is_uchite() const noexcept;
+        inline bool is_uchite() const noexcept;
 
         /**
          * @breif 移動元の座標を取得する。
          * @return 移動元の座標
          * @details is_uchite が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
          */
-        inline constexpr pos_t source() const noexcept;
+        inline pos_t source() const noexcept;
 
         /**
          * @breif 移動先の座標を取得する。
          * @return 移動先の座標
          * @details is_uchite が true を返す場合、この関数は打つ先の座標を返す。
          */
-        inline constexpr pos_t destination() const noexcept;
+        inline pos_t destination() const noexcept;
 
         /**
          * @breif 移動元の駒を取得する。
          * @return 移動元の駒
          */
-        inline constexpr koma_t source_koma() const noexcept;
+        inline koma_t source_koma() const noexcept;
 
         /**
          * @breif 移動先の駒を取得する。
          * @return 移動先の駒
          * @detalis is_uchite が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
          */
-        inline constexpr koma_t captured_koma() const noexcept;
+        inline koma_t captured_koma() const noexcept;
 
         /**
          * @breif 成るか否かを取得する。
@@ -851,7 +852,7 @@ namespace shogipp
          * @retval false 成らない
          * @detalis is_uchite が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
          */
-        inline constexpr bool promote() const noexcept;
+        inline bool promote() const noexcept;
 
     private:
         pos_t   m_source;           // 移動元の座標(src == npos の場合、持ち駒を打つ)
@@ -861,16 +862,18 @@ namespace shogipp
         bool    m_promote;          // 成る場合 true
     };
 
-    inline constexpr te_t::te_t(pos_t destination, koma_t source_koma) noexcept
+    inline te_t::te_t(pos_t destination, koma_t source_koma) noexcept
         : m_source{ npos }
         , m_destination{ destination }
         , m_source_koma{ source_koma }
         , m_captured_koma{ empty }
         , m_promote{ false }
     {
+        SHOGIPP_ASSERT(source_koma >= fu);
+        SHOGIPP_ASSERT(source_koma <= hi);
     }
 
-    inline constexpr te_t::te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote) noexcept
+    inline te_t::te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote) noexcept
         : m_source{ source }
         , m_destination{ destination }
         , m_source_koma{ source_koma }
@@ -879,34 +882,34 @@ namespace shogipp
     {
     }
 
-    inline constexpr bool te_t::is_uchite() const noexcept
+    inline bool te_t::is_uchite() const noexcept
     {
         return m_source == npos;
     }
 
-    inline constexpr pos_t te_t::source() const noexcept
+    inline pos_t te_t::source() const noexcept
     {
         SHOGIPP_ASSERT(!is_uchite());
         return m_source;
     }
 
-    inline constexpr pos_t te_t::destination() const noexcept
+    inline pos_t te_t::destination() const noexcept
     {
         return m_destination;
     }
 
-    inline constexpr koma_t te_t::source_koma() const noexcept
+    inline koma_t te_t::source_koma() const noexcept
     {
         return m_source_koma;
     }
 
-    inline constexpr koma_t te_t::captured_koma() const noexcept
+    inline koma_t te_t::captured_koma() const noexcept
     {
         SHOGIPP_ASSERT(!is_uchite());
         return m_captured_koma;
     }
 
-    inline constexpr bool te_t::promote() const noexcept
+    inline bool te_t::promote() const noexcept
     {
         SHOGIPP_ASSERT(!is_uchite());
         return m_promote;
@@ -1804,7 +1807,7 @@ namespace shogipp
                         if (can_put(koma, dst))
                             *result++ = { dst, koma };
             }
-            }
+        }
         else // 王手されている場合
         {
             pos_t r = reverse(sengo());
@@ -2000,7 +2003,8 @@ namespace shogipp
         for (tesu_t tesu = 0; tesu < static_cast<tesu_t>(kifu.size()); ++tesu)
         {
             print_te(kifu[tesu], tesu_to_sengo(tesu));
-            std::cout << std::endl;
+            if (tesu + 1 < static_cast<tesu_t>(kifu.size()))
+                std::cout << std::endl;
         }
     }
 
@@ -2031,7 +2035,7 @@ namespace shogipp
         {
             SHOGIPP_ASSERT(!(!is_promotable(te.source_koma()) && te.promote()));
             if (ban[te.destination()] != empty)
-                ++mochigoma_list[sengo()][ban[te.destination()]];
+                ++mochigoma_list[sengo()][to_mochigoma(ban[te.destination()])];
             ban[te.destination()] = te.promote() ? to_promoted(ban[te.source()]) : ban[te.source()];
             ban[te.source()] = empty;
             if (trim_sengo(te.source_koma()) == ou)
@@ -2068,7 +2072,7 @@ namespace shogipp
             ban[te.source()] = te.source_koma();
             ban[te.destination()] = te.captured_koma();
             if (te.captured_koma() != empty)
-                --mochigoma_list[sengo()][te.captured_koma()];
+                --mochigoma_list[sengo()][to_mochigoma(te.captured_koma())];
         }
         hash_stack.pop();
         update_oute();
@@ -2126,31 +2130,38 @@ namespace shogipp
 
                     parse(rest, tesu_suffix);
 
-                    sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
+                    std::optional<sengo_t> sengo = parse(rest, sengo_string_map, sengo_string_size);
 
-                    if (tesu_to_sengo(temp_tesu) != sengo)
+                    if (tesu_to_sengo(temp_tesu) != *sengo)
                         throw file_format_error{ "read_kyokumen_file 1-6" };
 
                     parse(rest, sengo_suffix);
 
                     tesu = temp_tesu;
+                    continue;
                 }
-                else if (line.size() >= 1 && line[0] == '|')
+                
+                if (line.size() >= 1 && line[0] == '|')
                 {
                     rest.remove_prefix(1);
                     for (pos_t suji = 0; suji < suji_size; ++suji)
                     {
-                        sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
-                        koma_t koma = parse(rest, koma_string_map, koma_string_size);
-                        if (sengo == gote)
-                            koma = to_gote(koma);
-                        ban[suji_dan_to_pos(suji, dan)] = koma;
+                        std::optional<sengo_t> sengo = parse(rest, sengo_string_map, sengo_string_size);
+                        std::optional<koma_t> koma = parse(rest, koma_string_map, koma_string_size);
+                        if (*sengo == gote)
+                            koma = to_gote(*koma);
+                        ban[suji_dan_to_pos(suji, dan)] = *koma;
                     }
                     ++dan;
+                    continue;
                 }
-                else if (line.size() >= sengo_string_size)
+                
+                if (line.size() >= sengo_string_size)
                 {
-                    sengo_t sengo = parse(rest, sengo_string_map, sengo_string_size);
+                    std::optional<sengo_t> sengo = parse(rest, sengo_string_map, sengo_string_size);
+                    if (!sengo)
+                        continue;
+
                     parse(rest, mochigoma_string);
 
                     if (rest.size() >= nothing_string.size() && rest == nothing_string)
@@ -2159,7 +2170,9 @@ namespace shogipp
                     while (true)
                     {
                         unsigned char count = 1;
-                        koma_t koma = parse(rest, koma_string_map, koma_string_size);
+                        std::optional<koma_t> koma = parse(rest, koma_string_map, koma_string_size);
+                        if (!koma)
+                            break;
                         if (koma < fu)
                             throw file_format_error{ "read_kyokumen_file 2-1" };
                         if (koma > hi)
@@ -2182,7 +2195,7 @@ namespace shogipp
                         if (count > 18)
                             throw file_format_error{ "read_kyokumen_file 2-3" };
 
-                        mochigoma_list[sengo][koma] = count;
+                        mochigoma_list[*sengo][*koma] = count;
                     }
                 }
             }
@@ -2217,33 +2230,48 @@ namespace shogipp
         {
             while (std::getline(stream, line))
             {
+                std::cerr << line << std::endl;
                 if (line.empty() || (!line.empty() && line.front() == '#'))
                     continue;
 
                 std::string_view rest = line;
-                sengo_t sengo = parse(rest, sengo_mark_map, sengo_mark_size);
-                pos_t destination_suji = parse(rest, suji_string_map, suji_string_size);
-                pos_t destination_dan = parse(rest, dan_string_map, dan_string_size);
-                pos_t destination = suji_dan_to_pos(destination_suji, destination_dan);
-                koma_t koma = parse(rest, koma_string_map, koma_string_size);
-
-                if (sengo != temp_kyokumen.sengo())
+                
+                std::optional<sengo_t> sengo = parse(rest, sengo_mark_map, sengo_mark_size);
+                if (!sengo)
                     throw file_format_error{ "read_kifu_file 1" };
+                
+                std::optional<pos_t> destination_suji = parse(rest, suji_string_map, suji_string_size);
+                if (!destination_suji)
+                    throw file_format_error{ "read_kifu_file 2" };
 
-                if (temp_kyokumen.sengo() == gote)
-                    koma = to_gote(koma);
+                std::optional<pos_t> destination_dan = parse(rest, dan_string_map, dan_string_size);
+                if (!destination_dan)
+                    throw file_format_error{ "read_kifu_file 3" };
+
+                std::optional<pos_t> destination = suji_dan_to_pos(*destination_suji, *destination_dan);
+                if (!destination)
+                    throw file_format_error{ "read_kifu_file 4" };
+
+                std::optional<koma_t> koma = parse(rest, koma_string_map, koma_string_size);
+                if (!koma)
+                    throw file_format_error{ "read_kifu_file 5" };
+
+                if (*sengo != temp_kyokumen.sengo())
+                    throw file_format_error{ "read_kifu_file 6" };
 
                 bool promote = false;
                 if (rest.size() >= uchite_string.size()
                     && rest.substr(0, uchite_string.size()) == uchite_string)
                 {
                     rest.remove_prefix(uchite_string.size());
-                    if (koma < fu || koma >hi)
-                        throw file_format_error{ "read_kifu_file 2" };
+                    if (*koma < fu || *koma > hi)
+                        throw file_format_error{ "read_kifu_file 7" };
                     if (!rest.empty())
-                        throw file_format_error{ "read_kifu_file 3" };
-                    te_t te{ destination, koma };
-                    do_te(te);
+                        throw file_format_error{ "read_kifu_file 8" };
+                    if (temp_kyokumen.mochigoma_list[temp_kyokumen.sengo()][*koma] == 0)
+                        throw file_format_error{ "read_kifu_file 9" };
+                    te_t te{ *destination, *koma };
+                    temp_kyokumen.do_te(te);
                     continue;
                 }
                 else if (rest.size() >= promote_string.size()
@@ -2262,22 +2290,25 @@ namespace shogipp
                     && rest.substr(0, source_position_prefix.size()) == source_position_prefix)
                 {
                     rest.remove_prefix(source_position_prefix.size());
-                    pos_t source_suji = parse(rest, suji_string_map, suji_string_size);
-                    pos_t source_dan = parse(rest, dan_string_map, dan_string_size);
-                    pos_t source = suji_dan_to_pos(source_suji, source_dan);
+                    std::optional<pos_t> source_suji = parse(rest, suji_string_map, suji_string_size);
+                    std::optional<pos_t> source_dan = parse(rest, dan_string_map, dan_string_size);
+                    pos_t source = suji_dan_to_pos(*source_suji, *source_dan);
                     if (rest.size() >= source_position_suffix.size()
                         && rest.substr(0, source_position_suffix.size()) == source_position_suffix)
                     {
                         rest.remove_prefix(source_position_suffix.size());
                         if (!rest.empty())
-                            throw file_format_error{ "read_kifu_file 4" };
-                        te_t te{ source, destination, temp_kyokumen.ban[source], temp_kyokumen.ban[destination], promote };
-                        do_te(te);
+                            throw file_format_error{ "read_kifu_file 10" };
+                        if (temp_kyokumen.ban[source] == empty)
+                            throw file_format_error{ "read_kifu_file 11" };
+                        te_t te{ source, *destination, temp_kyokumen.ban[source], temp_kyokumen.ban[*destination], promote };
+                        temp_kyokumen.do_te(te);
+                        temp_kyokumen.mochigoma_list[sente].print();
                         continue;
                     }
                 }
 
-                throw file_format_error{ "read_kifu_file 5" };
+                throw file_format_error{ "read_kifu_file 10" };
             }
 
             std::swap(*this, temp_kyokumen);
@@ -2489,15 +2520,17 @@ namespace shogipp
      * @breif 対局する。
      * @tparam Evaluator1 abstract_evaluator_t を継承したクラス
      * @tparam Evaluator2 abstract_evaluator_t を継承したクラス
+     * @param kyokuomen 局面
      */
-    template<typename Evaluator1, typename Evaluator2>
-    inline void do_taikyoku()
+    template<typename Evaluator1, typename Evaluator2, typename Kyokumen>
+    inline void do_taikyoku(Kyokumen && kyokumen)
     {
         std::chrono::system_clock::time_point begin, end;
         begin = std::chrono::system_clock::now();
 
         taikyoku_t taikyoku{ { std::make_shared<Evaluator1>(), std::make_shared<Evaluator2>() } };
         taikyoku.init();
+        taikyoku.kyokumen = std::forward<Kyokumen>(kyokumen);
         while (taikyoku.procedure());
 
         end = std::chrono::system_clock::now();
@@ -2508,8 +2541,23 @@ namespace shogipp
             << std::endl << std::endl
             << "総計読み手数: " << total_search_count << std::endl
             << "実行時間[ms]: " << duration << std::endl
-            << "読み手速度[手/s]: " << sps;
+            << "読み手速度[手/s]: " << sps << std::endl << std::endl;
+
+        taikyoku.kyokumen.print_kifu();
         std::cout.flush();
+    }
+
+    /**
+     * @breif 対局する。
+     * @tparam Evaluator1 abstract_evaluator_t を継承したクラス
+     * @tparam Evaluator2 abstract_evaluator_t を継承したクラス
+     */
+    template<typename Evaluator1, typename Evaluator2>
+    inline void do_taikyoku()
+    {
+        kyokumen_t kyokumen;
+        kyokumen.init();
+        do_taikyoku<Evaluator1, Evaluator2>(std::move(kyokumen));
     }
 
     void print_help()
@@ -2522,7 +2570,7 @@ namespace shogipp
     template<typename Callback>
     void parse_program_options(int argc, const char ** argv, Callback && callback)
     {
-        std::map<std::string, std::vector<std::string>> params;
+        std::map<std::string, std::vector<std::string>> params_map;
         constexpr char quotations[] = { '\'', '"' };
 
         std::string current_option;
@@ -2537,7 +2585,7 @@ namespace shogipp
                     const char * begin = p;
                     while (*p && !std::isspace(*p))
                         ++p;
-                    params[std::string{ begin, p }];
+                    params_map[std::string{ begin, p }];
                     current_option = std::string(begin, p);
                 }
                 else
@@ -2546,7 +2594,7 @@ namespace shogipp
                     char option = *p;
                     while (std::isalpha(*p))
                     {
-                        params[std::string{ *p }];
+                        params_map[std::string{ *p }];
                         ++p;
                         ++count;
                     }
@@ -2576,32 +2624,75 @@ namespace shogipp
                             ++p;
                         if (*p)
                             ++p;
-                        params[current_option].emplace_back(begin, p);
+                        params_map[current_option].emplace_back(begin, p);
                     }
                     else
                     {
                         const char * begin = p;
                         while (*p && !std::isspace(*p))
                             ++p;
-                        params[current_option].emplace_back(begin, p);
+                        params_map[current_option].emplace_back(begin, p);
                     }
                 }
             }
         }
 
-        for (auto & [option, param_list] : params)
-            callback(option, param_list);
+        for (auto & [option, params] : params_map)
+            callback(option, params);
     }
 
+    class random_evaluator_t;
     void parse_command_line(int argc, const char ** argv)
     {
-        auto callback = [](auto && option, auto && param_list)
+        try
         {
-            std::cout << option << ":" << std::endl;
-            for (auto && p : param_list)
-                std::cout << "    " << p << std::endl;
-        };
-        parse_program_options(argc, argv, callback);
+            std::string kifu_path;
+            std::string kyokumen_path;
+
+            auto callback = [&](const std::string & option, const std::vector<std::string> & params)
+            {
+                if (option == "kifu" && !params.empty())
+                {
+                    kifu_path = params.front();
+                }
+                else if (option == "kyokumen" && !params.empty())
+                {
+                    kyokumen_path = params.front();
+                }
+            };
+            parse_program_options(argc, argv, callback);
+
+            if (!kifu_path.empty() && !kyokumen_path.empty())
+            {
+                std::cerr << "!kifu.empty() && !kyokumen.empty()" << std::endl;
+            }
+            else if (!kifu_path.empty())
+            {
+                kyokumen_t kyokumen;
+                kyokumen.init();
+                kyokumen.read_kifu_file(kifu_path);
+                do_taikyoku<random_evaluator_t, random_evaluator_t>(kyokumen);
+            }
+            else if (!kyokumen_path.empty())
+            {
+                kyokumen_t kyokumen;
+                kyokumen.init();
+                kyokumen.read_kyokumen_file(kyokumen_path);
+                do_taikyoku<random_evaluator_t, random_evaluator_t>(kyokumen);
+            }
+            else
+            {
+                do_taikyoku<random_evaluator_t, random_evaluator_t>();
+            }
+        }
+        catch (const std::exception & e)
+        {
+            std::cerr << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            ;
+        }
     }
 
     /**

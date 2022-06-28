@@ -2105,11 +2105,12 @@ namespace shogipp
         {
             while (std::getline(stream, line))
             {
+                std::cout << line << std::endl;
                 if (line.empty() || (!line.empty() && line.front() == '#'))
                     continue;
 
                 std::string_view rest = line;
-                if (line.size() >= 1 && std::isdigit(line[0]))
+                if (rest.size() >= 1 && std::isdigit(rest[0]))
                 {
                     tesu_t temp_tesu = 0;
                     do

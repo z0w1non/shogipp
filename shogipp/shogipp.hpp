@@ -275,15 +275,15 @@ namespace shogipp
 
     static const std::map<std::string, unsigned char> suji_string_map
     {
-        { "‚P", 0 },
-        { "‚Q", 1 },
-        { "‚R", 2 },
-        { "‚S", 3 },
+        { "‚P", 8 },
+        { "‚Q", 7 },
+        { "‚R", 6 },
+        { "‚S", 5 },
         { "‚T", 4 },
-        { "‚U", 5 },
-        { "‚V", 6 },
-        { "‚W", 7 },
-        { "‚X", 8 }
+        { "‚U", 3 },
+        { "‚V", 2 },
+        { "‚W", 1 },
+        { "‚X", 0 }
     };
     static constexpr std::size_t suji_string_size = 2;
 
@@ -975,14 +975,8 @@ namespace shogipp
     inline unsigned char & mochigoma_t::operator [](koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
-        SHOGIPP_ASSERT(trim_sengo(koma) != ou);
-        static const std::size_t map[]{
-            0,
-            fu - fu, kyo - fu, kei - fu, gin - fu, kin - fu, kaku - fu, hi - fu, 0,
-            fu - fu, kyo - fu, kei - fu, gin - fu, kaku - fu, hi - fu
-        };
-        SHOGIPP_ASSERT(trim_sengo(koma) < std::size(map));
-        return count[map[trim_sengo(koma)]];
+        SHOGIPP_ASSERT(to_mochigoma(koma) != ou);
+        return count[to_mochigoma(koma) - fu];
     }
 
     inline const unsigned char & mochigoma_t::operator [](koma_t koma) const
@@ -2028,14 +2022,14 @@ namespace shogipp
         if (te.is_uchite())
         {
             SHOGIPP_ASSERT(mochigoma_list[sengo()][te.source_koma()] > 0);
-            ban[te.destination()] = sengo() ? to_gote(te.source_koma()) : te.source_koma();
+            ban[te.destination()] = sengo() == gote ? to_gote(te.source_koma()) : te.source_koma();
             --mochigoma_list[sengo()][te.source_koma()];
         }
         else
         {
             SHOGIPP_ASSERT(!(!is_promotable(te.source_koma()) && te.promote()));
             if (ban[te.destination()] != empty)
-                ++mochigoma_list[sengo()][to_mochigoma(ban[te.destination()])];
+                ++mochigoma_list[sengo()][ban[te.destination()]];
             ban[te.destination()] = te.promote() ? to_promoted(ban[te.source()]) : ban[te.source()];
             ban[te.source()] = empty;
             if (trim_sengo(te.source_koma()) == ou)
@@ -2072,7 +2066,7 @@ namespace shogipp
             ban[te.source()] = te.source_koma();
             ban[te.destination()] = te.captured_koma();
             if (te.captured_koma() != empty)
-                --mochigoma_list[sengo()][to_mochigoma(te.captured_koma())];
+                --mochigoma_list[sengo()][te.captured_koma()];
         }
         hash_stack.pop();
         update_oute();
@@ -2230,7 +2224,6 @@ namespace shogipp
         {
             while (std::getline(stream, line))
             {
-                std::cerr << line << std::endl;
                 if (line.empty() || (!line.empty() && line.front() == '#'))
                     continue;
 
@@ -2269,7 +2262,10 @@ namespace shogipp
                     if (!rest.empty())
                         throw file_format_error{ "read_kifu_file 8" };
                     if (temp_kyokumen.mochigoma_list[temp_kyokumen.sengo()][*koma] == 0)
+                    {
+                        temp_kyokumen.mochigoma_list[sente].print();
                         throw file_format_error{ "read_kifu_file 9" };
+                    }
                     te_t te{ *destination, *koma };
                     temp_kyokumen.do_te(te);
                     continue;
@@ -2301,9 +2297,10 @@ namespace shogipp
                             throw file_format_error{ "read_kifu_file 10" };
                         if (temp_kyokumen.ban[source] == empty)
                             throw file_format_error{ "read_kifu_file 11" };
+                        if (to_sengo(temp_kyokumen.ban[source]) != temp_kyokumen.sengo())
+                            throw file_format_error{ "read_kifu_file 12" };
                         te_t te{ source, *destination, temp_kyokumen.ban[source], temp_kyokumen.ban[*destination], promote };
                         temp_kyokumen.do_te(te);
-                        temp_kyokumen.mochigoma_list[sente].print();
                         continue;
                     }
                 }

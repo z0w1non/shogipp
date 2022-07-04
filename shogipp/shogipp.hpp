@@ -928,9 +928,9 @@ namespace shogipp
     {
     public:
         /**
-         * @breif 持ち駒を初期化する。
+         * @breif 持ち駒を構築する。
          */
-        inline void init();
+        inline mochigoma_t();
 
         /**
          * @breif 持ち駒を標準出力に出力する。
@@ -955,7 +955,7 @@ namespace shogipp
         unsigned char count[hi - fu + 1];
     };
 
-    inline void mochigoma_t::init()
+    inline mochigoma_t::mochigoma_t()
     {
         std::fill(std::begin(count), std::end(count), 0);
     }
@@ -999,9 +999,9 @@ namespace shogipp
     {
     public:
         /**
-         * @breif 盤を初期化する。
+         * @breif 盤を構築する。
          */
-        inline void init();
+        inline ban_t();
 
         inline koma_t & operator [](size_t i) { return data[i]; }
         inline const koma_t & operator [](size_t i) const { return data[i]; }
@@ -1025,7 +1025,7 @@ namespace shogipp
 
 #define _ empty
 #define x out_of_range
-    inline void ban_t::init()
+    inline ban_t::ban_t()
     {
         static const koma_t temp[]
         {
@@ -1104,7 +1104,7 @@ namespace shogipp
         using move_table_t = std::map<pos_t, std::vector<pos_t>>;
 
         /**
-         * @breif 駒の移動元と移動先の情報を初期化する。
+         * @breif 駒の移動元と移動先の情報を構築する。
          */
         inline void init_move_table_list();
 
@@ -1139,9 +1139,9 @@ namespace shogipp
         inline void undo_updating_move_table_list(const te_t & te);
 
         /**
-         * @breif 局面を初期化する。
+         * @breif 局面を構築する。
          */
-        inline void init();
+        inline kyokumen_t();
 
         /**
          * @breif 駒komaが座標dstに移動する場合に成りが可能か判定する。
@@ -1302,6 +1302,12 @@ namespace shogipp
          */
         template<typename OutputIterator>
         inline void search_te(OutputIterator result);
+
+        /**
+         * @breif 合法手を生成する。
+         * @param result 合法手の出力イテレータ
+         */
+        inline std::vector<te_t> search_te();
 
         /**
          * @breif 局面のハッシュ値を計算する。
@@ -1494,11 +1500,8 @@ namespace shogipp
                 SHOGIPP_ASSERT(mochigoma_list[sengo][koma] == kyokumen.mochigoma_list[sengo][koma]);
     }
 
-    inline void kyokumen_t::init()
+    inline kyokumen_t::kyokumen_t()
     {
-        ban.init();
-        for (mochigoma_t & m : mochigoma_list)
-            m.init();
         tesu = 0;
         for (sengo_t sengo : sengo_list)
             ou_pos[sengo] = default_ou_pos_list[sengo];
@@ -1888,6 +1891,13 @@ namespace shogipp
         }
     }
 
+    inline std::vector<te_t> kyokumen_t::search_te()
+    {
+        std::vector<te_t> te_list;
+        search_te(std::back_inserter(te_list));
+        return te_list;
+    }
+
     inline hash_t kyokumen_t::make_hash() const
     {
         hash_t hash = 0;
@@ -2105,7 +2115,6 @@ namespace shogipp
         pos_t dan = 0;
 
         kyokumen_t temp_kyokumen;
-        temp_kyokumen.init();
 
         try
         {
@@ -2228,7 +2237,6 @@ namespace shogipp
         std::string line;
         
         kyokumen_t temp_kyokumen;
-        temp_kyokumen.init();
 
         try
         {
@@ -2504,9 +2512,11 @@ namespace shogipp
     {
     public:
         /**
-         * @breif 対局を初期化する。
+         * @breif 対局を構築する。
+         * @param a 先手の評価関数オブジェクト
+         * @param b 後手の評価関数オブジェクト
          */
-        inline void init();
+        inline taikyoku_t(const std::shared_ptr<abstract_evaluator_t> & a, const std::shared_ptr<abstract_evaluator_t> & b);
 
         /**
          * @breif 対局を実行する。
@@ -2521,9 +2531,9 @@ namespace shogipp
         bool sente_win;
     };
 
-    inline void taikyoku_t::init()
+    inline taikyoku_t::taikyoku_t(const std::shared_ptr<abstract_evaluator_t> & a, const std::shared_ptr<abstract_evaluator_t> & b)
+        : evaluators{ a, b }
     {
-        kyokumen.init();
     }
 
     inline bool taikyoku_t::procedure()
@@ -2579,8 +2589,7 @@ namespace shogipp
         std::chrono::system_clock::time_point begin, end;
         begin = std::chrono::system_clock::now();
 
-        taikyoku_t taikyoku{ { std::make_shared<Evaluator1>(), std::make_shared<Evaluator2>() } };
-        taikyoku.init();
+        taikyoku_t taikyoku{ std::make_shared<Evaluator1>(), std::make_shared<Evaluator2>() };
         taikyoku.kyokumen = std::forward<Kyokumen>(kyokumen);
         while (taikyoku.procedure());
 
@@ -2607,7 +2616,6 @@ namespace shogipp
     inline void do_taikyoku()
     {
         kyokumen_t kyokumen;
-        kyokumen.init();
         do_taikyoku<Evaluator1, Evaluator2>(std::move(kyokumen));
     }
 
@@ -3251,14 +3259,12 @@ namespace shogipp
             else if (!kifu_path.empty())
             {
                 kyokumen_t kyokumen;
-                kyokumen.init();
                 kyokumen.read_kifu_file(kifu_path);
                 do_taikyoku<command_line_evaluator_t, random_evaluator_t>(kyokumen);
             }
             else if (!kyokumen_path.empty())
             {
                 kyokumen_t kyokumen;
-                kyokumen.init();
                 kyokumen.read_kyokumen_file(kyokumen_path);
                 do_taikyoku<command_line_evaluator_t, random_evaluator_t>(kyokumen);
             }

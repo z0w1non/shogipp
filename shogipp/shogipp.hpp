@@ -79,6 +79,12 @@ namespace shogipp
         using std::runtime_error::runtime_error;
     };
 
+    class invalid_command_line_input
+        : public std::runtime_error
+    {
+        using std::runtime_error::runtime_error;
+    };
+
     using koma_t = unsigned char;
     enum : koma_t
     {
@@ -2448,6 +2454,49 @@ namespace shogipp
     };
 
     /**
+     * @breif 標準入力により合法手を選択する評価関数オブジェクト
+     */
+    class command_line_evaluator_t
+        : public abstract_evaluator_t
+    {
+    public:
+        te_t select_te(kyokumen_t & kyokumen)
+        {
+            bool selected = false;
+
+            unsigned int id;
+            std::vector<te_t> te_list;
+            kyokumen.search_te(std::back_inserter(te_list));
+            
+            while (!selected)
+            {
+                try
+                {
+                    std::cout << "#";
+                    std::cout.flush();
+                    std::cin >> id;
+                    if (id == 0)
+                        throw invalid_command_line_input{ "invalid command line input" };
+                    if (id > te_list.size())
+                        throw invalid_command_line_input{ "invalid command line input" };
+                    --id;
+                    selected = true;
+                }
+                catch (const std::exception & e)
+                {
+                    std::cerr << e.what() << std::endl;
+                }
+            }
+            return te_list[id];
+        }
+
+        const char * name()
+        {
+            return "command_line_evaluator";
+        }
+    };
+
+    /**
      * @breif 対局
      */
     class taikyoku_t
@@ -2640,60 +2689,6 @@ namespace shogipp
 
         for (auto & [option, params] : params_map)
             callback(option, params);
-    }
-
-    class random_evaluator_t;
-    void parse_command_line(int argc, const char ** argv)
-    {
-        try
-        {
-            std::string kifu_path;
-            std::string kyokumen_path;
-
-            auto callback = [&](const std::string & option, const std::vector<std::string> & params)
-            {
-                if (option == "kifu" && !params.empty())
-                {
-                    kifu_path = params.front();
-                }
-                else if (option == "kyokumen" && !params.empty())
-                {
-                    kyokumen_path = params.front();
-                }
-            };
-            parse_program_options(argc, argv, callback);
-
-            if (!kifu_path.empty() && !kyokumen_path.empty())
-            {
-                std::cerr << "!kifu.empty() && !kyokumen.empty()" << std::endl;
-            }
-            else if (!kifu_path.empty())
-            {
-                kyokumen_t kyokumen;
-                kyokumen.init();
-                kyokumen.read_kifu_file(kifu_path);
-                do_taikyoku<random_evaluator_t, random_evaluator_t>(kyokumen);
-            }
-            else if (!kyokumen_path.empty())
-            {
-                kyokumen_t kyokumen;
-                kyokumen.init();
-                kyokumen.read_kyokumen_file(kyokumen_path);
-                do_taikyoku<random_evaluator_t, random_evaluator_t>(kyokumen);
-            }
-            else
-            {
-                do_taikyoku<random_evaluator_t, random_evaluator_t>();
-            }
-        }
-        catch (const std::exception & e)
-        {
-            std::cerr << e.what() << std::endl;
-        }
-        catch (...)
-        {
-            ;
-        }
     }
 
     /**
@@ -3225,6 +3220,61 @@ namespace shogipp
         std::minstd_rand rand{ SHOGIPP_SEED };
         std::uniform_int_distribution<int> uid{ std::numeric_limits<int>::min(), std::numeric_limits<int>::max() };
     };
+
+    inline void parse_command_line(int argc, const char ** argv)
+    {
+        try
+        {
+            std::string kifu_path;
+            std::string kyokumen_path;
+
+            std::shared_ptr<abstract_evaluator_t> a, b;
+
+            auto callback = [&](const std::string & option, const std::vector<std::string> & params)
+            {
+                if (option == "kifu" && !params.empty())
+                {
+                    kifu_path = params.front();
+                }
+                else if (option == "kyokumen" && !params.empty())
+                {
+                    kyokumen_path = params.front();
+                }
+            };
+            parse_program_options(argc, argv, callback);
+
+            if (!kifu_path.empty() && !kyokumen_path.empty())
+            {
+                std::cerr << "!kifu.empty() && !kyokumen.empty()" << std::endl;
+            }
+            else if (!kifu_path.empty())
+            {
+                kyokumen_t kyokumen;
+                kyokumen.init();
+                kyokumen.read_kifu_file(kifu_path);
+                do_taikyoku<command_line_evaluator_t, random_evaluator_t>(kyokumen);
+            }
+            else if (!kyokumen_path.empty())
+            {
+                kyokumen_t kyokumen;
+                kyokumen.init();
+                kyokumen.read_kyokumen_file(kyokumen_path);
+                do_taikyoku<command_line_evaluator_t, random_evaluator_t>(kyokumen);
+            }
+            else
+            {
+                do_taikyoku<command_line_evaluator_t, random_evaluator_t>();
+            }
+        }
+        catch (const std::exception & e)
+        {
+            std::cerr << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            ;
+        }
+    }
 
 } // namespace shogipp
 

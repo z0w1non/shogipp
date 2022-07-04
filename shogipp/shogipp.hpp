@@ -2485,6 +2485,7 @@ namespace shogipp
                 catch (const std::exception & e)
                 {
                     std::cerr << e.what() << std::endl;
+                    std::cin.clear();
                 }
             }
             return te_list[id];

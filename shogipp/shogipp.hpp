@@ -54,16 +54,16 @@
 #endif
 
 #define SHOGIPP_STRING_LITERAL_IMPL(name, s, CharT, prefix) template<> struct name ## _impl<CharT> { inline const CharT * operator()() const { return prefix ## s; } };
-#define SHOGIPP_STRING_LITERAL(name, s)                       \
-    template<typename T>                                      \
-    struct name ## _impl;                                     \
-    SHOGIPP_STRING_LITERAL_IMPL(name, s, char, )              \
-    SHOGIPP_STRING_LITERAL_IMPL_U8                            \
-    SHOGIPP_STRING_LITERAL_IMPL(name, s, char16_t, u)         \
-    SHOGIPP_STRING_LITERAL_IMPL(name, s, char32_t, U)         \
-    SHOGIPP_STRING_LITERAL_IMPL(name, s, wchar_t, L)          \
-    template<typename T>                                      \
-    inline const T * name() { return name ## _impl<T>{}(); }
+#define SHOGIPP_STRING_LITERAL(name, s)                              \
+    template<typename CharT>                                         \
+    struct name ## _impl;                                            \
+    SHOGIPP_STRING_LITERAL_IMPL(name, s, char, )                     \
+    SHOGIPP_STRING_LITERAL_IMPL_U8                                   \
+    SHOGIPP_STRING_LITERAL_IMPL(name, s, char16_t, u)                \
+    SHOGIPP_STRING_LITERAL_IMPL(name, s, char32_t, U)                \
+    SHOGIPP_STRING_LITERAL_IMPL(name, s, wchar_t, L)                 \
+    template<typename CharT>                                         \
+    inline const CharT * name() { return name ## _impl<CharT>{}(); }
 
 namespace shogipp
 {

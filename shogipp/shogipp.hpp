@@ -23,6 +23,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <regex>
 
 //#define NONDETERMINISM
 #ifdef NONDETERMINISM
@@ -45,6 +46,24 @@
 #else
 #define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen) kyokumen_rollback_validator_t kyokumen_rollback_validator{ kyokumen }
 #endif
+
+#if __cplusplus >= 202002L
+    #define SHOGIPP_STRING_LITERAL_IMPL_U8 SHOGIPP_STRING_LITERAL_IMPL(name, s, char8_t, u8)
+#else
+    #define SHOGIPP_STRING_LITERAL_IMPL_U8
+#endif
+
+#define SHOGIPP_STRING_LITERAL_IMPL(name, s, CharT, prefix) template<> struct name ## _impl<CharT> { inline const CharT * operator()() const { return prefix ## s; } };
+#define SHOGIPP_STRING_LITERAL(name, s)                       \
+    template<typename T>                                      \
+    struct name ## _impl;                                     \
+    SHOGIPP_STRING_LITERAL_IMPL(name, s, char, )              \
+    SHOGIPP_STRING_LITERAL_IMPL_U8                            \
+    SHOGIPP_STRING_LITERAL_IMPL(name, s, char16_t, u)         \
+    SHOGIPP_STRING_LITERAL_IMPL(name, s, char32_t, U)         \
+    SHOGIPP_STRING_LITERAL_IMPL(name, s, wchar_t, L)          \
+    template<typename T>                                      \
+    inline const T * name() { return name ## _impl<T>{}(); }
 
 namespace shogipp
 {
@@ -2494,6 +2513,7 @@ namespace shogipp
                 {
                     std::cerr << e.what() << std::endl;
                     std::cin.clear();
+                    std::cin.ignore();
                 }
             }
             return te_list[id];
@@ -2533,6 +2553,7 @@ namespace shogipp
 
     inline taikyoku_t::taikyoku_t(const std::shared_ptr<abstract_evaluator_t> & a, const std::shared_ptr<abstract_evaluator_t> & b)
         : evaluators{ a, b }
+        , sente_win{ false }
     {
     }
 
@@ -3229,6 +3250,100 @@ namespace shogipp
         std::minstd_rand rand{ SHOGIPP_SEED };
         std::uniform_int_distribution<int> uid{ std::numeric_limits<int>::min(), std::numeric_limits<int>::max() };
     };
+
+    class command_t
+    {
+    public:
+        enum class id_t
+        {
+            error,
+            move,
+            undo,
+            giveup,
+            dump,
+        };
+
+        id_t id{ id_t::error };
+
+        std::optional<te_t> opt_te;
+    };
+
+    SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)")
+
+    template<typename OutputIterator, typename CharT>
+    inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> s)
+    {
+        std::basic_regex<CharT> separator{ split_tokens_literal<CharT>() };
+        using regex_token_iterator = std::regex_token_iterator<typename std::basic_string_view<CharT>::const_iterator>;
+        auto iter = regex_token_iterator{ s.begin(), s.end(), separator, -1 };
+        auto end = regex_token_iterator{};
+        while (iter != end)
+            *result++ = *iter++;
+    }
+
+    inline command_t parse_command_line_input(const std::string & s, std::vector<te_t> && te_list)
+    {
+        command_t command;
+
+        std::vector<std::string> tokens;
+        split_tokens(std::back_inserter(tokens), std::string_view{ s });
+
+        if (!tokens.empty())
+        {
+            if (tokens[0] == "move")
+            {
+                command.id = command_t::id_t::move;
+            }
+
+            if (tokens[0] == "undo")
+            {
+                command.id = command_t::id_t::undo;
+            }
+
+            if (tokens[0] == "giveup")
+            {
+                command.id = command_t::id_t::giveup;
+            }
+
+            if (tokens[0] == "dump")
+            {
+                command.id = command_t::id_t::dump;
+            }
+        }
+        return command;
+    }
+
+    te_t select_te(kyokumen_t & kyokumen)
+    {
+        bool selected = false;
+
+        unsigned int id;
+        std::vector<te_t> te_list;
+        kyokumen.search_te(std::back_inserter(te_list));
+
+        while (!selected)
+        {
+            try
+            {
+                std::cout << "#";
+                std::cout.flush();
+                std::cin >> id;
+                if (id == 0)
+                    throw invalid_command_line_input{ "invalid command line input" };
+                if (id > te_list.size())
+                    throw invalid_command_line_input{ "invalid command line input" };
+                --id;
+                selected = true;
+            }
+            catch (const std::exception & e)
+            {
+                std::cerr << e.what() << std::endl;
+                std::cin.clear();
+                std::cin.ignore();
+            }
+        }
+        return te_list[id];
+    }
 
     inline void parse_command_line(int argc, const char ** argv)
     {

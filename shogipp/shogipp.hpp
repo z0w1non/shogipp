@@ -35,7 +35,7 @@
 #ifdef NDEBUG
 #define SHOGIPP_ASSERT(expr)
 #else
-#define SHOGIPP_ASSERT(expr) do { shogipp::assert_impl((expr), #expr, __FILE__, __func__, __LINE__); } while (false)
+#define SHOGIPP_ASSERT(expr) do { shogipp::details::assert_impl((expr), #expr, __FILE__, __func__, __LINE__); } while (false)
 #endif
 
 //#define VALIDATE_MOVEMENT_CACHE
@@ -67,24 +67,29 @@
 
 namespace shogipp
 {
-    inline unsigned long long total_search_count = 0;
-
-    /**
-     * @breif SHOGIPP_ASSERT マクロの実装
-     * @param assertion 式を評価した bool 値
-     * @param expr 式を表現する文字列
-     * @param file __FILE__
-     * @param func __func__
-     * @param line __LINE__
-     */
-    inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
+    namespace details
     {
-        if (!assertion)
+        SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)")
+
+        /**
+            * @breif SHOGIPP_ASSERT マクロの実装
+            * @param assertion 式を評価した bool 値
+            * @param expr 式を表現する文字列
+            * @param file __FILE__
+            * @param func __func__
+            * @param line __LINE__
+            */
+        inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
         {
-            std::cerr << "Assertion failed: " << expr << ", file " << file << ", line " << line << std::endl;
-            std::terminate();
+            if (!assertion)
+            {
+                std::cerr << "Assertion failed: " << expr << ", file " << file << ", line " << line << std::endl;
+                std::terminate();
+            }
         }
     }
+
+    inline unsigned long long total_search_count = 0;
 
     class file_format_error
         : public std::runtime_error
@@ -3295,12 +3300,10 @@ namespace shogipp
         std::optional<unsigned int> te_index;
     };
 
-    SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)")
-
     template<typename OutputIterator, typename CharT>
     inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> s)
     {
-        std::basic_regex<CharT> separator{ split_tokens_literal<CharT>() };
+        std::basic_regex<CharT> separator{ details::split_tokens_literal<CharT>() };
         using regex_token_iterator = std::regex_token_iterator<typename std::basic_string_view<CharT>::const_iterator>;
         auto iter = regex_token_iterator{ s.begin(), s.end(), separator, -1 };
         auto end = regex_token_iterator{};

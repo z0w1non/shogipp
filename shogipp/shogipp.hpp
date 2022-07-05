@@ -3265,7 +3265,7 @@ namespace shogipp
 
         id_t id{ id_t::error };
 
-        std::optional<te_t> opt_te;
+        std::optional<unsigned int> te_index;
     };
 
     SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)")
@@ -3281,36 +3281,38 @@ namespace shogipp
             *result++ = *iter++;
     }
 
-    inline command_t parse_command_line_input(const std::string & s, std::vector<te_t> && te_list)
+    inline command_t parse_command_line_input(const std::string & s)
     {
-        command_t command;
-
         std::vector<std::string> tokens;
         split_tokens(std::back_inserter(tokens), std::string_view{ s });
 
         if (!tokens.empty())
         {
-            if (tokens[0] == "move")
+            if (tokens[0] == "move" && tokens.size() == 2)
             {
-                command.id = command_t::id_t::move;
+                std::istringstream stream{ tokens[1] };
+                unsigned int index;
+                stream >> index;
+                --index;
+                return command_t{ command_t::id_t::move, index };
             }
 
             if (tokens[0] == "undo")
             {
-                command.id = command_t::id_t::undo;
+                return command_t{ command_t::id_t::undo };
             }
 
             if (tokens[0] == "giveup")
             {
-                command.id = command_t::id_t::giveup;
+                return command_t{ command_t::id_t::giveup };
             }
 
             if (tokens[0] == "dump")
             {
-                command.id = command_t::id_t::dump;
+                return command_t{ command_t::id_t::dump };
             }
         }
-        return command;
+        return command_t{ command_t::id_t::error };
     }
 
     te_t select_te(kyokumen_t & kyokumen)

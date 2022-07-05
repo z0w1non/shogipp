@@ -1362,17 +1362,17 @@ namespace shogipp
         /**
          * @breif 合法手を標準出力に出力する。
          */
-        inline void print_te();
+        inline void print_te() const;
 
         /**
          * @breif 王手を標準出力に出力する。
          */
-        inline void print_oute();
+        inline void print_oute() const;
 
         /**
          * @breif 局面を標準出力に出力する。
          */
-        inline void print();
+        inline void print() const;
 
         inline void print_kifu();
 
@@ -1991,14 +1991,15 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::print_te()
+    inline void kyokumen_t::print_te() const
     {
         std::vector<te_t> te;
-        search_te(std::back_inserter(te));
+        kyokumen_t temp = *this;
+        temp.search_te(std::back_inserter(te));
         print_te(te.begin(), te.end());
     }
 
-    inline void kyokumen_t::print_oute()
+    inline void kyokumen_t::print_oute() const
     {
         for (sengo_t sengo : sengo_list)
         {
@@ -2008,7 +2009,7 @@ namespace shogipp
                 std::cout << "王手：";
                 for (std::size_t i = 0; i < oute_list[sengo].size(); ++i)
                 {
-                    kiki_t & kiki = oute[i];
+                    const kiki_t & kiki = oute[i];
                     if (i > 0)
                         std::cout << "　";
                     print_pos(kiki.pos);
@@ -2018,7 +2019,7 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::print()
+    inline void kyokumen_t::print() const
     {
         std::cout << "後手持ち駒：";
         mochigoma_list[1].print();
@@ -2546,7 +2547,19 @@ namespace shogipp
          */
         inline bool procedure();
 
+        /**
+         * @breif 対局を標準出力に出力する。
+         */
+        inline void print() const;
+
+        /**
+         * @breif 手番の合法手を返す。
+         * @return 合法手
+         */
+        inline const std::vector<te_t> & get_te_list() const;
+
         std::shared_ptr<abstract_evaluator_t> evaluators[sengo_size];
+        std::vector<te_t> te_list;
         kyokumen_t kyokumen;
         bool sente_win;
     };
@@ -2555,37 +2568,13 @@ namespace shogipp
         : evaluators{ a, b }
         , sente_win{ false }
     {
+        te_list.clear();
+        kyokumen.search_te(std::back_inserter(te_list));
     }
 
     inline bool taikyoku_t::procedure()
     {
         auto & evaluator = evaluators[kyokumen.sengo()];
-
-        if (kyokumen.tesu == 0)
-        {
-            for (sengo_t sengo : sengo_list)
-                std::cout << sengo_to_string(static_cast<sengo_t>(sengo)) << "：" << evaluators[sengo]->name() << std::endl;
-            std::cout << std::endl;
-        }
-
-        std::vector<te_t> te_list;
-        kyokumen.search_te(std::back_inserter(te_list));
-        if (te_list.empty())
-        {
-            auto & winner_evaluator = evaluators[!kyokumen.sengo()];
-            std::cout << kyokumen.tesu << "手詰み" << std::endl;
-            kyokumen.print();
-            std::cout << sengo_to_string(!kyokumen.sengo()) << "勝利（" << winner_evaluator->name() << "）";
-            std::cout.flush();
-            return false;
-        }
-        else
-        {
-            std::cout << (kyokumen.tesu + 1) << "手目" << sengo_to_string(kyokumen.sengo()) << "番" << std::endl;
-            kyokumen.print();
-            kyokumen.print_te();
-            kyokumen.print_oute();
-        }
 
         kyokumen_t temp_kyokumen = kyokumen;
         te_t selected_te = evaluator->select_te(temp_kyokumen);
@@ -2595,7 +2584,40 @@ namespace shogipp
 
         kyokumen.do_te(selected_te);
 
-        return true;
+        te_list.clear();
+        kyokumen.search_te(std::back_inserter(te_list));
+        return !te_list.empty();
+    }
+
+    inline void taikyoku_t::print() const
+    {
+        if (kyokumen.tesu == 0)
+        {
+            for (sengo_t sengo : sengo_list)
+                std::cout << sengo_to_string(static_cast<sengo_t>(sengo)) << "：" << evaluators[sengo]->name() << std::endl;
+            std::cout << std::endl;
+        }
+
+        if (te_list.empty())
+        {
+            auto & winner_evaluator = evaluators[!kyokumen.sengo()];
+            std::cout << kyokumen.tesu << "手詰み" << std::endl;
+            kyokumen.print();
+            std::cout << sengo_to_string(!kyokumen.sengo()) << "勝利（" << winner_evaluator->name() << "）";
+            std::cout.flush();
+        }
+        else
+        {
+            std::cout << (kyokumen.tesu + 1) << "手目" << sengo_to_string(kyokumen.sengo()) << "番" << std::endl;
+            kyokumen.print();
+            kyokumen.print_te();
+            kyokumen.print_oute();
+        }
+    }
+
+    inline const std::vector<te_t> & taikyoku_t::get_te_list() const
+    {
+        return te_list;
     }
 
     /**
@@ -2612,7 +2634,12 @@ namespace shogipp
 
         taikyoku_t taikyoku{ std::make_shared<Evaluator1>(), std::make_shared<Evaluator2>() };
         taikyoku.kyokumen = std::forward<Kyokumen>(kyokumen);
-        while (taikyoku.procedure());
+        while (true)
+        {
+            taikyoku.print();
+            if (!taikyoku.procedure())
+                break;
+        }
 
         end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
@@ -3290,10 +3317,17 @@ namespace shogipp
         {
             if (tokens[0] == "move" && tokens.size() == 2)
             {
-                std::istringstream stream{ tokens[1] };
                 unsigned int index;
-                stream >> index;
-                --index;
+                try
+                {
+                    std::istringstream stream{ tokens[1] };
+                    stream >> index;
+                    --index;
+                }
+                catch (...)
+                {
+                    return command_t{ command_t::id_t::error };
+                }
                 return command_t{ command_t::id_t::move, index };
             }
 

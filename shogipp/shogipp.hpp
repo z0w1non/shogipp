@@ -3349,38 +3349,6 @@ namespace shogipp
         return command_t{ command_t::id_t::error };
     }
 
-    te_t select_te(kyokumen_t & kyokumen)
-    {
-        bool selected = false;
-
-        unsigned int id;
-        std::vector<te_t> te_list;
-        kyokumen.search_te(std::back_inserter(te_list));
-
-        while (!selected)
-        {
-            try
-            {
-                std::cout << "#";
-                std::cout.flush();
-                std::cin >> id;
-                if (id == 0)
-                    throw invalid_command_line_input{ "invalid command line input" };
-                if (id > te_list.size())
-                    throw invalid_command_line_input{ "invalid command line input" };
-                --id;
-                selected = true;
-            }
-            catch (const std::exception & e)
-            {
-                std::cerr << e.what() << std::endl;
-                std::cin.clear();
-                std::cin.ignore();
-            }
-        }
-        return te_list[id];
-    }
-
     inline void parse_command_line(int argc, const char ** argv)
     {
         try

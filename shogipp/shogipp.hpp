@@ -86,13 +86,13 @@ namespace shogipp
         SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)")
 
         /**
-            * @breif SHOGIPP_ASSERT マクロの実装
-            * @param assertion 式を評価した bool 値
-            * @param expr 式を表現する文字列
-            * @param file __FILE__
-            * @param func __func__
-            * @param line __LINE__
-            */
+         * @breif SHOGIPP_ASSERT マクロの実装
+         * @param assertion 式を評価した bool 値
+         * @param expr 式を表現する文字列
+         * @param file __FILE__
+         * @param func __func__
+         * @param line __LINE__
+         */
         inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
         {
             if (!assertion)

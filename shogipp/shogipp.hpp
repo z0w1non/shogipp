@@ -3394,11 +3394,13 @@ namespace shogipp
                 update_te_list();
                 return !te_list.empty();
             case command_t::id_t::undo:
-                SHOGIPP_ASSERT(kyokumen.tesu >= 2);
-                for (int i = 0; i < 2; ++i)
-                    kyokumen.undo_te(kyokumen.kifu.back());
-                update_te_list();
-                return !te_list.empty();
+                if (kyokumen.tesu >= 2)
+                {
+                    for (int i = 0; i < 2; ++i)
+                        kyokumen.undo_te(kyokumen.kifu.back());
+                    update_te_list();
+                    return !te_list.empty();
+                }
                 break;
             case command_t::id_t::giveup:
                 break;

@@ -1230,7 +1230,7 @@ namespace shogipp
          * @param dst 移動先の座標
          * @return 置くことができる場合 true
          */
-        inline bool can_put(koma_t koma, pos_t dst);
+        inline bool can_put(koma_t koma, pos_t dst) const;
 
         /**
          * @breif 移動元の座標を検索する。
@@ -1259,7 +1259,7 @@ namespace shogipp
          * @param transform (pos, offset, aigoma) を出力イテレータに出力する変数に変換する関数
          */
         template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-        inline void search_koma_near(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform);
+        inline void search_koma_near(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const;
 
         /**
          * @breif 座標posを利いている駒あるいは紐を付けている駒を検索する。
@@ -1273,7 +1273,7 @@ namespace shogipp
          * @sa search_kiki_far
          */
         template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-        inline void search_koma_far(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform);
+        inline void search_koma_far(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const;
 
         /**
          * @breif 座標posに利いている駒あるいは紐を付けている駒を検索する。
@@ -1284,7 +1284,7 @@ namespace shogipp
          * @param transform (pos, offset, aigoma) を出力イテレータに出力する変数に変換する関数
          */
         template<typename OutputIterator, typename IsCollected, typename Transform>
-        inline void search_koma(OutputIterator result, pos_t pos, sengo_t sengo, IsCollected is_collected, Transform transform);
+        inline void search_koma(OutputIterator result, pos_t pos, sengo_t sengo, IsCollected is_collected, Transform transform) const;
 
         /**
          * @breif 座標posに紐を付けている駒を検索する。
@@ -1293,7 +1293,7 @@ namespace shogipp
          * @param sengo 先後いずれの視点か
          */
         template<typename OutputIterator>
-        inline void search_himo(OutputIterator result, pos_t pos, sengo_t sengo);
+        inline void search_himo(OutputIterator result, pos_t pos, sengo_t sengo) const;
 
         /**
          * @breif 座標posに利いている駒を検索する。
@@ -1302,7 +1302,7 @@ namespace shogipp
          * @param sengo 先後いずれの視点か
          */
         template<typename OutputIterator>
-        inline void search_kiki(OutputIterator result, pos_t pos, sengo_t sengo);
+        inline void search_kiki(OutputIterator result, pos_t pos, sengo_t sengo) const;
 
         /**
          * @breif 座標posに利いている駒あるいは紐を付けている駒を検索する。
@@ -1311,7 +1311,7 @@ namespace shogipp
          * @param sengo 先後いずれの視点か
          */
         template<typename OutputIterator>
-        inline void search_kiki_or_himo(OutputIterator result, pos_t pos, sengo_t sengo);
+        inline void search_kiki_or_himo(OutputIterator result, pos_t pos, sengo_t sengo) const;
 
         /**
          * @breif 王に対する利きを更新する。
@@ -1323,7 +1323,7 @@ namespace shogipp
          * @param aigoma_info 合駒の出力先
          * @param sengo 先後いずれの視点か
          */
-        inline void search_aigoma(aigoma_info_t & aigoma_info, sengo_t sengo);
+        inline void search_aigoma(aigoma_info_t & aigoma_info, sengo_t sengo) const;
 
         /**
          * @breif 移動元と移動先の座標から合法手を生成する。
@@ -1332,20 +1332,20 @@ namespace shogipp
          * @param destination 移動先の座標
          */
         template<typename OutputIterator>
-        inline void search_te_from_positions(OutputIterator result, pos_t source, pos_t destination);
+        inline void search_te_from_positions(OutputIterator result, pos_t source, pos_t destination) const;
 
         /**
          * @breif 合法手を生成する。
          * @param result 合法手の出力イテレータ
          */
         template<typename OutputIterator>
-        inline void search_te(OutputIterator result);
+        inline void search_te(OutputIterator result) const;
 
         /**
          * @breif 合法手を生成する。
          * @param result 合法手の出力イテレータ
          */
-        inline std::vector<te_t> search_te();
+        inline std::vector<te_t> search_te() const;
 
         /**
          * @breif 局面のハッシュ値を計算する。
@@ -1613,7 +1613,7 @@ namespace shogipp
             search_near_destination(result, src, *offset * r);
     }
 
-    inline bool kyokumen_t::can_put(koma_t koma, pos_t dst)
+    inline bool kyokumen_t::can_put(koma_t koma, pos_t dst) const
     {
         if (ban[dst] != empty)
             return false;
@@ -1646,9 +1646,9 @@ namespace shogipp
                 std::vector<te_t> te_list;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(*this);
-                    do_te(te);
+                    const_cast<kyokumen_t &>(*this).do_te(te);
                     search_te(std::back_inserter(te_list));
-                    undo_te(te);
+                    const_cast<kyokumen_t &>(*this).undo_te(te);
                 }
                 if (te_list.empty())
                     return false;
@@ -1675,7 +1675,7 @@ namespace shogipp
     }
     
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_koma_near(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform)
+    inline void kyokumen_t::search_koma_near(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
         if (pos_t cur = pos + offset; !ban_t::out(cur) && ban[cur] != empty)
             if (is_collected(to_sengo(ban[cur])) && std::find(first, last, trim_sengo(ban[cur])) != last)
@@ -1683,7 +1683,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_koma_far(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform)
+    inline void kyokumen_t::search_koma_far(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
         if (pos_t found = search(pos + offset, offset); found != npos && ban[found] != empty)
             if (is_collected(to_sengo(ban[found])) && std::find(first, last, trim_sengo(ban[found])) != last)
@@ -1691,7 +1691,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_koma(OutputIterator result, pos_t pos, sengo_t sengo, IsCollected is_collected, Transform transform)
+    inline void kyokumen_t::search_koma(OutputIterator result, pos_t pos, sengo_t sengo, IsCollected is_collected, Transform transform) const
     {
         pos_t r = reverse(sengo);
         for (auto & [offset, koma_list] : near_kiki_list)
@@ -1703,7 +1703,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_himo(OutputIterator result, pos_t pos, sengo_t sengo)
+    inline void kyokumen_t::search_himo(OutputIterator result, pos_t pos, sengo_t sengo) const
     {
         search_koma(result, pos, sengo,
             [sengo](sengo_t g) { return g == sengo; },
@@ -1711,7 +1711,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_kiki(OutputIterator result, pos_t pos, sengo_t sengo)
+    inline void kyokumen_t::search_kiki(OutputIterator result, pos_t pos, sengo_t sengo) const
     {
         search_koma(result, pos, sengo,
             [sengo](sengo_t g) { return g != sengo; },
@@ -1719,7 +1719,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_kiki_or_himo(OutputIterator result, pos_t pos, sengo_t sengo)
+    inline void kyokumen_t::search_kiki_or_himo(OutputIterator result, pos_t pos, sengo_t sengo) const
     {
         search_koma(result, pos, sengo,
             [](sengo_t) { return true; },
@@ -1735,7 +1735,7 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, sengo_t sengo)
+    inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, sengo_t sengo) const
     {
         using pair = std::pair<pos_t, std::vector<koma_t>>;
         static const std::vector<pair> table
@@ -1776,7 +1776,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_te_from_positions(OutputIterator result, pos_t source, pos_t destination)
+    inline void kyokumen_t::search_te_from_positions(OutputIterator result, pos_t source, pos_t destination) const
     {
         if (can_promote(ban[source], destination))
             *result++ = { source, destination, ban[source], ban[destination], true };
@@ -1785,7 +1785,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_te(OutputIterator result)
+    inline void kyokumen_t::search_te(OutputIterator result) const
     {
         aigoma_info_t aigoma_info;
         search_aigoma(aigoma_info, sengo());
@@ -1865,9 +1865,9 @@ namespace shogipp
                     std::vector<kiki_t> kiki;
                     {
                         VALIDATE_KYOKUMEN_ROLLBACK(*this);
-                        do_te(te);
+                        const_cast<kyokumen_t &>(*this).do_te(te);
                         search_kiki(std::back_inserter(kiki), dst, !sengo());
-                        undo_te(te);
+                        const_cast<kyokumen_t &>(*this).undo_te(te);
                     }
                     if (kiki.empty())
                         *result++ = te;
@@ -1929,7 +1929,7 @@ namespace shogipp
         }
     }
 
-    inline std::vector<te_t> kyokumen_t::search_te()
+    inline std::vector<te_t> kyokumen_t::search_te() const
     {
         std::vector<te_t> te_list;
         search_te(std::back_inserter(te_list));
@@ -3169,7 +3169,6 @@ namespace shogipp
         };
 
         id_t id{ id_t::error };
-
         std::optional<te_t> opt_te;
     };
 
@@ -3184,6 +3183,11 @@ namespace shogipp
             *result++ = *iter++;
     }
 
+    /**
+     * @breif 標準入力からコマンドを読み込む。
+     * @param te_list 合法手
+     * @return 読み込まれたコマンド
+     */
     inline command_t read_command_line_input(const std::vector<te_t> & te_list)
     {
         std::string command_line;
@@ -3282,12 +3286,20 @@ namespace shogipp
          */
         inline const std::vector<te_t> & get_te_list() const;
 
+        /**
+         * @breif 手番の合法手を更新する。
+         */
+        inline void update_te_list() const;
+
         std::shared_ptr<abstract_kishi_t> kishi_list[sengo_size];
-        std::vector<te_t> te_list;
+        mutable std::vector<te_t> te_list;
         kyokumen_t kyokumen;
         bool sente_win;
     };
 
+    /**
+     * @breif 棋士
+     */
     class abstract_kishi_t
     {
     public:
@@ -3307,7 +3319,10 @@ namespace shogipp
         virtual const char * name() const = 0;
     };
 
-    class command_line_kishi_t
+    /**
+     * @breif 標準入力により制御される棋士
+     */
+    class stdin_kishi_t
         : public abstract_kishi_t
     {
     public:
@@ -3315,6 +3330,9 @@ namespace shogipp
         const char * name() const override;
     };
 
+    /**
+     * @breif 評価関数オブジェクトにより制御される棋士
+     */
     class computer_kishi_t
         : public abstract_kishi_t
     {
@@ -3330,12 +3348,12 @@ namespace shogipp
         std::shared_ptr<abstract_evaluator_t> ptr;
     };
 
-    command_t command_line_kishi_t::get_command(taikyoku_t & taikyoku)
+    command_t stdin_kishi_t::get_command(taikyoku_t & taikyoku)
     {
         return read_command_line_input(taikyoku.get_te_list());
     }
 
-    const char * command_line_kishi_t::name() const
+    const char * stdin_kishi_t::name() const
     {
         return "stdin";
     }
@@ -3354,8 +3372,7 @@ namespace shogipp
         : kishi_list{ a, b }
         , sente_win{ false }
     {
-        te_list.clear();
-        kyokumen.search_te(std::back_inserter(te_list));
+        update_te_list();
     }
 
     inline bool taikyoku_t::procedure()
@@ -3364,10 +3381,9 @@ namespace shogipp
 
         kyokumen_t temp_kyokumen = kyokumen;
 
-        command_t cmd = kishi->get_command(*this);
-
         while (true)
         {
+            command_t cmd = kishi->get_command(*this);
             switch (cmd.id)
             {
             case command_t::id_t::error:
@@ -3376,10 +3392,14 @@ namespace shogipp
                 kyokumen.print_te(*cmd.opt_te, kyokumen.sengo());
                 std::cout << std::endl << std::endl;
                 kyokumen.do_te(*cmd.opt_te);
-                te_list.clear();
-                kyokumen.search_te(std::back_inserter(te_list));
+                update_te_list();
                 return !te_list.empty();
             case command_t::id_t::undo:
+                SHOGIPP_ASSERT(kyokumen.tesu >= 2);
+                for (int i = 0; i < 2; ++i)
+                    kyokumen.undo_te(kyokumen.kifu.back());
+                update_te_list();
+                return !te_list.empty();
                 break;
             case command_t::id_t::giveup:
                 break;
@@ -3418,6 +3438,12 @@ namespace shogipp
     inline const std::vector<te_t> & taikyoku_t::get_te_list() const
     {
         return te_list;
+    }
+
+    inline void taikyoku_t::update_te_list() const
+    {
+        te_list.clear();
+        kyokumen.search_te(std::back_inserter(te_list));
     }
 
     /**
@@ -3466,9 +3492,9 @@ namespace shogipp
         do_taikyoku(kyokumen, sente_kishi, gote_kishi);
     }
 
-    std::map<std::string, std::shared_ptr<abstract_kishi_t>> kishi_map
+    static const std::map<std::string, std::shared_ptr<abstract_kishi_t>> kishi_map
     {
-        {"stdin", std::make_shared<command_line_kishi_t>()},
+        {"stdin", std::make_shared<stdin_kishi_t>()},
         {"random", std::make_shared<computer_kishi_t>(std::make_shared<random_evaluator_t>())},
         {"hiyoko", std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t>())},
     };
@@ -3510,14 +3536,14 @@ namespace shogipp
             {
                 throw invalid_command_line_input{"invalid sente name"};
             }
-            std::shared_ptr<abstract_kishi_t> & sente_kishi = sente_iter->second;
+            const std::shared_ptr<abstract_kishi_t> & sente_kishi = sente_iter->second;
 
             auto gote_iter = kishi_map.find(gote_name);
             if (gote_iter == kishi_map.end())
             {
                 throw invalid_command_line_input{ "invalid gote name" };
             }
-            std::shared_ptr<abstract_kishi_t> & gote_kishi = gote_iter->second;
+            const std::shared_ptr<abstract_kishi_t> & gote_kishi = gote_iter->second;
 
             if (!kifu_path.empty() && !kyokumen_path.empty())
             {

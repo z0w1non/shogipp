@@ -2052,8 +2052,7 @@ namespace shogipp
         for (tesu_t tesu = 0; tesu < static_cast<tesu_t>(kifu.size()); ++tesu)
         {
             print_te(kifu[tesu], tesu_to_sengo(tesu));
-            if (tesu + 1 < static_cast<tesu_t>(kifu.size()))
-                std::cout << std::endl;
+            std::cout << std::endl;
         }
     }
 
@@ -3404,6 +3403,7 @@ namespace shogipp
             case command_t::id_t::giveup:
                 break;
             case command_t::id_t::dump:
+                kyokumen.print_kifu();
                 break;
             }
         }

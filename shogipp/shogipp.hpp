@@ -3435,12 +3435,14 @@ namespace shogipp
                 break;
         }
 
+        taikyoku.print(); // 詰んだ局面を標準出力に出力する。
+
         end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
         unsigned long long sps = (unsigned long long)total_search_count * 1000 / duration;
 
         std::cout
-            << std::endl << std::endl
+            << std::endl
             << "総計読み手数: " << total_search_count << std::endl
             << "実行時間[ms]: " << duration << std::endl
             << "読み手速度[手/s]: " << sps << std::endl << std::endl;

@@ -3218,6 +3218,14 @@ namespace shogipp
                     {
                         move_index = stol(tokens[0]);
                     }
+                    catch (const std::invalid_argument &)
+                    {
+                        throw invalid_command_line_input{ "unknown command line input" };
+                    }
+                    catch (const std::out_of_range &)
+                    {
+                        throw invalid_command_line_input{ "unknown command line input" };
+                    }
                     catch (...)
                     {
                         throw invalid_command_line_input{ "unknown command line input" };

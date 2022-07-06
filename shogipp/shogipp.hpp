@@ -3333,7 +3333,7 @@ namespace shogipp
 
     const char * command_line_kishi_t::name() const
     {
-        return "コマンドライン入力";
+        return "stdin";
     }
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)

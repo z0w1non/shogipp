@@ -3186,11 +3186,11 @@ namespace shogipp
 
     inline command_t read_command_line_input(const std::vector<te_t> & te_list)
     {
+        std::string command_line;
         while (true)
         {
             try
             {
-                std::string command_line;
                 std::getline(std::cin, command_line);
 
                 std::vector<std::string> tokens;
@@ -3198,26 +3198,6 @@ namespace shogipp
 
                 if (!tokens.empty())
                 {
-                    if (tokens[0] == "move" && tokens.size() == 2)
-                    {
-                        unsigned int index;
-                        try
-                        {
-                            std::istringstream stream{ tokens[1] };
-                            stream >> index;
-                            if (index == 0)
-                                return command_t{ command_t::id_t::error };
-                            if (index > te_list.size())
-                                return command_t{ command_t::id_t::error };
-                            --index;
-                        }
-                        catch (...)
-                        {
-                            return command_t{ command_t::id_t::error };
-                        }
-                        return command_t{ command_t::id_t::move, te_list[index] };
-                    }
-
                     if (tokens[0] == "undo")
                     {
                         return command_t{ command_t::id_t::undo };
@@ -3232,6 +3212,22 @@ namespace shogipp
                     {
                         return command_t{ command_t::id_t::dump };
                     }
+
+                    unsigned int move_index;
+                    try
+                    {
+                        std::istringstream stream{ tokens[0] };
+                        stream >> move_index;
+                    }
+                    catch (...)
+                    {
+                        throw invalid_command_line_input{ "unknown command line input" };
+                    }
+                    if (move_index == 0)
+                        throw invalid_command_line_input{ "move_index == 0" };
+                    if (move_index > te_list.size())
+                        throw invalid_command_line_input{ "move_index > te_list.size()" };
+                    return command_t{ command_t::id_t::move, te_list[move_index - 1] };
                 }
             }
             catch (const std::exception & e)
@@ -3239,8 +3235,9 @@ namespace shogipp
                 std::cerr << e.what() << std::endl;
             }
             std::cin.clear();
-            std::cin.ignore();
         }
+
+        SHOGIPP_ASSERT(false);
         return command_t{ command_t::id_t::error };
     }
 

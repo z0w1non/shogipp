@@ -2545,147 +2545,6 @@ namespace shogipp
         }
     };
 
-    /**
-     * @breif 対局
-     */
-    class taikyoku_t
-    {
-    public:
-        /**
-         * @breif 対局を構築する。
-         * @param a 先手の評価関数オブジェクト
-         * @param b 後手の評価関数オブジェクト
-         */
-        inline taikyoku_t(const std::shared_ptr<abstract_evaluator_t> & a, const std::shared_ptr<abstract_evaluator_t> & b);
-
-        /**
-         * @breif 対局を実行する。
-         * @retval true 対局が終了していない
-         * @retval false 対局が終了した
-         * @details この関数が true を返した場合、再度この関数を呼び出す。
-         */
-        inline bool procedure();
-
-        /**
-         * @breif 対局を標準出力に出力する。
-         */
-        inline void print() const;
-
-        /**
-         * @breif 手番の合法手を返す。
-         * @return 合法手
-         */
-        inline const std::vector<te_t> & get_te_list() const;
-
-        std::shared_ptr<abstract_evaluator_t> evaluators[sengo_size];
-        std::vector<te_t> te_list;
-        kyokumen_t kyokumen;
-        bool sente_win;
-    };
-
-    inline taikyoku_t::taikyoku_t(const std::shared_ptr<abstract_evaluator_t> & a, const std::shared_ptr<abstract_evaluator_t> & b)
-        : evaluators{ a, b }
-        , sente_win{ false }
-    {
-        te_list.clear();
-        kyokumen.search_te(std::back_inserter(te_list));
-    }
-
-    inline bool taikyoku_t::procedure()
-    {
-        auto & evaluator = evaluators[kyokumen.sengo()];
-
-        kyokumen_t temp_kyokumen = kyokumen;
-        te_t selected_te = evaluator->select_te(temp_kyokumen);
-
-        kyokumen.print_te(selected_te, kyokumen.sengo());
-        std::cout << std::endl << std::endl;
-
-        kyokumen.do_te(selected_te);
-
-        te_list.clear();
-        kyokumen.search_te(std::back_inserter(te_list));
-        return !te_list.empty();
-    }
-
-    inline void taikyoku_t::print() const
-    {
-        if (kyokumen.tesu == 0)
-        {
-            for (sengo_t sengo : sengo_list)
-                std::cout << sengo_to_string(static_cast<sengo_t>(sengo)) << "：" << evaluators[sengo]->name() << std::endl;
-            std::cout << std::endl;
-        }
-
-        if (te_list.empty())
-        {
-            auto & winner_evaluator = evaluators[!kyokumen.sengo()];
-            std::cout << kyokumen.tesu << "手詰み" << std::endl;
-            kyokumen.print();
-            std::cout << sengo_to_string(!kyokumen.sengo()) << "勝利（" << winner_evaluator->name() << "）";
-            std::cout.flush();
-        }
-        else
-        {
-            std::cout << (kyokumen.tesu + 1) << "手目" << sengo_to_string(kyokumen.sengo()) << "番" << std::endl;
-            kyokumen.print();
-            kyokumen.print_te();
-            kyokumen.print_oute();
-        }
-    }
-
-    inline const std::vector<te_t> & taikyoku_t::get_te_list() const
-    {
-        return te_list;
-    }
-
-    /**
-     * @breif 対局する。
-     * @tparam Evaluator1 abstract_evaluator_t を継承したクラス
-     * @tparam Evaluator2 abstract_evaluator_t を継承したクラス
-     * @param kyokuomen 局面
-     */
-    template<typename Evaluator1, typename Evaluator2, typename Kyokumen>
-    inline void do_taikyoku(Kyokumen && kyokumen)
-    {
-        std::chrono::system_clock::time_point begin, end;
-        begin = std::chrono::system_clock::now();
-
-        taikyoku_t taikyoku{ std::make_shared<Evaluator1>(), std::make_shared<Evaluator2>() };
-        taikyoku.kyokumen = std::forward<Kyokumen>(kyokumen);
-        while (true)
-        {
-            taikyoku.print();
-            if (!taikyoku.procedure())
-                break;
-        }
-
-        end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-        unsigned long long sps = (unsigned long long)total_search_count * 1000 / duration;
-
-        std::cout
-            << std::endl << std::endl
-            << "総計読み手数: " << total_search_count << std::endl
-            << "実行時間[ms]: " << duration << std::endl
-            << "読み手速度[手/s]: " << sps << std::endl << std::endl;
-
-        taikyoku.kyokumen.print_kifu();
-        std::cout.flush();
-    }
-
-    /**
-     * @breif 対局する。
-     * @tparam Evaluator1 abstract_evaluator_t を継承したクラス
-     * @tparam Evaluator2 abstract_evaluator_t を継承したクラス
-     */
-    template<typename Evaluator1, typename Evaluator2>
-    inline void do_taikyoku()
-    {
-        kyokumen_t kyokumen;
-        do_taikyoku<Evaluator1, Evaluator2>(std::move(kyokumen));
-    }
-
     void print_help()
     {
         std::cout
@@ -3311,7 +3170,7 @@ namespace shogipp
 
         id_t id{ id_t::error };
 
-        std::optional<unsigned int> te_index;
+        std::optional<te_t> opt_te;
     };
 
     template<typename OutputIterator, typename CharT>
@@ -3325,53 +3184,297 @@ namespace shogipp
             *result++ = *iter++;
     }
 
-    inline command_t parse_command_line_input(const std::string & s)
+    inline command_t read_command_line_input(const std::vector<te_t> & te_list)
     {
-        std::vector<std::string> tokens;
-        split_tokens(std::back_inserter(tokens), std::string_view{ s });
-
-        if (!tokens.empty())
+        while (true)
         {
-            if (tokens[0] == "move" && tokens.size() == 2)
+            try
             {
-                unsigned int index;
-                try
+                std::string command_line;
+                std::getline(std::cin, command_line);
+
+                std::vector<std::string> tokens;
+                split_tokens(std::back_inserter(tokens), std::string_view{ command_line });
+
+                if (!tokens.empty())
                 {
-                    std::istringstream stream{ tokens[1] };
-                    stream >> index;
-                    --index;
+                    if (tokens[0] == "move" && tokens.size() == 2)
+                    {
+                        unsigned int index;
+                        try
+                        {
+                            std::istringstream stream{ tokens[1] };
+                            stream >> index;
+                            if (index == 0)
+                                return command_t{ command_t::id_t::error };
+                            if (index > te_list.size())
+                                return command_t{ command_t::id_t::error };
+                            --index;
+                        }
+                        catch (...)
+                        {
+                            return command_t{ command_t::id_t::error };
+                        }
+                        return command_t{ command_t::id_t::move, te_list[index] };
+                    }
+
+                    if (tokens[0] == "undo")
+                    {
+                        return command_t{ command_t::id_t::undo };
+                    }
+
+                    if (tokens[0] == "giveup")
+                    {
+                        return command_t{ command_t::id_t::giveup };
+                    }
+
+                    if (tokens[0] == "dump")
+                    {
+                        return command_t{ command_t::id_t::dump };
+                    }
                 }
-                catch (...)
-                {
-                    return command_t{ command_t::id_t::error };
-                }
-                return command_t{ command_t::id_t::move, index };
             }
-
-            if (tokens[0] == "undo")
+            catch (const std::exception & e)
             {
-                return command_t{ command_t::id_t::undo };
+                std::cerr << e.what() << std::endl;
             }
-
-            if (tokens[0] == "giveup")
-            {
-                return command_t{ command_t::id_t::giveup };
-            }
-
-            if (tokens[0] == "dump")
-            {
-                return command_t{ command_t::id_t::dump };
-            }
+            std::cin.clear();
+            std::cin.ignore();
         }
         return command_t{ command_t::id_t::error };
     }
 
-    inline void parse_command_line(int argc, const char ** argv)
+    class abstract_kishi_t;
+
+    /**
+     * @breif 対局
+     */
+    class taikyoku_t
+    {
+    public:
+        /**
+         * @breif 対局を構築する。
+         * @param a 先手の棋士
+         * @param b 後手の棋士
+         */
+        inline taikyoku_t(const std::shared_ptr<abstract_kishi_t> & a, const std::shared_ptr<abstract_kishi_t> & b);
+
+        /**
+         * @breif 対局を実行する。
+         * @retval true 対局が終了していない
+         * @retval false 対局が終了した
+         * @details この関数が true を返した場合、再度この関数を呼び出す。
+         */
+        inline bool procedure();
+
+        /**
+         * @breif 対局を標準出力に出力する。
+         */
+        inline void print() const;
+
+        /**
+         * @breif 手番の合法手を返す。
+         * @return 合法手
+         */
+        inline const std::vector<te_t> & get_te_list() const;
+
+        std::shared_ptr<abstract_kishi_t> kishi_list[sengo_size];
+        std::vector<te_t> te_list;
+        kyokumen_t kyokumen;
+        bool sente_win;
+    };
+
+    class abstract_kishi_t
+    {
+    public:
+        virtual ~abstract_kishi_t() {}
+
+        /**
+         * @breif コマンドを返す。
+         * @param taikyoku 対局
+         * @return コマンド
+         */
+        virtual command_t get_command(taikyoku_t & taikyoku) = 0;
+
+        /**
+         * @breif 棋士の名前を返す。
+         * @return 棋士の名前
+         */
+        virtual const char * name() const = 0;
+    };
+
+    class command_line_kishi_t
+        : public abstract_kishi_t
+    {
+    public:
+        command_t get_command(taikyoku_t & taikyoku) override;
+        const char * name() const override;
+    };
+
+    class computer_kishi_t
+        : public abstract_kishi_t
+    {
+    public:
+        inline computer_kishi_t(const std::shared_ptr<abstract_evaluator_t> & ptr)
+            : ptr{ ptr }
+        {}
+
+        command_t get_command(taikyoku_t & taikyoku) override;
+        const char * name() const override;
+
+    private:
+        std::shared_ptr<abstract_evaluator_t> ptr;
+    };
+
+    command_t command_line_kishi_t::get_command(taikyoku_t & taikyoku)
+    {
+        return read_command_line_input(taikyoku.get_te_list());
+    }
+
+    const char * command_line_kishi_t::name() const
+    {
+        return "コマンドライン入力";
+    }
+
+    command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
+    {
+        return command_t{ command_t::id_t::move, ptr->select_te(taikyoku.kyokumen) };
+    }
+
+    const char * computer_kishi_t::name() const
+    {
+        return ptr->name();
+    }
+
+    inline taikyoku_t::taikyoku_t(const std::shared_ptr<abstract_kishi_t> & a, const std::shared_ptr<abstract_kishi_t> & b)
+        : kishi_list{ a, b }
+        , sente_win{ false }
+    {
+        te_list.clear();
+        kyokumen.search_te(std::back_inserter(te_list));
+    }
+
+    inline bool taikyoku_t::procedure()
+    {
+        auto & kishi = kishi_list[kyokumen.sengo()];
+
+        kyokumen_t temp_kyokumen = kyokumen;
+
+        command_t cmd = kishi->get_command(*this);
+
+        while (true)
+        {
+            switch (cmd.id)
+            {
+            case command_t::id_t::error:
+                break;
+            case command_t::id_t::move:
+                kyokumen.print_te(*cmd.opt_te, kyokumen.sengo());
+                std::cout << std::endl << std::endl;
+                kyokumen.do_te(*cmd.opt_te);
+                te_list.clear();
+                kyokumen.search_te(std::back_inserter(te_list));
+                return !te_list.empty();
+            case command_t::id_t::undo:
+                break;
+            case command_t::id_t::giveup:
+                break;
+            case command_t::id_t::dump:
+                break;
+            }
+        }
+    }
+
+    inline void taikyoku_t::print() const
+    {
+        if (kyokumen.tesu == 0)
+        {
+            for (sengo_t sengo : sengo_list)
+                std::cout << sengo_to_string(static_cast<sengo_t>(sengo)) << "：" << kishi_list[sengo]->name() << std::endl;
+            std::cout << std::endl;
+        }
+
+        if (te_list.empty())
+        {
+            auto & winner_evaluator = kishi_list[!kyokumen.sengo()];
+            std::cout << kyokumen.tesu << "手詰み" << std::endl;
+            kyokumen.print();
+            std::cout << sengo_to_string(!kyokumen.sengo()) << "勝利（" << winner_evaluator->name() << "）";
+            std::cout.flush();
+        }
+        else
+        {
+            std::cout << (kyokumen.tesu + 1) << "手目" << sengo_to_string(kyokumen.sengo()) << "番" << std::endl;
+            kyokumen.print();
+            kyokumen.print_te();
+            kyokumen.print_oute();
+        }
+    }
+
+    inline const std::vector<te_t> & taikyoku_t::get_te_list() const
+    {
+        return te_list;
+    }
+
+    /**
+    * @breif 対局する。
+    * @param sente_kishi 先手の棋士
+    * @param gote_kishi 後手の棋士
+    */
+    inline void do_taikyoku(kyokumen_t & kyokumen, const std::shared_ptr<abstract_kishi_t> & sente_kishi, const std::shared_ptr<abstract_kishi_t> & gote_kishi)
+    {
+        std::chrono::system_clock::time_point begin, end;
+        begin = std::chrono::system_clock::now();
+
+        taikyoku_t taikyoku{ sente_kishi, gote_kishi };
+        taikyoku.kyokumen = kyokumen;
+        while (true)
+        {
+            taikyoku.print();
+            if (!taikyoku.procedure())
+                break;
+        }
+
+        end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+        unsigned long long sps = (unsigned long long)total_search_count * 1000 / duration;
+
+        std::cout
+            << std::endl << std::endl
+            << "総計読み手数: " << total_search_count << std::endl
+            << "実行時間[ms]: " << duration << std::endl
+            << "読み手速度[手/s]: " << sps << std::endl << std::endl;
+
+        taikyoku.kyokumen.print_kifu();
+        std::cout.flush();
+    }
+
+    /**
+     * @breif 対局する。
+     * @param sente_kishi 先手の棋士
+     * @param gote_kishi 後手の棋士
+     */
+    inline void do_taikyoku(const std::shared_ptr<abstract_kishi_t> & sente_kishi, const std::shared_ptr<abstract_kishi_t> & gote_kishi)
+    {
+        kyokumen_t kyokumen;
+        do_taikyoku(kyokumen, sente_kishi, gote_kishi);
+    }
+
+    std::map<std::string, std::shared_ptr<abstract_kishi_t>> kishi_map
+    {
+        {"stdin", std::make_shared<command_line_kishi_t>()},
+        {"random", std::make_shared<computer_kishi_t>(std::make_shared<random_evaluator_t>())},
+        {"hiyoko", std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t>())},
+    };
+
+    inline int parse_command_line(int argc, const char ** argv)
     {
         try
         {
             std::string kifu_path;
             std::string kyokumen_path;
+            std::string sente_name = "stdin";
+            std::string gote_name = "stdin";
 
             std::shared_ptr<abstract_evaluator_t> a, b;
 
@@ -3379,44 +3482,69 @@ namespace shogipp
             {
                 if (option == "kifu" && !params.empty())
                 {
-                    kifu_path = params.front();
+                    kifu_path = params[0];
                 }
                 else if (option == "kyokumen" && !params.empty())
                 {
-                    kyokumen_path = params.front();
+                    kyokumen_path = params[0];
+                }
+                else if (option == "sente" && !params.empty())
+                {
+                    sente_name = params[0];
+                }
+                else if (option == "gote" && !params.empty())
+                {
+                    gote_name = params[0];
                 }
             };
             parse_program_options(argc, argv, callback);
 
+            auto sente_iter = kishi_map.find(sente_name);
+            if (sente_iter == kishi_map.end())
+            {
+                throw invalid_command_line_input{"invalid sente name"};
+            }
+            std::shared_ptr<abstract_kishi_t> & sente_kishi = sente_iter->second;
+
+            auto gote_iter = kishi_map.find(gote_name);
+            if (gote_iter == kishi_map.end())
+            {
+                throw invalid_command_line_input{ "invalid gote name" };
+            }
+            std::shared_ptr<abstract_kishi_t> & gote_kishi = gote_iter->second;
+
             if (!kifu_path.empty() && !kyokumen_path.empty())
             {
-                std::cerr << "!kifu.empty() && !kyokumen.empty()" << std::endl;
+                throw invalid_command_line_input{ "!kifu.empty() && !kyokumen.empty()" };
             }
             else if (!kifu_path.empty())
             {
                 kyokumen_t kyokumen;
                 kyokumen.read_kifu_file(kifu_path);
-                do_taikyoku<command_line_evaluator_t, random_evaluator_t>(kyokumen);
+                do_taikyoku(kyokumen, sente_kishi, gote_kishi);
             }
             else if (!kyokumen_path.empty())
             {
                 kyokumen_t kyokumen;
                 kyokumen.read_kyokumen_file(kyokumen_path);
-                do_taikyoku<command_line_evaluator_t, random_evaluator_t>(kyokumen);
+                do_taikyoku(kyokumen, sente_kishi, gote_kishi);
             }
             else
             {
-                do_taikyoku<command_line_evaluator_t, random_evaluator_t>();
+                do_taikyoku(sente_kishi, gote_kishi);
             }
         }
         catch (const std::exception & e)
         {
             std::cerr << e.what() << std::endl;
+            return 1;
         }
         catch (...)
         {
-            ;
+            return 1;
         }
+
+        return 0;
     }
 
 } // namespace shogipp

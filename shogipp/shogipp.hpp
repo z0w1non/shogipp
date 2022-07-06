@@ -3216,8 +3216,7 @@ namespace shogipp
                     unsigned int move_index;
                     try
                     {
-                        std::istringstream stream{ tokens[0] };
-                        stream >> move_index;
+                        move_index = stol(tokens[0]);
                     }
                     catch (...)
                     {

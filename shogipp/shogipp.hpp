@@ -2595,6 +2595,15 @@ namespace shogipp
         }
 
         /**
+         * @breif キャッシュを破棄する。
+         */
+        inline void clear()
+        {
+            list.clear();
+            umap.clear();
+        }
+
+        /**
          * @breif キーと対応する値を取得する。
          * @param key キー
          * @return キーと対応する値
@@ -2902,13 +2911,14 @@ namespace shogipp
         te_t select_te(kyokumen_t & kyokumen) override
         {
             cache_hit_count = 0;
+            evaluation_value_cache.clear();
             unsigned int search_count = 0;
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
             int evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_te);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
-            std::cout << "読み手数(キャッシュ)：" << cache_hit_count << std::endl;
+            std::cout << "読み手数（キャッシュ）：" << cache_hit_count << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
             return *selected_te;
@@ -2922,7 +2932,7 @@ namespace shogipp
         virtual int eval(kyokumen_t & kyokumen) = 0;
 
         unsigned long long cache_hit_count = 0;
-        evaluation_value_cache_t evaluation_value_cache{ 1000 };
+        evaluation_value_cache_t evaluation_value_cache{ std::numeric_limits<std::size_t>::max() };
     };
 
     /**

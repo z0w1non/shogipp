@@ -2549,6 +2549,68 @@ namespace shogipp
         }
     }
 
+    template<typename Key, typename Value>
+    class lru_cache_t
+    {
+    public:
+        using key_type = Key;
+        using value_type = Value;
+        using pair_type = std::pair<hash_t, value_type>;
+        using list_type = std::list<pair_type>;
+        using unordered_map_type = std::unordered_map<key_type, typename list_type::iterator>;
+
+        list_type list;
+        unordered_map_type umap;
+        std::size_t capacity;
+
+        /**
+         * @breif LRUで管理されるキャッシュを構築する。
+         * @param capacity 最大要素数
+         */
+        inline lru_cache_t(std::size_t capacity)
+            : capacity{ capacity }
+        {
+        }
+
+        /**
+         * @breif キーと対応する値を取得する。
+         * @param key キー
+         * @return キーと対応する値
+         */
+        inline std::optional<Value> get(key_type key)
+        {
+            if (umap.find(key) == umap.end())
+                return std::nullopt;
+            typename list_type::iterator iter = umap[key];
+            value_type value = iter->second;
+            list.erase(iter);
+            list.emplace_front(key, value);
+            umap[key] = list.begin();
+            return value;
+        }
+
+        /**
+         * @breif キーと値を登録する。
+         * @param key キー
+         * @param value 値
+         */
+        inline void push(key_type key, value_type value)
+        {
+            typename list_type::iterator iter = umap.find(key);
+            if (iter != umap.end())
+                list.erase(iter->second);
+            list.emplace_front(key, value);
+            umap[key] = list.begin();
+            if (list.size() > capacity)
+            {
+                umap.erase(std::prev(list.end())->second);
+                list.pop_back();
+            }
+        }
+    };
+
+    using evaluation_value_cache_t = lru_cache_t<hash_t, int>;
+
     /**
      * @breif 評価関数オブジェクトのインターフェース
      */
@@ -3291,7 +3353,7 @@ namespace shogipp
                     unsigned int move_index;
                     try
                     {
-                        move_index = stol(tokens[0]);
+                        move_index = std::stol(tokens[0]);
                     }
                     catch (const std::invalid_argument &)
                     {
@@ -3564,7 +3626,9 @@ namespace shogipp
     {
         {"stdin", std::make_shared<stdin_kishi_t>()},
         {"random", std::make_shared<computer_kishi_t>(std::make_shared<random_evaluator_t>())},
+        {"sample", std::make_shared<computer_kishi_t>(std::make_shared<sample_evaluator_t>())},
         {"hiyoko", std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t>())},
+        {"niwatori", std::make_shared<computer_kishi_t>(std::make_shared<niwatori_evaluator_t>())},
     };
 
     inline int parse_command_line(int argc, const char ** argv)

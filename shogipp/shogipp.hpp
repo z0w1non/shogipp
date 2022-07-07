@@ -103,8 +103,8 @@ namespace shogipp
         }
 
         /**
- * @breif 総読み手数、実行時間、読み手速度を測定する機能を提供する。
- */
+         * @breif 総読み手数、実行時間、読み手速度を測定する機能を提供する。
+         */
         class timer_t
         {
         public:

@@ -101,9 +101,81 @@ namespace shogipp
                 std::terminate();
             }
         }
-    }
 
-    inline unsigned long long total_search_count = 0;
+        /**
+ * @breif 総読み手数、実行時間、読み手速度を測定する機能を提供する。
+ */
+        class timer_t
+        {
+        public:
+            /**
+             * @breif 時間計測を開始する。
+             */
+            inline timer_t();
+
+            /**
+             * @breif 時間計測を再開始する。
+             */
+            inline void clear();
+
+            /**
+             * @breif 経過時間を標準出力に出力する。
+             */
+            inline void print_elapsed_time();
+
+            /**
+             * @breif 読み手数の参照を返す。
+             * @return 読み手数の参照
+             */
+            inline unsigned long long & search_count();
+
+            /**
+             * @breif 読み手数の参照を返す。
+             * @return 読み手数の参照
+             */
+            inline const unsigned long long & search_count() const;
+
+        private:
+            std::chrono::system_clock::time_point m_begin;
+            unsigned long long m_search_count;
+        };
+
+        inline timer_t::timer_t()
+        {
+            clear();
+        }
+
+        inline void timer_t::clear()
+        {
+            m_begin = std::chrono::system_clock::now();
+            m_search_count = 0;
+        }
+
+        inline void timer_t::print_elapsed_time()
+        {
+            std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
+            unsigned long long sps = (unsigned long long)m_search_count * 1000 / duration;
+
+            std::cout
+                << std::endl
+                << "総読み手数: " << m_search_count << std::endl
+                << "実行時間[ms]: " << duration << std::endl
+                << "読み手速度[手/s]: " << sps << std::endl << std::endl;
+        }
+
+        inline unsigned long long & timer_t::search_count()
+        {
+            return m_search_count;
+        }
+
+        inline const unsigned long long & timer_t::search_count() const
+        {
+            return m_search_count;
+        }
+
+        thread_local timer_t timer;
+    }
 
     class file_format_error
         : public std::runtime_error
@@ -2741,7 +2813,7 @@ namespace shogipp
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
             int evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_te);
-            total_search_count += search_count;
+            details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
@@ -2819,7 +2891,7 @@ namespace shogipp
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
             int score = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te);
-            total_search_count += search_count;
+            details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "評価値：" << score << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
@@ -2932,7 +3004,7 @@ namespace shogipp
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
             int evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te, npos);
-            total_search_count += search_count;
+            details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
@@ -3448,6 +3520,8 @@ namespace shogipp
         kyokumen.search_te(std::back_inserter(te_list));
     }
 
+
+
     /**
     * @breif 対局する。
     * @param sente_kishi 先手の棋士
@@ -3455,8 +3529,7 @@ namespace shogipp
     */
     inline void do_taikyoku(kyokumen_t & kyokumen, const std::shared_ptr<abstract_kishi_t> & sente_kishi, const std::shared_ptr<abstract_kishi_t> & gote_kishi)
     {
-        std::chrono::system_clock::time_point begin, end;
-        begin = std::chrono::system_clock::now();
+        details::timer.clear();
 
         taikyoku_t taikyoku{ sente_kishi, gote_kishi };
         taikyoku.kyokumen = kyokumen;
@@ -3469,15 +3542,8 @@ namespace shogipp
 
         taikyoku.print(); // 詰んだ局面を標準出力に出力する。
 
-        end = std::chrono::system_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
-        unsigned long long sps = (unsigned long long)total_search_count * 1000 / duration;
-
-        std::cout
-            << std::endl
-            << "総計読み手数: " << total_search_count << std::endl
-            << "実行時間[ms]: " << duration << std::endl
-            << "読み手速度[手/s]: " << sps << std::endl << std::endl;
+        std::cout << std::endl;
+        details::timer.print_elapsed_time();
 
         taikyoku.kyokumen.print_kifu();
         std::cout.flush();

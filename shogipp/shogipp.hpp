@@ -664,9 +664,17 @@ namespace shogipp
          */
         inline hash_t mochigoma_hash(koma_t koma, std::size_t count, sengo_t sengo) const;
 
+        /**
+         * @breif 手番のハッシュ値を計算する。
+         * @param sengo 先手か後手か
+         * @return ハッシュ値
+         */
+        inline hash_t sengo_hash(sengo_t sengo) const;
+
     private:
         hash_t ban_table[koma_enum_number * suji_size * dan_size];
         hash_t mochigoma_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];
+        hash_t sengo_table[sengo_size];
     };
 
     static const hash_table_t hash_table;
@@ -679,6 +687,8 @@ namespace shogipp
             ban_table[i] = uid(rand);
         for (std::size_t i = 0; i < std::size(mochigoma_table); ++i)
             mochigoma_table[i] = uid(rand);
+        for (std::size_t i = 0; i < std::size(sengo_table); ++i)
+            sengo_table[i] = uid(rand);
     }
 
     inline hash_t hash_table_t::koma_hash(koma_t koma, pos_t pos) const
@@ -734,6 +744,13 @@ namespace shogipp
         if (sengo)
             ++index;
         return ban_table[index];
+    }
+
+    inline hash_t hash_table_t::sengo_hash(sengo_t sengo) const
+    {
+        SHOGIPP_ASSERT(sengo >= sente);
+        SHOGIPP_ASSERT(sengo <= gote);
+        return sengo_table[sengo];
     }
 
     /**
@@ -2023,6 +2040,9 @@ namespace shogipp
             for (koma_t koma = fu; koma <= hi; ++koma)
                 hash ^= hash_table.mochigoma_hash(koma, mochigoma_list[i][koma], tesu_to_sengo(i));
 
+        // 手番のハッシュ値をXOR演算
+        hash ^= hash_table.sengo_hash(sengo());
+
         return hash;
     }
 
@@ -2049,6 +2069,8 @@ namespace shogipp
             }
             hash ^= hash_table.koma_hash(te.promote() ? to_unpromoted(te.source_koma()) : te.source_koma(), te.destination());
         }
+        hash ^= hash_table.sengo_hash(!sengo());
+        hash ^= hash_table.sengo_hash(sengo());
         return hash;
     }
 
@@ -2555,7 +2577,7 @@ namespace shogipp
     public:
         using key_type = Key;
         using value_type = Value;
-        using pair_type = std::pair<hash_t, value_type>;
+        using pair_type = std::pair<key_type, value_type>;
         using list_type = std::list<pair_type>;
         using unordered_map_type = std::unordered_map<key_type, typename list_type::iterator>;
 
@@ -2579,11 +2601,11 @@ namespace shogipp
          */
         inline std::optional<Value> get(key_type key)
         {
-            if (umap.find(key) == umap.end())
+            typename unordered_map_type::iterator iter = umap.find(key);
+            if (iter == umap.end())
                 return std::nullopt;
-            typename list_type::iterator iter = umap[key];
-            value_type value = iter->second;
-            list.erase(iter);
+            value_type value = iter->second->second;
+            list.erase(iter->second);
             list.emplace_front(key, value);
             umap[key] = list.begin();
             return value;
@@ -2596,14 +2618,14 @@ namespace shogipp
          */
         inline void push(key_type key, value_type value)
         {
-            typename list_type::iterator iter = umap.find(key);
+            typename unordered_map_type::iterator iter = umap.find(key);
             if (iter != umap.end())
                 list.erase(iter->second);
             list.emplace_front(key, value);
             umap[key] = list.begin();
             if (list.size() > capacity)
             {
-                umap.erase(std::prev(list.end())->second);
+                umap.erase(list.rbegin()->first);
                 list.pop_back();
             }
         }
@@ -2833,7 +2855,15 @@ namespace shogipp
             if (depth <= 0)
             {
                 ++search_count;
-                return eval(kyokumen) * reverse(kyokumen.sengo());
+                std::optional<int> cached_evaluation_value = evaluation_value_cache.get(kyokumen.hash());
+                if (cached_evaluation_value)
+                {
+                    ++cache_hit_count;
+                    return *cached_evaluation_value;
+                }
+                int evaluation_value = eval(kyokumen) * reverse(kyokumen.sengo());
+                evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
+                return evaluation_value;
             }
 
             std::vector<te_t> te_list;
@@ -2871,12 +2901,14 @@ namespace shogipp
          */
         te_t select_te(kyokumen_t & kyokumen) override
         {
+            cache_hit_count = 0;
             unsigned int search_count = 0;
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
             int evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_te);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
+            std::cout << "読み手数(キャッシュ)：" << cache_hit_count << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
             return *selected_te;
@@ -2888,6 +2920,9 @@ namespace shogipp
          * @return 局面の評価値
          */
         virtual int eval(kyokumen_t & kyokumen) = 0;
+
+        unsigned long long cache_hit_count = 0;
+        evaluation_value_cache_t evaluation_value_cache{ 1000 };
     };
 
     /**

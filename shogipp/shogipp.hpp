@@ -1271,20 +1271,21 @@ namespace shogipp
         inline kyokumen_t();
 
         /**
-         * @breif 駒komaが座標dstに移動する場合に成りが可能か判定する。
+         * @breif 駒が移動する場合に成りが可能か判定する。
          * @param koma 駒
-         * @param dst 移動先の座標
+         * @param source 移動元の座標
+         * @param destination 移動先の座標
          * @return 成りが可能の場合(komaが既に成っている場合、常にfalse)
          */
-        inline static bool can_promote(koma_t koma, pos_t dst);
+        inline static bool can_promote(koma_t koma, pos_t source, pos_t destination);
 
         /**
-         * @breif 駒komaが座標dstに移動する場合に成りが必須か判定する。
+         * @breif 駒が移動する場合に成りが必須か判定する。
          * @param koma 駒
-         * @param dst 移動先の座標
+         * @param destination 移動先の座標
          * @return 成りが必須の場合(komaが既に成っている場合、常にfalse)
          */
-        inline static bool must_promote(koma_t koma, pos_t dst);
+        inline static bool must_promote(koma_t koma, pos_t destination);
 
         /**
          * @breif 座標srcから移動可能の移動先を反復的に検索する。
@@ -1648,28 +1649,28 @@ namespace shogipp
         init_move_table_list();
     }
 
-    inline bool kyokumen_t::can_promote(koma_t koma, pos_t dst)
+    inline bool kyokumen_t::can_promote(koma_t koma, pos_t source, pos_t destination)
     {
-        if ((is_promoted(koma)) || trim_sengo(koma) == kin || trim_sengo(koma) == ou)
+        if (!is_promotable(koma))
             return false;
-        if (to_sengo(koma))
-            return dst >= width * (6 + padding_height);
-        return dst < width * (3 + padding_height);
+        if (to_sengo(koma) == sente)
+            return source < width * (3 + padding_height) || destination < width * (3 + padding_height);
+        return source >= width * (6 + padding_height) || destination >= width * (6 + padding_height);
     }
 
-    inline bool kyokumen_t::must_promote(koma_t koma, pos_t dst)
+    inline bool kyokumen_t::must_promote(koma_t koma, pos_t destination)
     {
         if (trim_sengo(koma) == fu || trim_sengo(koma) == kyo)
         {
-            if (to_sengo(koma))
-                return dst >= width * (8 + padding_height);
-            return dst < (width * (1 + padding_height));
+            if (to_sengo(koma) == sente)
+                return destination < (width * (1 + padding_height));
+            return destination >= width * (8 + padding_height);
         }
         else if (trim_sengo(koma) == kei)
         {
-            if (to_sengo(koma))
-                return dst >= width * (7 + padding_height);
-            return dst < width * (2 + padding_height);
+            if (to_sengo(koma) == sente)
+                return destination < width * (2 + padding_height);
+            return destination >= width * (7 + padding_height);
         }
         return false;
     }
@@ -1874,7 +1875,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_te_from_positions(OutputIterator result, pos_t source, pos_t destination) const
     {
-        if (can_promote(ban[source], destination))
+        if (can_promote(ban[source], source, destination))
             *result++ = { source, destination, ban[source], ban[destination], true };
         if (!must_promote(ban[source], destination))
             *result++ = { source, destination, ban[source], ban[destination], false };
@@ -2091,7 +2092,7 @@ namespace shogipp
         else
         {
             const char * naristr;
-            if (can_promote(te.source_koma(), te.destination()))
+            if (can_promote(te.source_koma(), te.source(), te.destination()))
                 naristr = te.promote() ? "成" : "不成";
             else
                 naristr = "";

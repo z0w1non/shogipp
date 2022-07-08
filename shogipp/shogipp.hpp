@@ -2581,10 +2581,6 @@ namespace shogipp
         using list_type = std::list<pair_type>;
         using unordered_map_type = std::unordered_map<key_type, typename list_type::iterator>;
 
-        list_type list;
-        unordered_map_type umap;
-        std::size_t capacity;
-
         /**
          * @breif LRUで管理されるキャッシュを構築する。
          * @param capacity 最大要素数
@@ -2638,6 +2634,11 @@ namespace shogipp
                 list.pop_back();
             }
         }
+
+    private:
+        list_type list;
+        unordered_map_type umap;
+        std::size_t capacity;
     };
 
     using evaluation_value_cache_t = lru_cache_t<hash_t, int>;

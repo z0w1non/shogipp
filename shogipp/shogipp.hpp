@@ -1557,6 +1557,13 @@ namespace shogipp
         inline sengo_t sengo() const;
 
         /**
+         * @breif 指定された手数で分岐する局面の数を数える。
+         * @param depth 手数
+         * @return 局面の数
+         */
+        inline unsigned long long count_node(unsigned int depth) const;
+
+        /**
          * @breif 局面ファイルから局面を読み込む。
          * @param kyokumen_file 局面ファイル
          */
@@ -2233,6 +2240,22 @@ namespace shogipp
     inline sengo_t kyokumen_t::sengo() const
     {
         return tesu_to_sengo(tesu);
+    }
+
+    inline unsigned long long kyokumen_t::count_node(unsigned int depth) const
+    {
+        if (depth == 0)
+            return 1;
+
+        unsigned long long count = 0;
+        for (const te_t & te : search_te())
+        {
+            VALIDATE_KYOKUMEN_ROLLBACK(*this);
+            const_cast<kyokumen_t &>(*this).do_te(te);
+            count += count_node(depth - 1);
+            const_cast<kyokumen_t &>(*this).undo_te(te);
+        }
+        return count;
     }
 
     inline void kyokumen_t::read_kyokumen_file(std::filesystem::path kyokumen_file)

@@ -248,6 +248,21 @@ namespace shogipp
     constexpr pos_t suji_size = 9;
     constexpr pos_t dan_size = 9;
 
+    enum pos_alias
+    {
+        X00, P10, P20, P30, P40, P50, P60, P70, P80, P90, XA0,
+        X01, P11, P21, P31, P41, P51, P61, P71, P81, P91, XA1,
+        X02, P12, P22, P32, P42, P52, P62, P72, P82, P92, XA2,
+        X03, P13, P23, P33, P43, P53, P63, P73, P83, P93, XA3,
+        X04, P14, P24, P34, P44, P54, P64, P74, P84, P94, XA4,
+        X05, P15, P25, P35, P45, P55, P65, P75, P85, P95, XA5,
+        X06, P16, P26, P36, P46, P56, P66, P76, P86, P96, XA6,
+        X07, P17, P27, P37, P47, P57, P67, P77, P87, P97, XA7,
+        X08, P18, P28, P38, P48, P58, P68, P78, P88, P98, XA8,
+        X09, P19, P29, P39, P49, P59, P69, P79, P89, P99, XA9,
+        X0A, X1A, X2A, X3A, X4A, X5A, X6A, X7A, X8A, X9A, XAA,
+    };
+
     /**
      * @breif 座標から段を抽出する。
      * @param pos 座標
@@ -1990,7 +2005,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_te_nonevasions(OutputIterator result) const
     {
-        aigoma_info_t aigoma_info = search_aigoma(sengo());
+        const aigoma_info_t aigoma_info = search_aigoma(sengo());
         std::vector<pos_t> source_list;
         search_source(std::back_inserter(source_list), sengo());
         for (auto source : source_list)
@@ -2009,6 +2024,7 @@ namespace shogipp
                     std::cout << pos_to_string(source) << std::endl;
                     te_t te{ source, destination, ban[source], ban[destination], false };
                     print_te(te, sengo());
+                    std::cout << std::endl;
                     print_kifu();
                     SHOGIPP_ASSERT(false);
                 }
@@ -2047,7 +2063,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_te_evasions(OutputIterator result) const
     {
-        aigoma_info_t aigoma_info = search_aigoma(sengo());
+        const aigoma_info_t aigoma_info = search_aigoma(sengo());
         pos_t r = reverse(sengo());
         pos_t src = ou_pos[sengo()];
 

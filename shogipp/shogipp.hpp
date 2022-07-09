@@ -24,12 +24,21 @@
 #include <type_traits>
 #include <utility>
 #include <regex>
+#include <functional>
 
 //#define NONDETERMINISM
 #ifdef NONDETERMINISM
 #define SHOGIPP_SEED std::random_device{}()
 #else
 #define SHOGIPP_SEED
+#endif
+
+#ifndef DEFAULT_SENTE_KISHI
+#define DEFAULT_SENTE_KISHI "stdin"
+#endif
+
+#ifndef DEFAULT_GOTE_KISHI
+#define DEFAULT_GOTE_KISHI "stdin"
 #endif
 
 #ifdef NDEBUG
@@ -42,9 +51,6 @@
     } while (false)                                                                 \
 
 #endif
-
-//#define VALIDATE_MOVEMENT_CACHE
-#define DISABLE_MOVEMENT_CACHE
 
 #ifdef NDEBUG
 #define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen)
@@ -1220,7 +1226,115 @@ namespace shogipp
         bool aigoma;    // 合駒が可能か
     };
 
-    using aigoma_info_t = std::unordered_map<pos_t, std::vector<pos_t>>;
+    class aigoma_info_t : public std::unordered_map<pos_t, std::vector<pos_t>>
+    {
+    public:
+        using std::unordered_map<pos_t, std::vector<pos_t>>::unordered_map;
+
+        inline void print() const
+        {
+            for (auto & [pos, candidates] : *this)
+                std::cout << "合駒：" << pos_to_string(pos) << std::endl;
+        }
+    };
+
+    /**
+     * @breif 参照される直前に遅延評価する機能を提供する。
+     */
+    template<typename T>
+    class lazy_evaluated_t
+    {
+    public:
+        using value_type = T;
+        using function_type = std::function<void(value_type &)>;
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @param evaluator 遅延評価する関数
+         */
+        inline lazy_evaluated_t(const function_type & evaluator)
+            : m_value{}
+            , m_valid{ false }
+            , m_evaluator{ evaluator }
+        {
+        }
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @return 遅延評価された値
+         */
+        inline value_type & operator *()
+        {
+            update();
+            return m_value;
+        }
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @return 遅延評価された値
+         */
+        inline const value_type & operator *() const
+        {
+            update();
+            return m_value;
+        }
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @return 遅延評価された値
+         */
+        inline value_type * operator ->()
+        {
+            update();
+            return &m_value;
+        }
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @return 遅延評価された値
+         */
+        inline const value_type * operator ->() const
+        {
+            update();
+            return &m_value;
+        }
+
+        /**
+         * @breif 再評価を要求する。
+         */
+        inline void request_reevaluation()
+        {
+            m_valid = false;
+        }
+        
+    //private:
+        mutable value_type m_value;
+        mutable bool m_valid;
+        function_type m_evaluator;
+
+        inline void update() const
+        {
+            if (!m_valid)
+            {
+                std::cout << "update!" << std::endl;
+                m_evaluator(m_value);
+                m_valid = true;
+            }
+        }
+    };
+
+    /**
+     * @breif 局面の追加情報
+     * @details 手番の合法手を検索する過程で手番にかかっている王手が必要になるため、個別にスタック構造を保持する。
+     */
+    class additional_info_t
+    {
+    public:
+        std::vector<std::vector<kiki_t>> oute_list_stack;   // 手番にかかっている王手
+        //std::vector<aigoma_info_t> aigoma_info_stack;       // 手番の合駒の情報
+        //std::vector<std::vector<te_t>> te_list_stack;       // 手番の合法手
+        std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
+    };
 
     /**
      * @breif 局面
@@ -1228,43 +1342,6 @@ namespace shogipp
     class kyokumen_t
     {
     public:
-        using move_table_t = std::map<pos_t, std::vector<pos_t>>;
-
-        /**
-         * @breif 駒の移動元と移動先の情報を構築する。
-         */
-        inline void init_move_table_list();
-
-        /**
-         * @breif 駒の移動元と移動先の情報を更新する。
-         * @param move_table  駒の移動元と移動先の情報
-         * @param source 移動元の座標
-         * @param destination_list 移動先の座標の vector
-         * @details destination_list.empty() == true の場合、 move_table から source を削除する。
-         */
-        inline void update_move_table(move_table_t & move_table, pos_t source, std::vector<pos_t> && destination_list);
-
-        /**
-         * @breif 座標 pos に利いているか紐を付けている駒を検索し、その座標を移動元とする駒の移動元と移動先の情報を更新する。
-         * @param pos 座標
-         * @details destination_list.empty() == true の場合、 move_table から source を削除する。
-         */
-        inline void update_move_table_relative_to(pos_t pos);
-
-        /**
-         * @breif 最後に解決された合法手を元に、駒の移動元と移動先の情報を更新する。
-         * @param te 最後に実施された合法手
-         * @details do_te の内部で合法手が解決された後で呼ばれる想定で実装される。
-         */
-        inline void do_updating_move_table_list(const te_t & te);
-
-        /**
-         * @breif 最後に解決された合法手を元に、駒の移動元と移動先の情報を更新する。
-         * @param te 最後に実施された合法手
-         * @details undo_te の内部で合法手が解決された後で呼ばれる想定で実装される。
-         */
-        inline void undo_updating_move_table_list(const te_t & te);
-
         /**
          * @breif 局面を構築する。
          */
@@ -1404,9 +1481,40 @@ namespace shogipp
         inline void search_kiki_or_himo(OutputIterator result, pos_t pos, sengo_t sengo) const;
 
         /**
-         * @breif 王に対する利きを更新する。
+         * @breif 王手を検索する。
+         * @param result 座標の出力イテレータ
+         * @param sengo 先後いずれの視点か
          */
-        inline void update_oute();
+        template<typename OutputIterator>
+        inline void search_oute(OutputIterator result, sengo_t sengo) const;
+
+        /**
+         * @breif 王手を検索する。
+         * @param sengo 先後いずれの視点か
+         * @return 王手
+         */
+        std::vector<kiki_t> search_oute(sengo_t sengo) const;
+
+        /**
+         * @breif 追加情報をpushする。
+         */
+        inline void push_additional_info();
+
+        /**
+         * @breif 追加情報をpushする。
+         * @param hash ハッシュ値
+         */
+        inline void push_additional_info(hash_t hash);
+
+        /**
+         * @breif 追加情報をpopする。
+         */
+        inline void pop_additional_info();
+
+        /**
+         * @breif 追加情報をclearする。
+         */
+        inline void clear_additional_info();
 
         /**
          * @breif 合駒を検索する。
@@ -1414,6 +1522,14 @@ namespace shogipp
          * @param sengo 先後いずれの視点か
          */
         inline void search_aigoma(aigoma_info_t & aigoma_info, sengo_t sengo) const;
+
+
+        /**
+         * @breif 合駒を検索する。
+         * @param sengo 先後いずれの視点か
+         * @return 合駒の情報
+         */
+        inline aigoma_info_t search_aigoma(sengo_t sengo) const;
 
         /**
          * @breif 移動元と移動先の座標から合法手を生成する。
@@ -1423,6 +1539,21 @@ namespace shogipp
          */
         template<typename OutputIterator>
         inline void search_te_from_positions(OutputIterator result, pos_t source, pos_t destination) const;
+
+        /**
+         * @breif 合法手のうち王手を外さない手を生成する。
+         * @param result 合法手の出力イテレータ
+         * @details 王手されていない場合、この関数により生成される手の集合は合法手全体と完全に一致する。
+         */
+        template<typename OutputIterator>
+        inline void search_te_nonevasions(OutputIterator result) const;
+
+        /**
+         * @breif 合法手のうち王手を外す手を生成する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_te_evasions(OutputIterator result) const;
 
         /**
          * @breif 合法手を生成する。
@@ -1483,59 +1614,13 @@ namespace shogipp
          */
         inline void print() const;
 
-        inline void print_kifu();
+        inline void print_kifu() const;
 
         /**
          * @breif 局面のハッシュ値を返す。
          * @return 局面のハッシュ値
          */
         inline hash_t hash() const;
-
-#ifdef VALIDATE_MOVEMENT_CACHE
-        /**
-         * @breif search_srouce と search_destination により取得される移動元と移動先が move_table と一致しているか検証する。
-         */
-        inline void validate_move_table()
-        {
-            for (sengo_t sengo : sengo_list)
-            {
-                auto & move_table = move_table_list[sengo];
-
-                std::vector<pos_t> source_list;
-                search_source(std::back_inserter(source_list), sengo);
-                for (pos_t source : source_list)
-                {
-                    std::vector<pos_t> destination_list;
-                    search_destination(std::back_inserter(destination_list), source, sengo);
-                    
-                    auto iter = move_table.find(source);
-                    if (iter != move_table.end())
-                    {
-                        auto & [source2, destination_list2] = *iter;
-                        if (!std::equal(destination_list.begin(), destination_list.end(), destination_list2.begin(), destination_list2.end()))
-                        {
-                            std::cerr << sengo_to_string(sengo) << " source " << pos_to_string(source) << " destination list { ";
-                            for (pos_t destination : destination_list)
-                                std::cerr << pos_to_string(destination) << " ";
-                            std::cerr << "} != { ";
-                            for (pos_t destination : destination_list2)
-                                std::cerr << pos_to_string(destination) << " ";
-                            std::cerr << "}" << std::endl;
-                            SHOGIPP_ASSERT(false);
-                        }
-                    }
-                    else if (destination_list.size())
-                    {
-                        std::cerr << sengo_to_string(sengo) << " source " << pos_to_string(source) << " is not found ({ ";
-                        for (pos_t destination : destination_list)
-                            std::cerr << pos_to_string(destination) << " ";
-                        std::cerr << "})"<< std::endl;
-                        SHOGIPP_ASSERT(false);
-                    }
-                }
-            }
-        }
-#endif
 
         inline void validate_ban_out();
 
@@ -1576,14 +1661,12 @@ namespace shogipp
          */
         inline void read_kifu_file(std::filesystem::path kifu_file);
 
-        ban_t ban;                                      // 盤
-        mochigoma_t mochigoma_list[sengo_size];         // 持ち駒
-        tesu_t tesu;                                    // 手数
-        pos_t ou_pos[sengo_size];                       // 王の座標
-        std::vector<kiki_t> oute_list[sengo_size];      // 王に対する利き
-        std::stack<hash_t> hash_stack;                  // それまでの各手番におけるハッシュ値を格納するスタック
-        std::vector<te_t> kifu;                         // 棋譜
-        move_table_t move_table_list[sengo_size];       // 合法手の表
+        ban_t ban;                                  // 盤
+        mochigoma_t mochigoma_list[sengo_size];     // 持ち駒
+        tesu_t tesu;                                // 手数
+        pos_t ou_pos[sengo_size];                   // 王の座標
+        std::vector<te_t> kifu;                     // 棋譜
+        additional_info_t additional_info;          // 追加情報
     };
 
     /**
@@ -1609,23 +1692,6 @@ namespace shogipp
             std::copy(std::begin(kyokumen.mochigoma_list), std::end(kyokumen.mochigoma_list), std::begin(mochigoma_list));
     }
 
-    inline void kyokumen_t::init_move_table_list()
-    {
-        for (sengo_t sengo : sengo_list)
-        {
-            auto & move_table = move_table_list[sengo];
-            move_table.clear();
-            std::vector<pos_t> source_list;
-            search_source(std::back_inserter(source_list), tesu_to_sengo(sengo));
-            for (pos_t src : source_list)
-            {
-                std::vector<pos_t> destination_list;
-                search_destination(std::back_inserter(destination_list), src, tesu_to_sengo(sengo));
-                move_table[src] = std::move(destination_list);
-            }
-        }
-    }
-
     inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t()
     {
         for (std::size_t i = 0; i < std::size(data); ++i)
@@ -1640,13 +1706,7 @@ namespace shogipp
         tesu = 0;
         for (sengo_t sengo : sengo_list)
             ou_pos[sengo] = default_ou_pos_list[sengo];
-        for (auto & k : oute_list)
-            k.clear();
-        while (hash_stack.size())
-            hash_stack.pop();
-        hash_stack.push(make_hash());
-        kifu.clear();
-        init_move_table_list();
+        push_additional_info();
     }
 
     inline bool kyokumen_t::can_promote(koma_t koma, pos_t source, pos_t destination)
@@ -1823,13 +1883,42 @@ namespace shogipp
             [](pos_t pos, pos_t offset, bool aigoma) -> pos_t { return pos; });
     }
 
-    inline void kyokumen_t::update_oute()
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_oute(OutputIterator result, sengo_t sengo) const
     {
-        for (sengo_t sengo : sengo_list)
-        {
-            oute_list[sengo].clear();
-            search_kiki(std::back_inserter(oute_list[sengo]), ou_pos[sengo], static_cast<sengo_t>(sengo));
-        }
+        search_kiki(result, ou_pos[sengo], sengo);
+    }
+
+    std::vector<kiki_t> kyokumen_t::search_oute(sengo_t sengo) const
+    {
+        std::vector<kiki_t> oute_list;
+        search_oute(std::back_inserter(oute_list), sengo);
+        return oute_list;
+    }
+
+    inline void kyokumen_t::push_additional_info()
+    {
+        push_additional_info(make_hash());
+    }
+
+    inline void kyokumen_t::push_additional_info(hash_t hash)
+    {
+        additional_info.oute_list_stack.push_back(search_oute(sengo()));
+        additional_info.hash_stack.push_back(hash);
+    }
+
+    inline void kyokumen_t::pop_additional_info()
+    {
+        SHOGIPP_ASSERT(!additional_info.oute_list_stack.empty());
+        SHOGIPP_ASSERT(!additional_info.hash_stack.empty());
+        additional_info.oute_list_stack.pop_back();
+        additional_info.hash_stack.pop_back();
+    }
+
+    inline void kyokumen_t::clear_additional_info()
+    {
+        additional_info.oute_list_stack.clear();
+        additional_info.hash_stack.clear();
     }
 
     inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, sengo_t sengo) const
@@ -1837,25 +1926,24 @@ namespace shogipp
         using pair = std::pair<pos_t, std::vector<koma_t>>;
         static const std::vector<pair> table
         {
-            { front, { kyo, hi, ryu } },
-            { left, { hi, ryu } },
-            { right, { hi, ryu } },
-            { back, { hi, ryu } },
-            { front_left, { kaku, uma } },
+            { front      , { kyo, hi, ryu } },
+            { left       , { hi, ryu } },
+            { right      , { hi, ryu } },
+            { back       , { hi, ryu } },
+            { front_left , { kaku, uma } },
             { front_right, { kaku, uma } },
-            { back_left, { kaku, uma } },
-            { back_right, { kaku, uma } },
+            { back_left  , { kaku, uma } },
+            { back_right , { kaku, uma } },
         };
 
-        pos_t ou_pos = this->ou_pos[sengo ? 1 : 0];
-        pos_t r = reverse(sengo);
-        for (const auto & [o, hashirigoma_list] : table)
+        pos_t ou_pos = this->ou_pos[sengo];
+        for (const auto & [offset, hashirigoma_list] : table)
         {
-            pos_t offset = o * r;
-            pos_t first = search(ou_pos, offset);
+            pos_t reversed_offset = offset * reverse(sengo);
+            pos_t first = search(ou_pos, reversed_offset);
             if (first != npos && to_sengo(ban[first]) == sengo)
             {
-                pos_t second = search(first, offset);
+                pos_t second = search(first, reversed_offset);
                 if (second != npos && to_sengo(ban[second]) != sengo)
                 {
                     koma_t kind = trim_sengo(ban[second]);
@@ -1863,13 +1951,20 @@ namespace shogipp
                     if (match)
                     {
                         std::vector<pos_t> candidates;
-                        for (pos_t candidate = second; candidate != ou_pos; candidate -= offset)
+                        for (pos_t candidate = second; candidate != ou_pos; candidate -= reversed_offset)
                             candidates.push_back(candidate);
                         aigoma_info[first] = std::move(candidates);
                     }
                 }
             }
         }
+    }
+
+    inline aigoma_info_t kyokumen_t::search_aigoma(sengo_t sengo) const
+    {
+        aigoma_info_t aigoma_info;
+        search_aigoma(aigoma_info, sengo);
+        return aigoma_info;
     }
 
     template<typename OutputIterator>
@@ -1882,148 +1977,158 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_te(OutputIterator result) const
+    inline void kyokumen_t::search_te_nonevasions(OutputIterator result) const
     {
-        aigoma_info_t aigoma_info;
-        search_aigoma(aigoma_info, sengo());
-
-        if (oute_list[sengo()].empty())
+        std::vector<pos_t> source_list;
+        search_source(std::back_inserter(source_list), sengo());
+        for (auto source : source_list)
         {
-#ifdef DISABLE_MOVEMENT_CACHE
-            std::vector<pos_t> source_list;
-            search_source(std::back_inserter(source_list), sengo());
-            for (auto source : source_list)
-            {
-                std::vector<pos_t> destination_list;
-                search_destination(std::back_inserter(destination_list), source, sengo());
-#else
-            for (auto & [source, destination_list] : move_table_list[sengo()])
-            {
-#endif
-                auto aigoma_iter = aigoma_info.find(source);
-                bool is_aigoma = aigoma_iter != aigoma_info.end();
+            std::vector<pos_t> destination_list;
+            search_destination(std::back_inserter(destination_list), source, sengo());
+            auto aigoma_info = search_aigoma(sengo());
+            auto aigoma_iter = aigoma_info.find(source);
+            bool is_aigoma = aigoma_iter != aigoma_info. end();
 
-                for (pos_t destination : destination_list)
-                {
+            for (pos_t destination : destination_list)
+            {
 #ifndef NDEBUG
-                    if (ban[destination] != empty && trim_sengo(ban[destination]) == ou)
-                    {
-                        ban.print();
-                        std::cout << pos_to_string(source) << std::endl;
-                        te_t te{ source, destination, ban[source], ban[destination], false };
-                        print_te(te, sengo());
-                        print_te(kifu.begin(), kifu.end());
-                        SHOGIPP_ASSERT(false);
-                    }
+                if (ban[destination] != empty && trim_sengo(ban[destination]) == ou)
+                {
+                    ban.print();
+                    std::cout << pos_to_string(source) << std::endl;
+                    te_t te{ source, destination, ban[source], ban[destination], false };
+                    print_te(te, sengo());
+                    print_kifu();
+                    SHOGIPP_ASSERT(false);
+                }
 #endif
 
-                    // 合駒は利きの範囲にしか移動できない。
-                    if (is_aigoma)
-                    {
-                        const std::vector<pos_t> & candidates = aigoma_iter->second;
-                        if (std::find(candidates.begin(), candidates.end(), destination) == candidates.end())
-                            continue;
-                    }
-
-                    // 利いている場所に王を移動させてはならない
-                    if (trim_sengo(ban[source]) == ou)
-                    {
-                        std::vector<kiki_t> kiki_list;
-                        search_kiki(std::back_inserter(kiki_list), destination, sengo());
-                        if (kiki_list.size() > 0)
-                            continue;
-                    }
-
-                    search_te_from_positions(result, source, destination);
+                // 合駒は利きの範囲にしか移動できない。
+                if (is_aigoma)
+                {
+                    const std::vector<pos_t> & candidates = aigoma_iter->second;
+                    if (std::find(candidates.begin(), candidates.end(), destination) == candidates.end())
+                        continue;
                 }
-            }
 
-            for (koma_t koma = fu; koma <= hi; ++koma)
-            {
-                if (mochigoma_list[sengo()][koma])
-                    for (pos_t dst = 0; dst < pos_size; ++dst)
-                        if (can_put(koma, dst))
-                            *result++ = { dst, koma };
+                // 利いている場所に王を移動させてはならない
+                if (trim_sengo(ban[source]) == ou)
+                {
+                    std::vector<kiki_t> kiki_list;
+                    search_kiki(std::back_inserter(kiki_list), destination, sengo());
+                    if (kiki_list.size() > 0)
+                        continue;
+                }
+
+                search_te_from_positions(result, source, destination);
             }
         }
-        else // 王手されている場合
+
+        for (koma_t koma = fu; koma <= hi; ++koma)
         {
-            pos_t r = reverse(sengo());
-            pos_t src = ou_pos[sengo()];
+            if (mochigoma_list[sengo()][koma])
+                for (pos_t dst = 0; dst < pos_size; ++dst)
+                    if (can_put(koma, dst))
+                        *result++ = { dst, koma };
+        }
+    }
 
-            // 王を移動して王手を解除できる手を検索する。
-            for (const pos_t * p = near_move_offsets(ou); *p; ++p)
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_te_evasions(OutputIterator result) const
+    {
+        pos_t r = reverse(sengo());
+        pos_t src = ou_pos[sengo()];
+
+        // 王を移動して王手を解除できる手を検索する。
+        for (const pos_t * p = near_move_offsets(ou); *p; ++p)
+        {
+            pos_t dst = src + *p * r;
+            if (!ban_t::out(dst)
+                && (ban[dst] == empty || to_sengo(ban[dst]) != to_sengo(ban[src])))
             {
-                pos_t dst = src + *p * r;
-                if (!ban_t::out(dst)
-                    && (ban[dst] == empty || to_sengo(ban[dst]) != to_sengo(ban[src])))
+                te_t te{ src, dst, ban[src], ban[dst], false };
+                std::vector<kiki_t> kiki;
                 {
-                    te_t te{ src, dst, ban[src], ban[dst], false };
-                    std::vector<kiki_t> kiki;
-                    {
-                        VALIDATE_KYOKUMEN_ROLLBACK(*this);
-                        const_cast<kyokumen_t &>(*this).do_te(te);
-                        search_kiki(std::back_inserter(kiki), dst, !sengo());
-                        const_cast<kyokumen_t &>(*this).undo_te(te);
-                    }
-                    if (kiki.empty())
-                        *result++ = te;
+                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
+                    kyokumen_t & nonconst_this = const_cast<kyokumen_t &>(*this);
+                    koma_t captured = ban[dst];
+                    nonconst_this.ban[dst] = ban[src];
+                    nonconst_this.ban[src] = empty;
+                    search_kiki(std::back_inserter(kiki), dst, sengo());
+                    nonconst_this.ban[src] = ban[dst];
+                    nonconst_this.ban[dst] = captured;
                 }
+                if (kiki.empty())
+                    *result++ = te;
             }
+        }
 
-            auto & oute = oute_list[sengo()];
-            if (oute.size() == 1)
+        SHOGIPP_ASSERT(tesu < additional_info.oute_list_stack.size());
+        auto & oute_list = additional_info.oute_list_stack[tesu];
+        if (oute_list.size() == 1)
+        {
+            // 合駒の手を検索する。
+            if (oute_list.front().aigoma)
             {
-                // 合駒の手を検索する。
-                if (oute.front().aigoma)
+                pos_t offset = oute_list.front().offset;
+                for (pos_t dst = ou_pos[sengo()] + offset; !ban_t::out(dst) && ban[dst] == empty; dst += offset)
                 {
-                    pos_t offset = oute.front().offset;
-                    for (pos_t dst = ou_pos[sengo()] + offset; !ban_t::out(dst) && ban[dst] == empty; dst += offset)
+                    // 駒を移動させる合駒
+                    std::vector<kiki_t> kiki_list;
+                    search_kiki(std::back_inserter(kiki_list), dst, !sengo());
+                    for (kiki_t & kiki : kiki_list)
                     {
-                        // 駒を移動させる合駒
-                        std::vector<kiki_t> kiki_list;
-                        search_kiki(std::back_inserter(kiki_list), dst, !sengo());
-                        for (kiki_t & kiki : kiki_list)
-                        {
-                            // 王で合駒はできない。
-                            if (trim_sengo(ban[kiki.pos]) != ou)
-                            {
-                                // 既に合駒として使っている駒は移動できない。
-                                auto aigoma_iter = aigoma_info.find(kiki.pos);
-                                bool is_aigoma = aigoma_iter != aigoma_info.end();
-                                if (is_aigoma)
-                                    continue;
-                                search_te_from_positions(result, kiki.pos, dst);
-                            }
-                        }
-
-                        // 駒を打つ合駒
-                        for (koma_t koma = fu; koma <= hi; ++koma)
-                            if (mochigoma_list[sengo()][koma])
-                                if (can_put(koma, dst))
-                                    *result++ = { dst, koma };
-                    }
-
-                    // 王手している駒を取る手を検索する。
-                    pos_t dst = oute.front().pos;
-                    std::vector<kiki_t> kiki;
-                    search_kiki(std::back_inserter(kiki), dst, !sengo());
-                    for (auto & k : kiki)
-                    {
-                        // 王を動かす手は既に検索済み
-                        if (trim_sengo(ban[k.pos]) != ou)
+                        // 王で合駒はできない。
+                        if (trim_sengo(ban[kiki.pos]) != ou)
                         {
                             // 既に合駒として使っている駒は移動できない。
-                            auto aigoma_iter = aigoma_info.find(k.pos);
+                            auto aigoma_info = search_aigoma(sengo());
+                            auto aigoma_iter = aigoma_info.find(kiki.pos);
                             bool is_aigoma = aigoma_iter != aigoma_info.end();
                             if (is_aigoma)
                                 continue;
-                            search_te_from_positions(result, k.pos, dst);
+                            search_te_from_positions(result, kiki.pos, dst);
                         }
+                    }
+
+                    // 駒を打つ合駒
+                    for (koma_t koma = fu; koma <= hi; ++koma)
+                        if (mochigoma_list[sengo()][koma])
+                            if (can_put(koma, dst))
+                                *result++ = { dst, koma };
+                }
+
+                // 王手している駒を取る手を検索する。
+                pos_t dst = oute_list.front().pos;
+                std::vector<kiki_t> kiki;
+                search_kiki(std::back_inserter(kiki), dst, !sengo());
+                for (auto & k : kiki)
+                {
+                    // 王を動かす手は既に検索済み
+                    if (trim_sengo(ban[k.pos]) != ou)
+                    {
+                        // 既に合駒として使っている駒は移動できない。
+                        auto aigoma_info = search_aigoma(sengo());
+                        auto aigoma_iter = aigoma_info.find(k.pos);
+                        bool is_aigoma = aigoma_iter != aigoma_info.end();
+                        if (is_aigoma)
+                            continue;
+                        search_te_from_positions(result, k.pos, dst);
                     }
                 }
             }
         }
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_te(OutputIterator result) const
+    {
+        SHOGIPP_ASSERT(tesu < additional_info.oute_list_stack.size());
+        auto & oute_list = additional_info.oute_list_stack[tesu];
+        if (oute_list.empty())
+            search_te_nonevasions(result);
+        else // 王手されている場合
+            search_te_evasions(result);
     }
 
     inline std::vector<te_t> kyokumen_t::search_te() const
@@ -2096,8 +2201,8 @@ namespace shogipp
                 naristr = te.promote() ? "成" : "不成";
             else
                 naristr = "";
-            std::cout << suji_to_string(pos_to_suji(te.destination())) << dan_to_string(pos_to_dan(te.destination())) << koma_to_string(trim_sengo(te.source_koma())) << naristr
-                << "（" << suji_to_string(pos_to_suji(te.source())) << dan_to_string(pos_to_dan(te.source())) << "）";
+            std::cout << pos_to_string(te.destination()) << koma_to_string(trim_sengo(te.source_koma())) << naristr
+                << "（" << pos_to_string(te.source()) << "）";
         }
     }
 
@@ -2122,20 +2227,18 @@ namespace shogipp
 
     inline void kyokumen_t::print_oute() const
     {
-        for (sengo_t sengo : sengo_list)
+        SHOGIPP_ASSERT(tesu < additional_info.oute_list_stack.size());
+        auto & oute_list = additional_info.oute_list_stack[tesu];
+        if (!oute_list.empty())
         {
-            auto & oute = oute_list[sengo];
-            if (!oute.empty())
+            std::cout << "王手：";
+            for (std::size_t i = 0; i < oute_list.size(); ++i)
             {
-                std::cout << "王手：";
-                for (std::size_t i = 0; i < oute_list[sengo].size(); ++i)
-                {
-                    const kiki_t & kiki = oute[i];
-                    if (i > 0)
-                        std::cout << "　";
-                    print_pos(kiki.pos);
-                    std::cout << koma_to_string(trim_sengo(ban[kiki.pos])) << std::endl;
-                }
+                const kiki_t & kiki = oute_list[i];
+                if (i > 0)
+                    std::cout << "　";
+                print_pos(kiki.pos);
+                std::cout << koma_to_string(trim_sengo(ban[kiki.pos])) << std::endl;
             }
         }
     }
@@ -2149,7 +2252,7 @@ namespace shogipp
         mochigoma_list[0].print();
     }
 
-    inline void kyokumen_t::print_kifu()
+    inline void kyokumen_t::print_kifu() const
     {
         for (tesu_t tesu = 0; tesu < static_cast<tesu_t>(kifu.size()); ++tesu)
         {
@@ -2160,7 +2263,8 @@ namespace shogipp
 
     inline hash_t kyokumen_t::hash() const
     {
-        return hash_stack.top();
+        SHOGIPP_ASSERT(tesu < additional_info.hash_stack.size());
+        return additional_info.hash_stack[tesu];
     }
 
     inline void kyokumen_t::validate_ban_out()
@@ -2174,7 +2278,7 @@ namespace shogipp
 
     inline void kyokumen_t::do_te(const te_t & te)
     {
-        hash_t hash = make_hash(hash_stack.top(), te);
+        hash_t hash = make_hash(this->hash(), te);
         if (te.is_uchite())
         {
             SHOGIPP_ASSERT(mochigoma_list[sengo()][te.source_koma()] > 0);
@@ -2192,17 +2296,8 @@ namespace shogipp
                 ou_pos[sengo()] = te.destination();
         }
         ++tesu;
-        hash_stack.push(hash);
-        update_oute();
-
-#ifndef DISABLE_MOVEMENT_CACHE
-        do_updating_move_table_list(te);
-#endif
-
-#ifdef VALIDATE_MOVEMENT_CACHE
-        validate_move_table();
-#endif
         kifu.push_back(te);
+        push_additional_info(hash);
         validate_ban_out();
     }
 
@@ -2224,18 +2319,8 @@ namespace shogipp
             if (te.captured_koma() != empty)
                 --mochigoma_list[sengo()][te.captured_koma()];
         }
-        hash_stack.pop();
-        update_oute();
-
-#ifndef DISABLE_MOVEMENT_CACHE
-        undo_updating_move_table_list(te);
-#endif
-
-#ifdef VALIDATE_MOVEMENT_CACHE
-        validate_move_table();
-#endif
-
         kifu.pop_back();
+        pop_additional_info();
     }
 
     inline sengo_t kyokumen_t::sengo() const
@@ -2368,7 +2453,8 @@ namespace shogipp
                 }
             }
             
-            temp_kyokumen.update_oute();
+            temp_kyokumen.clear_additional_info();
+            temp_kyokumen.push_additional_info();
             std::swap(*this, temp_kyokumen);
         }
         catch (const parse_error & e)
@@ -2491,107 +2577,6 @@ namespace shogipp
         catch (const file_format_error &)
         {
             throw;
-        }
-    }
-
-    inline void kyokumen_t::update_move_table(move_table_t & move_table, pos_t source, std::vector<pos_t> && destination_list)
-    {
-        SHOGIPP_ASSERT(!ban_t::out(source));
-        SHOGIPP_ASSERT(ban[source] != empty);
-        if (destination_list.empty())
-            move_table.erase(source);
-        else
-            move_table[source] = std::move(destination_list);
-    }
-
-    inline void kyokumen_t::update_move_table_relative_to(pos_t source)
-    {
-        std::vector<pos_t> kiki_or_himo_list;
-        search_kiki_or_himo(std::back_inserter(kiki_or_himo_list), source, sengo());
-        if (kiki_or_himo_list.size())
-        {
-            for (pos_t pos : kiki_or_himo_list)
-            {
-                sengo_t sengo = to_sengo(ban[pos]);
-                std::vector<pos_t> new_destination_list;
-                search_destination(std::back_inserter(new_destination_list), pos, sengo);
-                auto & move_table = move_table_list[sengo];
-                update_move_table(move_table, pos, std::move(new_destination_list));
-            }
-        }
-    }
-
-    inline void kyokumen_t::do_updating_move_table_list(const te_t & te)
-    {
-        SHOGIPP_ASSERT(tesu > 0);
-        sengo_t sengo = tesu_to_sengo(tesu - 1);
-        auto & self_move_table = move_table_list[sengo];
-        auto & nonself_move_table = move_table_list[sengo];
-
-        if (te.is_uchite())
-        {
-            // 手の移動先を移動元とする自分の手を更新する。
-            std::vector<pos_t> new_destination_list;
-            search_destination(std::back_inserter(new_destination_list), te.destination(), sengo);
-            update_move_table(self_move_table, te.destination(), std::move(new_destination_list));
-
-            // 手の移動先に利いている走り駒の移動先を更新する。
-            update_move_table_relative_to(te.destination());
-        }
-        else
-        {
-            // 手の移動先を移動元とする自分の手を更新する。
-            std::vector<pos_t> new_destination_list;
-            search_destination(std::back_inserter(new_destination_list), te.destination(), sengo);
-            update_move_table(self_move_table, te.destination(), std::move(new_destination_list));
-
-            // 手の移動先に駒があった場合、手の移動先を移動元とする相手の手を削除する。
-            if (te.captured_koma() != empty)
-                nonself_move_table.erase(te.destination());
-
-            // 手の移動元を移動元とする自分の手を削除する。
-            self_move_table.erase(te.source());
-
-            // 手の移動元あるいは移動先に利いているあるいは紐を付けている駒の移動先を更新する。
-            update_move_table_relative_to(te.source());
-            update_move_table_relative_to(te.destination());
-        }
-    }
-
-    inline void kyokumen_t::undo_updating_move_table_list(const te_t & te)
-    {
-        auto & self_move_table = move_table_list[sengo()];
-        auto & nonself_move_table = move_table_list[!sengo()];
-
-        if (te.is_uchite())
-        {
-            // 手の移動先を移動元とする自分の手を削除する。
-            self_move_table.erase(te.destination());
-
-            // 手の移動先に利いている走り駒の移動先を更新する。
-            update_move_table_relative_to(te.destination());
-        }
-        else
-        {
-            // 手の移動先を移動元とする自分の手を削除する。
-            self_move_table.erase(te.destination());
-
-            // 手の移動先に駒があった場合、手の移動先を移動元とする相手の手を更新する。
-            if (te.captured_koma() != empty)
-            {
-                std::vector<pos_t> new_destination_list;
-                search_destination(std::back_inserter(new_destination_list), te.destination(), !sengo());
-                update_move_table(nonself_move_table, te.destination(), std::move(new_destination_list));
-            }
-
-            // 手の移動元を移動元とする自分の手を更新する。
-            std::vector<pos_t> new_destination_list;
-            search_destination(std::back_inserter(new_destination_list), te.source(), sengo());
-            update_move_table(self_move_table, te.source(), std::move(new_destination_list));
-
-            // 手の移動元あるいは移動先に利いているあるいは紐を付けている駒の移動先を更新する。
-            update_move_table_relative_to(te.source());
-            update_move_table_relative_to(te.destination());
         }
     }
 
@@ -3707,8 +3692,8 @@ namespace shogipp
         {
             std::string kifu_path;
             std::string kyokumen_path;
-            std::string sente_name = "stdin";
-            std::string gote_name = "stdin";
+            std::string sente_name = DEFAULT_SENTE_KISHI;
+            std::string gote_name = DEFAULT_GOTE_KISHI;
 
             std::shared_ptr<abstract_evaluator_t> a, b;
 

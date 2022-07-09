@@ -2874,10 +2874,33 @@ namespace shogipp
     }
 
     /**
+     * @breif 合法手を区分により並び替える。
+     * @param first scored_te の先頭を指すランダムアクセスイテレータ
+     * @param last scored_te の末尾を指すランダムアクセスイテレータ
+     * @details 駒取りが発生する手、駒取りが発生しない手、打つ手の順に並び替える。
+     */
+    template<typename RandomAccessIterator>
+    void sort_te_by_category(RandomAccessIterator first, RandomAccessIterator last)
+    {
+        auto to_category = [](const te_t & te)
+        {
+            if (te.is_uchite())
+                return 0;
+            if (te.captured_koma() == empty)
+                return 1;
+            return 2;
+        };
+        std::sort(first, last, [&to_category](const te_t & a, const te_t & b) -> bool
+            {
+                return to_category(a) > to_category(b);
+            }
+        );
+    }
+
+    /**
      * @breif 合法手を得点により並び替える。
      * @param first scored_te の先頭を指すランダムアクセスイテレータ
      * @param last scored_te の末尾を指すランダムアクセスイテレータ
-     * @param sengo 先手か後手か
      */
     template<typename RandomAccessIterator>
     void sort_te_by_evaluation_value(RandomAccessIterator first, RandomAccessIterator last)
@@ -2996,6 +3019,7 @@ namespace shogipp
 
             te_list_t te_list;
             kyokumen.search_te(std::back_inserter(te_list));
+            sort_te_by_category(te_list.begin(), te_list.end());
 
             if (te_list.empty())
                 return -std::numeric_limits<int>::max();
@@ -3108,6 +3132,7 @@ namespace shogipp
 
             te_list_t te_list;
             kyokumen.search_te(std::back_inserter(te_list));
+            sort_te_by_category(te_list.begin(), te_list.end());
 
             if (te_list.empty())
                 return -std::numeric_limits<int>::max();
@@ -3273,7 +3298,7 @@ namespace shogipp
 
         const char * name() override
         {
-            return "ひよこ10級";
+            return "ひよこ";
         }
     };
 
@@ -3310,11 +3335,11 @@ namespace shogipp
 
         const char * name() override
         {
-            return "にわとり9級";
+            return "にわとり";
         }
     };
 
-    class niwatori_dou_evaluator_t
+    class fukayomi_evaluator_t
         : public extendable_alphabeta_evaluator_t
     {
     public:
@@ -3347,7 +3372,7 @@ namespace shogipp
 
         const char * name() override
         {
-            return "にわとり銅8級";
+            return "深読み";
         }
     };
 
@@ -3712,6 +3737,7 @@ namespace shogipp
         {"sample", std::make_shared<computer_kishi_t>(std::make_shared<sample_evaluator_t>())},
         {"hiyoko", std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t>())},
         {"niwatori", std::make_shared<computer_kishi_t>(std::make_shared<niwatori_evaluator_t>())},
+        {"fukayomi", std::make_shared<computer_kishi_t>(std::make_shared<fukayomi_evaluator_t>())},
     };
 
     inline int parse_command_line(int argc, const char ** argv)

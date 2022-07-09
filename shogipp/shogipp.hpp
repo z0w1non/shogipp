@@ -1380,7 +1380,7 @@ namespace shogipp
          * @param destination 移動先の座標
          * @return 成りが可能の場合(komaが既に成っている場合、常にfalse)
          */
-        inline static bool can_promote(koma_t koma, pos_t source, pos_t destination);
+        inline static bool promotable(koma_t koma, pos_t source, pos_t destination);
 
         /**
          * @breif 駒が移動する場合に成りが必須か判定する。
@@ -1423,7 +1423,7 @@ namespace shogipp
          * @param destination 移動先の座標
          * @return 置くことができる場合 true
          */
-        inline bool can_put(koma_t koma, pos_t destination) const;
+        inline bool puttable(koma_t koma, pos_t destination) const;
 
         /**
          * @breif 移動元の座標を検索する。
@@ -1735,7 +1735,7 @@ namespace shogipp
         push_additional_info();
     }
 
-    inline bool kyokumen_t::can_promote(koma_t koma, pos_t source, pos_t destination)
+    inline bool kyokumen_t::promotable(koma_t koma, pos_t source, pos_t destination)
     {
         if (!is_promotable(koma))
             return false;
@@ -1795,7 +1795,7 @@ namespace shogipp
             search_near_destination(result, source, *offset * reverse(sengo));
     }
 
-    inline bool kyokumen_t::can_put(koma_t koma, pos_t destination) const
+    inline bool kyokumen_t::puttable(koma_t koma, pos_t destination) const
     {
         if (ban[destination] != empty)
             return false;
@@ -1994,7 +1994,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_te_from_positions(OutputIterator result, pos_t source, pos_t destination) const
     {
-        if (can_promote(ban[source], source, destination))
+        if (promotable(ban[source], source, destination))
             *result++ = { source, destination, ban[source], ban[destination], true };
         if (!must_promote(ban[source], destination))
             *result++ = { source, destination, ban[source], ban[destination], false };
@@ -2053,7 +2053,7 @@ namespace shogipp
         {
             if (mochigoma_list[sengo()][koma])
                 for (pos_t destination = 0; destination < pos_size; ++destination)
-                    if (can_put(koma, destination))
+                    if (puttable(koma, destination))
                         *result++ = { destination, koma };
         }
     }
@@ -2117,7 +2117,7 @@ namespace shogipp
                     // 駒を打つ合駒
                     for (koma_t koma = fu; koma <= hi; ++koma)
                         if (mochigoma_list[sengo()][koma])
-                            if (can_put(koma, destination))
+                            if (puttable(koma, destination))
                                 *result++ = { destination, koma };
                 }
 
@@ -2218,7 +2218,7 @@ namespace shogipp
         else
         {
             const char * naristr;
-            if (can_promote(te.source_koma(), te.source(), te.destination()))
+            if (promotable(te.source_koma(), te.source(), te.destination()))
                 naristr = te.promote() ? "成" : "不成";
             else
                 naristr = "";

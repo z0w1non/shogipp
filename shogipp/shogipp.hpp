@@ -1054,6 +1054,19 @@ namespace shogipp
         return m_promote;
     }
 
+    class te_list_t
+        : public std::vector<te_t>
+    {
+    public:
+        using std::vector<te_t>::vector;
+
+        inline te_list_t()
+        {
+            constexpr std::size_t max_size = 593;
+            reserve(max_size);
+        }
+    };
+
     /**
      * @breif 持ち駒
      */
@@ -1564,7 +1577,7 @@ namespace shogipp
          * @breif 合法手を生成する。
          * @param result 合法手の出力イテレータ
          */
-        inline std::vector<te_t> search_te() const;
+        inline te_list_t search_te() const;
 
         /**
          * @breif 局面のハッシュ値を計算する。
@@ -1798,7 +1811,7 @@ namespace shogipp
             if (!ban_t::out(pos) && ban[pos] != empty && trim_sengo(ban[pos]) == ou && to_sengo(ban[pos]) != sengo())
             {
                 te_t te{ dst, koma };
-                std::vector<te_t> te_list;
+                te_list_t te_list;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(*this);
                     const_cast<kyokumen_t &>(*this).do_te(te);
@@ -2128,9 +2141,9 @@ namespace shogipp
             search_te_evasions(result);
     }
 
-    inline std::vector<te_t> kyokumen_t::search_te() const
+    inline te_list_t kyokumen_t::search_te() const
     {
-        std::vector<te_t> te_list;
+        te_list_t te_list;
         search_te(std::back_inserter(te_list));
         return te_list;
     }
@@ -2216,7 +2229,7 @@ namespace shogipp
 
     inline void kyokumen_t::print_te() const
     {
-        std::vector<te_t> te;
+        te_list_t te;
         kyokumen_t temp = *this;
         temp.search_te(std::back_inserter(te));
         print_te(te.begin(), te.end());
@@ -2683,7 +2696,7 @@ namespace shogipp
             bool selected = false;
 
             unsigned int id;
-            std::vector<te_t> te_list;
+            te_list_t te_list;
             kyokumen.search_te(std::back_inserter(te_list));
             
             while (!selected)
@@ -2882,7 +2895,7 @@ namespace shogipp
                 return evaluation_value;
             }
 
-            std::vector<te_t> te_list;
+            te_list_t te_list;
             kyokumen.search_te(std::back_inserter(te_list));
 
             if (te_list.empty())
@@ -2963,7 +2976,7 @@ namespace shogipp
                 return eval(kyokumen) * reverse(kyokumen.sengo());
             }
 
-            std::vector<te_t> te_list;
+            te_list_t te_list;
             kyokumen.search_te(std::back_inserter(te_list));
 
             if (te_list.empty())
@@ -3044,7 +3057,7 @@ namespace shogipp
                 {
                     std::vector<evaluated_te> evaluated_te_list;
                     auto inserter = std::back_inserter(evaluated_te_list);
-                    std::vector<te_t> te_list;
+                    te_list_t te_list;
                     kyokumen.search_te(std::back_inserter(te_list));
                     for (te_t & te : te_list)
                     {
@@ -3075,7 +3088,7 @@ namespace shogipp
                 return eval(kyokumen) * reverse(kyokumen.sengo());
             }
 
-            std::vector<te_t> te_list;
+            te_list_t te_list;
             kyokumen.search_te(std::back_inserter(te_list));
 
             if (te_list.empty())
@@ -3147,12 +3160,12 @@ namespace shogipp
          */
         te_t select_te(kyokumen_t & kyokumen) override
         {
-            std::vector<te_t> te;
-            kyokumen.search_te(std::back_inserter(te));
+            te_list_t te_list;
+            kyokumen.search_te(std::back_inserter(te_list));
 
             std::vector<evaluated_te> scores;
             auto back_inserter = std::back_inserter(scores);
-            for (te_t & t : te)
+            for (te_t & t : te_list)
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_te(t);
@@ -3373,7 +3386,7 @@ namespace shogipp
      * @param te_list 合法手
      * @return 読み込まれたコマンド
      */
-    inline command_t read_command_line_input(const std::vector<te_t> & te_list)
+    inline command_t read_command_line_input(const te_list_t & te_list)
     {
         std::string command_line;
         while (true)
@@ -3469,7 +3482,7 @@ namespace shogipp
          * @breif 手番の合法手を返す。
          * @return 合法手
          */
-        inline const std::vector<te_t> & get_te_list() const;
+        inline const te_list_t & get_te_list() const;
 
         /**
          * @breif 手番の合法手を更新する。
@@ -3477,7 +3490,7 @@ namespace shogipp
         inline void update_te_list() const;
 
         std::shared_ptr<abstract_kishi_t> kishi_list[sengo_size];
-        mutable std::vector<te_t> te_list;
+        mutable te_list_t te_list;
         kyokumen_t kyokumen;
         bool sente_win;
     };
@@ -3623,7 +3636,7 @@ namespace shogipp
         }
     }
 
-    inline const std::vector<te_t> & taikyoku_t::get_te_list() const
+    inline const te_list_t & taikyoku_t::get_te_list() const
     {
         return te_list;
     }

@@ -2882,7 +2882,7 @@ namespace shogipp
     template<typename RandomAccessIterator>
     void sort_te_by_category(RandomAccessIterator first, RandomAccessIterator last)
     {
-        auto to_category = [](const te_t & te)
+        auto to_category = [](const te_t & te) -> int
         {
             if (te.is_uchite())
                 return 0;

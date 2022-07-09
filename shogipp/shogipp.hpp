@@ -714,11 +714,12 @@ namespace shogipp
 
     inline hash_t hash_table_t::koma_hash(koma_t koma, pos_t pos) const
     {
-        std::size_t index = koma;
+        std::size_t index = static_cast<std::size_t>(koma);
         index *= suji_size;
         index += pos_to_suji(pos);
         index *= dan_size;
         index += pos_to_dan(pos);
+        SHOGIPP_ASSERT(index < std::size(ban_table));
         return ban_table[index];
     }
 
@@ -726,45 +727,45 @@ namespace shogipp
     {
         enum
         {
-            fu_offset   = 0                     , fu_max   = 18,
-            kyo_offset  = fu_offset   + fu_max  , kyo_max  =  4,
-            kei_offset  = kyo_offset  + kyo_max , kei_max  =  4,
-            gin_offset  = kei_offset  + kei_max , gin_max  =  4,
-            kin_offset  = gin_offset  + gin_max , kin_max  =  4,
-            kaku_offset = kin_offset  + kin_max , kaku_max =  2,
-            hi_offset   = kaku_offset + kaku_max, hi_max   =  2,
-            size        = hi_offset   + hi_max
+            mochigoma_fu_offset   = 0                                           , mochigoma_fu_size    = 18 + 1,
+            mochigoma_kyo_offset  = mochigoma_fu_offset   + mochigoma_fu_size   , mochigoma_kyo_size   =  4 + 1,
+            mochigoma_kei_offset  = mochigoma_kyo_offset  + mochigoma_kyo_size  , mochigoma_kei_size   =  4 + 1,
+            mochigoma_gin_offset  = mochigoma_kei_offset  + mochigoma_kei_size  , mochigoma_gin_size   =  4 + 1,
+            mochigoma_kin_offset  = mochigoma_gin_offset  + mochigoma_gin_size  , mochigoma_kin_size   =  4 + 1,
+            mochigoma_kaku_offset = mochigoma_kin_offset  + mochigoma_kin_size  , mochigoma_kaku_size  =  2 + 1,
+            mochigoma_hi_offset   = mochigoma_kaku_offset + mochigoma_kaku_size , mochigoma_hi_size    =  2 + 1,
+            mochigoma_size        = mochigoma_hi_offset   + mochigoma_hi_size 
         };
 
         SHOGIPP_ASSERT(koma != empty);
         SHOGIPP_ASSERT(koma >= fu);
         SHOGIPP_ASSERT(koma <= hi);
-        SHOGIPP_ASSERT(!(koma == fu && count > fu_max));
-        SHOGIPP_ASSERT(!(koma == kyo && count > kyo_max));
-        SHOGIPP_ASSERT(!(koma == kei && count > kei_max));
-        SHOGIPP_ASSERT(!(koma == gin && count > gin_max));
-        SHOGIPP_ASSERT(!(koma == kin && count > kin_max));
-        SHOGIPP_ASSERT(!(koma == kaku && count > kaku_max));
-        SHOGIPP_ASSERT(!(koma == hi && count > hi_max));
+        SHOGIPP_ASSERT(!(koma == fu   && count >= mochigoma_fu_size ));
+        SHOGIPP_ASSERT(!(koma == kyo  && count >= mochigoma_kyo_size ));
+        SHOGIPP_ASSERT(!(koma == kei  && count >= mochigoma_kei_size ));
+        SHOGIPP_ASSERT(!(koma == gin  && count >= mochigoma_gin_size ));
+        SHOGIPP_ASSERT(!(koma == kin  && count >= mochigoma_kin_size ));
+        SHOGIPP_ASSERT(!(koma == kaku && count >= mochigoma_kaku_size ));
+        SHOGIPP_ASSERT(!(koma == hi   && count >= mochigoma_hi_size ));
 
         static const std::size_t map[]
         {
             0,
-            fu_offset,
-            kyo_offset,
-            kei_offset,
-            gin_offset,
-            kin_offset,
-            kaku_offset,
-            hi_offset,
+            mochigoma_fu_offset,
+            mochigoma_kyo_offset,
+            mochigoma_kei_offset,
+            mochigoma_gin_offset,
+            mochigoma_kin_offset,
+            mochigoma_kaku_offset,
+            mochigoma_hi_offset,
         };
 
         std::size_t index = map[koma];
         index += count;
         index *= sengo_size;
-        if (sengo)
-            ++index;
-        return ban_table[index];
+        index += static_cast<std::size_t>(sengo);
+        SHOGIPP_ASSERT(index < std::size(mochigoma_table));
+        return mochigoma_table[index];
     }
 
     inline hash_t hash_table_t::sengo_hash(sengo_t sengo) const
@@ -1344,7 +1345,6 @@ namespace shogipp
         {
             if (!m_valid)
             {
-                std::cout << "update!" << std::endl;
                 m_evaluator(m_value);
                 m_valid = true;
             }
@@ -2170,12 +2170,13 @@ namespace shogipp
                     hash ^= hash_table.koma_hash(koma, pos);
 
         // 持ち駒のハッシュ値をXOR演算
-        for (std::size_t i = 0; i < std::size(mochigoma_list); ++i)
+        for (sengo_t sengo : sengo_list)
             for (koma_t koma = fu; koma <= hi; ++koma)
-                hash ^= hash_table.mochigoma_hash(koma, mochigoma_list[i][koma], tesu_to_sengo(i));
+                hash ^= hash_table.mochigoma_hash(koma, mochigoma_list[sengo][koma], sengo);
 
         // 手番のハッシュ値をXOR演算
         hash ^= hash_table.sengo_hash(sengo());
+        hash ^= hash_table.sengo_hash(!sengo());
 
         return hash;
     }
@@ -2217,12 +2218,18 @@ namespace shogipp
         }
         else
         {
-            const char * naristr;
+            const char * promotion_string;
             if (promotable(te.source_koma(), te.source(), te.destination()))
-                naristr = te.promote() ? "成" : "不成";
+            {
+                if (te.promote())
+                    promotion_string = "成";
+                else
+                    promotion_string = "不成";
+            }
             else
-                naristr = "";
-            std::cout << pos_to_string(te.destination()) << koma_to_string(trim_sengo(te.source_koma())) << naristr
+                promotion_string = "";
+            std::cout
+                << pos_to_string(te.destination()) << koma_to_string(trim_sengo(te.source_koma())) << promotion_string
                 << "（" << pos_to_string(te.source()) << "）";
         }
     }
@@ -2267,10 +2274,10 @@ namespace shogipp
     inline void kyokumen_t::print() const
     {
         std::cout << "後手持ち駒：";
-        mochigoma_list[1].print();
+        mochigoma_list[gote].print();
         ban.print();
         std::cout << "先手持ち駒：";
-        mochigoma_list[0].print();
+        mochigoma_list[sente].print();
     }
 
     inline void kyokumen_t::print_kifu() const

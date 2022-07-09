@@ -1331,8 +1331,6 @@ namespace shogipp
     {
     public:
         std::vector<std::vector<kiki_t>> oute_list_stack;   // 手番にかかっている王手
-        //std::vector<aigoma_info_t> aigoma_info_stack;       // 手番の合駒の情報
-        //std::vector<std::vector<te_t>> te_list_stack;       // 手番の合法手
         std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
     };
 

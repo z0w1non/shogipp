@@ -1977,13 +1977,13 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_te_nonevasions(OutputIterator result) const
     {
+        aigoma_info_t aigoma_info = search_aigoma(sengo());
         std::vector<pos_t> source_list;
         search_source(std::back_inserter(source_list), sengo());
         for (auto source : source_list)
         {
             std::vector<pos_t> destination_list;
             search_destination(std::back_inserter(destination_list), source, sengo());
-            auto aigoma_info = search_aigoma(sengo());
             auto aigoma_iter = aigoma_info.find(source);
             bool is_aigoma = aigoma_iter != aigoma_info. end();
 
@@ -2034,6 +2034,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_te_evasions(OutputIterator result) const
     {
+        aigoma_info_t aigoma_info = search_aigoma(sengo());
         pos_t r = reverse(sengo());
         pos_t src = ou_pos[sengo()];
 
@@ -2080,7 +2081,6 @@ namespace shogipp
                         if (trim_sengo(ban[kiki.pos]) != ou)
                         {
                             // 既に合駒として使っている駒は移動できない。
-                            auto aigoma_info = search_aigoma(sengo());
                             auto aigoma_iter = aigoma_info.find(kiki.pos);
                             bool is_aigoma = aigoma_iter != aigoma_info.end();
                             if (is_aigoma)
@@ -2106,7 +2106,6 @@ namespace shogipp
                     if (trim_sengo(ban[k.pos]) != ou)
                     {
                         // 既に合駒として使っている駒は移動できない。
-                        auto aigoma_info = search_aigoma(sengo());
                         auto aigoma_iter = aigoma_info.find(k.pos);
                         bool is_aigoma = aigoma_iter != aigoma_info.end();
                         if (is_aigoma)

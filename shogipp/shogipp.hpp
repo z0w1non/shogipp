@@ -2004,10 +2004,12 @@ namespace shogipp
     {
         const aigoma_info_t aigoma_info = search_aigoma(sengo());
         std::vector<pos_t> source_list;
+        source_list.reserve(pos_size);
         search_source(std::back_inserter(source_list), sengo());
         for (auto source : source_list)
         {
             std::vector<pos_t> destination_list;
+            destination_list.reserve(pos_size);
             search_destination(std::back_inserter(destination_list), source, sengo());
             auto aigoma_iter = aigoma_info.find(source);
             bool is_aigoma = aigoma_iter != aigoma_info. end();

@@ -2892,7 +2892,7 @@ namespace shogipp
         };
         std::sort(first, last, [&to_category](const te_t & a, const te_t & b) -> bool
             {
-                return to_category(a) > to_category(b);
+                return to_category(a) >= to_category(b);
             }
         );
     }
@@ -3014,7 +3014,15 @@ namespace shogipp
             if (depth <= 0)
             {
                 ++search_count;
-                return eval(kyokumen) * reverse(kyokumen.sengo());
+                std::optional<int> cached_evaluation_value = evaluation_value_cache.get(kyokumen.hash());
+                if (cached_evaluation_value)
+                {
+                    ++cache_hit_count;
+                    return *cached_evaluation_value;
+                }
+                int evaluation_value = eval(kyokumen) * reverse(kyokumen.sengo());
+                evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
+                return evaluation_value;
             }
 
             te_list_t te_list;
@@ -3056,12 +3064,15 @@ namespace shogipp
          */
         te_t select_te(kyokumen_t & kyokumen) override
         {
+            cache_hit_count = 0;
+            evaluation_value_cache.clear();
             unsigned int search_count = 0;
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
             int score = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
+            std::cout << "読み手数（キャッシュ）：" << cache_hit_count << std::endl;
             std::cout << "評価値：" << score << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
             return *selected_te;
@@ -3073,6 +3084,9 @@ namespace shogipp
          * @return 局面の評価値
          */
         virtual int eval(kyokumen_t & kyokumen) = 0;
+        
+        unsigned long long cache_hit_count = 0;
+        evaluation_value_cache_t evaluation_value_cache{ std::numeric_limits<std::size_t>::max() };
     };
 
     /**

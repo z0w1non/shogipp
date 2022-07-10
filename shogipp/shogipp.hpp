@@ -603,7 +603,7 @@ namespace shogipp
      * @breif ‹î‚©‚çæŽèŒãŽè‚Ìî•ñ‚ðŽæ‚èœ‚­B
      * @param koma ‹î
      * @return æŽèŒãŽè‚Ìî•ñ‚ðŽæ‚èœ‚©‚ê‚½‹î
-     * @details SENTE_FU -> FU, GOTE_FU -> FU
+     * @details sente_fu -> fu, gote_fu -> fu
      */
     inline koma_t trim_sengo(koma_t koma)
     {
@@ -621,7 +621,7 @@ namespace shogipp
      * @breif ‹î‚ðŒãŽè‚Ì‹î‚É•ÏŠ·‚·‚éB
      * @param koma ‹î
      * @return ŒãŽè‚Ì‹î
-     * @details FU -> GOTE_FU
+     * @details fu -> gote_fu
      */
     inline koma_t to_gote(koma_t koma)
     {
@@ -1764,15 +1764,15 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_far_destination(OutputIterator result, pos_t source, pos_t offset) const
     {
-        for (pos_t cur = source + offset; !ban_t::out(cur); cur += offset)
+        for (pos_t current = source + offset; !ban_t::out(current); current += offset)
         {
-            if (ban[cur] == empty)
-                *result++ = cur;
+            if (ban[current] == empty)
+                *result++ = current;
             else
             {
-                if (to_sengo(ban[source]) == to_sengo(ban[cur])) break;
-                *result++ = cur;
-                if (to_sengo(ban[source]) != to_sengo(ban[cur])) break;
+                if (to_sengo(ban[source]) == to_sengo(ban[current])) break;
+                *result++ = current;
+                if (to_sengo(ban[source]) != to_sengo(ban[current])) break;
             }
         }
     }
@@ -1780,9 +1780,9 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_near_destination(OutputIterator result, pos_t source, pos_t offset) const
     {
-        pos_t cur = source + offset;
-        if (!ban_t::out(cur) && (ban[cur] == empty || to_sengo(ban[cur]) != to_sengo(ban[source])))
-            *result++ = cur;
+        pos_t current = source + offset;
+        if (!ban_t::out(current) && (ban[current] == empty || to_sengo(ban[current]) != to_sengo(ban[source])))
+            *result++ = current;
     }
 
     template<typename OutputIterator>
@@ -1815,8 +1815,8 @@ namespace shogipp
             pos_t suji = pos_to_suji(destination);
             for (pos_t dan = 0; dan < height; ++dan)
             {
-                koma_t cur = ban[suji_dan_to_pos(suji, dan)];
-                if (cur != empty && trim_sengo(cur) == fu && sengo() == to_sengo(cur))
+                koma_t current = ban[suji_dan_to_pos(suji, dan)];
+                if (current != empty && trim_sengo(current) == fu && sengo() == to_sengo(current))
                     return false;
             }
 
@@ -1849,19 +1849,19 @@ namespace shogipp
 
     inline pos_t kyokumen_t::search(pos_t pos, pos_t offset) const
     {
-        pos_t cur;
-        for (cur = pos + offset; !ban_t::out(cur) && ban[cur] == empty; cur += offset);
-        if (ban_t::out(cur))
+        pos_t current;
+        for (current = pos + offset; !ban_t::out(current) && ban[current] == empty; current += offset);
+        if (ban_t::out(current))
             return npos;
-        return cur;
+        return current;
     }
     
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
     inline void kyokumen_t::search_koma_near(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
-        if (pos_t cur = pos + offset; !ban_t::out(cur) && ban[cur] != empty)
-            if (is_collected(to_sengo(ban[cur])) && std::find(first, last, trim_sengo(ban[cur])) != last)
-                *result++ = transform(cur, offset, false);
+        if (pos_t current = pos + offset; !ban_t::out(current) && ban[current] != empty)
+            if (is_collected(to_sengo(ban[current])) && std::find(first, last, trim_sengo(ban[current])) != last)
+                *result++ = transform(current, offset, false);
     }
 
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>

@@ -939,7 +939,7 @@ namespace shogipp
      */
     inline pos_t suji_dan_to_pos(pos_t suji, pos_t dan)
     {
-        return width * (dan + padding_height) + suji + padding_width;
+        return width * (dan + padding_height) + padding_width + suji;
     }
 
     static const pos_t default_ou_pos_list[]

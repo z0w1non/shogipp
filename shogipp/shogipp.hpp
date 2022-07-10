@@ -1299,7 +1299,7 @@ namespace shogipp
     {
     public:
         pos_t pos;      // 利いている駒の座標
-        pos_t offset;   // 利きの相対座標
+        pos_t offset;   // 利かされている駒の座標を基準とする利きの相対座標
         bool aigoma;    // 合駒が可能か
     };
 

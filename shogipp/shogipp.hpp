@@ -2608,6 +2608,8 @@ namespace shogipp
         }
     }
 
+    using evaluation_value_t = int;
+
     template<typename Key, typename Value>
     class lru_cache_t
     {
@@ -2678,7 +2680,7 @@ namespace shogipp
         std::size_t capacity;
     };
 
-    using evaluation_value_cache_t = lru_cache_t<hash_t, int>;
+    using evaluation_value_cache_t = lru_cache_t<hash_t, evaluation_value_t>;
 
     /**
      * @breif 評価関数オブジェクトのインターフェース
@@ -2835,25 +2837,25 @@ namespace shogipp
      * @return 局面の点数
      */
     template<typename MapKomaInt>
-    inline int kyokumen_map_evaluation_value(kyokumen_t & kyokumen, MapKomaInt & map)
+    inline evaluation_value_t kyokumen_map_evaluation_value(kyokumen_t & kyokumen, MapKomaInt & map)
     {
-        int score = 0;
+        evaluation_value_t evaluation_value = 0;
 
         for (pos_t pos = 0; pos < pos_size; ++pos)
         {
             koma_t koma = kyokumen.ban[pos];
             if (!ban_t::out(pos) && koma != empty)
-                score += map[trim_sengo(koma)] * reverse(to_sengo(koma));
+                evaluation_value += map[trim_sengo(koma)] * reverse(to_sengo(koma));
         }
 
         for (sengo_t sengo : sengo_list)
             for (koma_t koma = fu; koma <= hi; ++koma)
-                score += map[koma] * kyokumen.mochigoma_list[sengo][koma] * reverse(tesu_to_sengo(sengo));
+                evaluation_value += map[koma] * kyokumen.mochigoma_list[sengo][koma] * reverse(tesu_to_sengo(sengo));
 
-        return score;
+        return evaluation_value;
     }
 
-    using evaluated_te = std::pair<te_t *, int>;
+    using evaluated_te = std::pair<te_t *, evaluation_value_t>;
 
     /**
      * @breif 合法手を得点により並び替える。
@@ -2882,7 +2884,7 @@ namespace shogipp
     template<typename RandomAccessIterator>
     void sort_te_by_category(RandomAccessIterator first, RandomAccessIterator last)
     {
-        auto to_category = [](const te_t & te) -> int
+        auto to_category = [](const te_t & te) -> evaluation_value_t
         {
             if (te.is_uchite())
                 return 0;
@@ -2915,7 +2917,7 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        int negamax(
+        evaluation_value_t negamax(
             kyokumen_t & kyokumen,
             int depth,
             unsigned int & search_count,
@@ -2925,13 +2927,13 @@ namespace shogipp
             if (depth <= 0)
             {
                 ++search_count;
-                std::optional<int> cached_evaluation_value = evaluation_value_cache.get(kyokumen.hash());
+                std::optional<evaluation_value_t> cached_evaluation_value = evaluation_value_cache.get(kyokumen.hash());
                 if (cached_evaluation_value)
                 {
                     ++cache_hit_count;
                     return *cached_evaluation_value;
                 }
-                int evaluation_value = eval(kyokumen) * reverse(kyokumen.sengo());
+                evaluation_value_t evaluation_value = eval(kyokumen) * reverse(kyokumen.sengo());
                 evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
                 return evaluation_value;
             }
@@ -2940,7 +2942,7 @@ namespace shogipp
             kyokumen.search_te(std::back_inserter(te_list));
 
             if (te_list.empty())
-                return -std::numeric_limits<int>::max();
+                return -std::numeric_limits<evaluation_value_t>::max();
 
             std::vector<evaluated_te> evaluated_te_list;
             auto inserter = std::back_inserter(evaluated_te_list);
@@ -2948,7 +2950,7 @@ namespace shogipp
             for (te_t & te : te_list)
             {
                 std::optional<te_t> selected_te_;
-                int evaluation_value;
+                evaluation_value_t evaluation_value;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                     kyokumen.do_te(te);
@@ -2976,7 +2978,7 @@ namespace shogipp
             unsigned int search_count = 0;
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
-            int evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_te);
+            evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_te);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "読み手数（キャッシュ）：" << cache_hit_count << std::endl;
@@ -2990,7 +2992,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 局面の評価値
          */
-        virtual int eval(kyokumen_t & kyokumen) = 0;
+        virtual evaluation_value_t eval(kyokumen_t & kyokumen) = 0;
 
         unsigned long long cache_hit_count = 0;
         evaluation_value_cache_t evaluation_value_cache{ std::numeric_limits<std::size_t>::max() };
@@ -3003,24 +3005,24 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        int alphabeta(
+        evaluation_value_t alphabeta(
             kyokumen_t & kyokumen,
             int depth,
-            int alpha,
-            int beta,
+            evaluation_value_t alpha,
+            evaluation_value_t beta,
             unsigned int & search_count,
             std::optional<te_t> & selected_te)
         {
             if (depth <= 0)
             {
                 ++search_count;
-                std::optional<int> cached_evaluation_value = evaluation_value_cache.get(kyokumen.hash());
+                std::optional<evaluation_value_t> cached_evaluation_value = evaluation_value_cache.get(kyokumen.hash());
                 if (cached_evaluation_value)
                 {
                     ++cache_hit_count;
                     return *cached_evaluation_value;
                 }
-                int evaluation_value = eval(kyokumen) * reverse(kyokumen.sengo());
+                evaluation_value_t evaluation_value = eval(kyokumen) * reverse(kyokumen.sengo());
                 evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
                 return evaluation_value;
             }
@@ -3030,7 +3032,7 @@ namespace shogipp
             sort_te_by_category(te_list.begin(), te_list.end());
 
             if (te_list.empty())
-                return -std::numeric_limits<int>::max();
+                return -std::numeric_limits<evaluation_value_t>::max();
 
             std::vector<evaluated_te> evaluated_te_list;
             auto inserter = std::back_inserter(evaluated_te_list);
@@ -3038,7 +3040,7 @@ namespace shogipp
             for (te_t & te : te_list)
             {
                 std::optional<te_t> selected_te_;
-                int evaluation_value;
+                evaluation_value_t evaluation_value;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                     kyokumen.do_te(te);
@@ -3069,11 +3071,11 @@ namespace shogipp
             unsigned int search_count = 0;
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
-            int score = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te);
+            evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), search_count, selected_te);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "読み手数（キャッシュ）：" << cache_hit_count << std::endl;
-            std::cout << "評価値：" << score << std::endl;
+            std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_te.has_value());
             return *selected_te;
         }
@@ -3083,7 +3085,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 局面の評価値
          */
-        virtual int eval(kyokumen_t & kyokumen) = 0;
+        virtual evaluation_value_t eval(kyokumen_t & kyokumen) = 0;
         
         unsigned long long cache_hit_count = 0;
         evaluation_value_cache_t evaluation_value_cache{ std::numeric_limits<std::size_t>::max() };
@@ -3097,11 +3099,11 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        int extendable_alphabeta(
+        evaluation_value_t extendable_alphabeta(
             kyokumen_t & kyokumen,
             int depth,
-            int alpha,
-            int beta,
+            evaluation_value_t alpha,
+            evaluation_value_t beta,
             unsigned int & search_count,
             std::optional<te_t> & selected_te,
             pos_t previous_destination)
@@ -3120,7 +3122,7 @@ namespace shogipp
                         if (!te.is_uchite() && te.destination() == previous_destination)
                         {
                             std::optional<te_t> selected_te_;
-                            int evaluation_value;
+                            evaluation_value_t evaluation_value;
                             {
                                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                                 kyokumen.do_te(te);
@@ -3149,7 +3151,7 @@ namespace shogipp
             sort_te_by_category(te_list.begin(), te_list.end());
 
             if (te_list.empty())
-                return -std::numeric_limits<int>::max();
+                return -std::numeric_limits<evaluation_value_t>::max();
 
             std::vector<evaluated_te> evaluated_te_list;
             auto inserter = std::back_inserter(evaluated_te_list);
@@ -3158,7 +3160,7 @@ namespace shogipp
             {
                 std::optional<te_t> selected_te_;
                 pos_t destination = (!te.is_uchite() && te.captured_koma() != empty) ? te.destination() : npos;
-                int evaluation_value;
+                evaluation_value_t evaluation_value;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                     kyokumen.do_te(te);
@@ -3187,7 +3189,7 @@ namespace shogipp
             unsigned int search_count = 0;
             int default_max_depth = 3;
             std::optional<te_t> selected_te;
-            int evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<int>::max(), std::numeric_limits<int>::max(), search_count, selected_te, npos);
+            evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), search_count, selected_te, npos);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
@@ -3200,7 +3202,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 局面の評価値
          */
-        virtual int eval(kyokumen_t & kyokumen) = 0;
+        virtual evaluation_value_t eval(kyokumen_t & kyokumen) = 0;
     };
 
     /**
@@ -3239,7 +3241,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 局面の評価値
          */
-        virtual int eval(kyokumen_t & kyokumen) = 0;
+        virtual evaluation_value_t eval(kyokumen_t & kyokumen) = 0;
     };
 
     /**
@@ -3249,9 +3251,9 @@ namespace shogipp
         : public alphabeta_evaluator_t
     {
     public:
-        int eval(kyokumen_t & kyokumen) override
+        evaluation_value_t eval(kyokumen_t & kyokumen) override
         {
-            static const int map[]
+            static const evaluation_value_t map[]
             {
                 /* empty    */  0,
                 /* fu       */  1,
@@ -3270,8 +3272,8 @@ namespace shogipp
                 /* ryu      */ 12
             };
 
-            int score = kyokumen_map_evaluation_value(kyokumen, map);
-            return score;
+            evaluation_value_t evaluation_value = kyokumen_map_evaluation_value(kyokumen, map);
+            return evaluation_value;
         }
 
         const char * name() override
@@ -3284,9 +3286,9 @@ namespace shogipp
         : public negamax_evaluator_t
     {
     public:
-        int eval(kyokumen_t & kyokumen) override
+        evaluation_value_t eval(kyokumen_t & kyokumen) override
         {
-            static const int map[]
+            static const evaluation_value_t map[]
             {
                 /* empty    */  0,
                 /* fu       */  1,
@@ -3305,9 +3307,9 @@ namespace shogipp
                 /* ryu      */ 12
             };
 
-            int score = 0;
-            score += kyokumen_map_evaluation_value(kyokumen, map);
-            return score;
+            evaluation_value_t evaluation_value = 0;
+            evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
+            return evaluation_value;
         }
 
         const char * name() override
@@ -3320,9 +3322,9 @@ namespace shogipp
         : public alphabeta_evaluator_t
     {
     public:
-        int eval(kyokumen_t & kyokumen) override
+        evaluation_value_t eval(kyokumen_t & kyokumen) override
         {
-            static const int map[]
+            static const evaluation_value_t map[]
             {
                 /* empty    */  0,
                 /* fu       */  1,
@@ -3341,10 +3343,10 @@ namespace shogipp
                 /* ryu      */ 12
             };
 
-            int score = 0;
-            score += kyokumen_map_evaluation_value(kyokumen, map);
+            evaluation_value_t evaluation_value = 0;
+            evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
 
-            return score;
+            return evaluation_value;
         }
 
         const char * name() override
@@ -3357,7 +3359,7 @@ namespace shogipp
         : public extendable_alphabeta_evaluator_t
     {
     public:
-        int eval(kyokumen_t & kyokumen) override
+        evaluation_value_t eval(kyokumen_t & kyokumen) override
         {
             static const int map[]
             {
@@ -3378,10 +3380,10 @@ namespace shogipp
                 /* ryu      */ 12
             };
 
-            int score = 0;
-            score += kyokumen_map_evaluation_value(kyokumen, map);
+            evaluation_value_t evaluation_value = 0;
+            evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
 
-            return score;
+            return evaluation_value;
         }
 
         const char * name() override
@@ -3397,7 +3399,7 @@ namespace shogipp
         : public max_evaluator_t
     {
     public:
-        inline int eval(kyokumen_t & kyokumen) override
+        inline evaluation_value_t eval(kyokumen_t & kyokumen) override
         {
             return uid(rand);
         }
@@ -3408,7 +3410,7 @@ namespace shogipp
         }
 
         std::minstd_rand rand{ SHOGIPP_SEED };
-        std::uniform_int_distribution<int> uid{ std::numeric_limits<int>::min(), std::numeric_limits<int>::max() };
+        std::uniform_int_distribution<evaluation_value_t> uid{ -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max() };
     };
 
     class command_t

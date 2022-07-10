@@ -1083,6 +1083,9 @@ namespace shogipp
         return m_promote;
     }
 
+    /**
+     * @breif ‡–@è‚ğŠi”[‚·‚é std::vector ‚ğ•\Œ»‚·‚éB
+     */
     class te_list_t
         : public std::vector<te_t>
     {

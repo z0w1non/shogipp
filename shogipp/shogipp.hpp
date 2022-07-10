@@ -1862,19 +1862,22 @@ namespace shogipp
             return false;
         if (sengo())
         {
-            if ((koma == fu || koma == kyo) && destination >= width * 8)
+            if ((koma == fu || koma == kyo) && destination >= width * (padding_height + 8))
                 return false;
-            if (koma == kei && destination >= width * 7)
+            if (koma == kei && destination >= width * (padding_height + 7))
                 return false;
         }
-        if ((koma == fu || koma == kyo) && destination < width)
-            return false;
-        if (koma == kei && destination < width * 2)
-            return false;
+        else
+        {
+            if ((koma == fu || koma == kyo) && destination < width * (padding_height + 1))
+                return false;
+            if (koma == kei && destination < width * (padding_height + 2))
+                return false;
+        }
         if (koma == fu)
         {
             pos_t suji = pos_to_suji(destination);
-            for (pos_t dan = 0; dan < height; ++dan)
+            for (pos_t dan = 0; dan < dan_size; ++dan)
             {
                 koma_t current = ban[suji_dan_to_pos(suji, dan)];
                 if (current != empty && trim_sengo(current) == fu && sengo() == to_sengo(current))

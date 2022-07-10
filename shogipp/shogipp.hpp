@@ -209,7 +209,7 @@ namespace shogipp
         sente_fu = fu, sente_kyo, sente_kei, sente_gin, sente_kin, sente_kaku, sente_hi, sente_ou, sente_tokin, sente_nari_kyo, sente_nari_kei, sente_nari_gin, sente_uma, sente_ryu,
         gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, gote_uma, gote_ryu,
         koma_enum_number,
-        out_of_range = 0xff
+        out_of_range = std::numeric_limits<unsigned char>::max()
     };
 
     enum sengo_t : unsigned char

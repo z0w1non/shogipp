@@ -3745,8 +3745,6 @@ namespace shogipp
         kyokumen.search_te(std::back_inserter(te_list));
     }
 
-
-
     /**
     * @breif ‘Î‹Ç‚·‚éB
     * @param sente_kishi æè‚ÌŠûm

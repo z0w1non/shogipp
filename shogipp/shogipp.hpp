@@ -1100,6 +1100,15 @@ namespace shogipp
         }
     };
 
+    inline int to_category(const te_t & te)
+    {
+        if (te.is_uchite())
+            return 0;
+        if (te.captured_koma() == empty)
+            return 1;
+        return 2;
+    };
+
     inline hash_t hash_table_t::te_hash(const te_t & te, sengo_t sengo) const
     {
         std::size_t index;
@@ -2953,19 +2962,7 @@ namespace shogipp
     template<typename RandomAccessIterator>
     void sort_te_by_category(RandomAccessIterator first, RandomAccessIterator last)
     {
-        auto to_category = [](const te_t & te) -> evaluation_value_t
-        {
-            if (te.is_uchite())
-                return 0;
-            if (te.captured_koma() == empty)
-                return 1;
-            return 2;
-        };
-        std::sort(first, last, [&to_category](const te_t & a, const te_t & b) -> bool
-            {
-                return to_category(a) >= to_category(b);
-            }
-        );
+        std::sort(first, last, [](const te_t & a, const te_t & b) -> bool { return to_category(a) >= to_category(b); });
     }
 
     /**

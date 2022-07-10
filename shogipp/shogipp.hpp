@@ -1397,7 +1397,7 @@ namespace shogipp
     class additional_info_t
     {
     public:
-        std::vector<std::vector<kiki_t>> oute_list_stack;   // 手番にかかっている王手
+        std::vector<std::vector<kiki_t>> check_list_stack;   // 手番にかかっている王手
         std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
     };
 
@@ -1551,14 +1551,14 @@ namespace shogipp
          * @param sengo 先後いずれの視点か
          */
         template<typename OutputIterator>
-        inline void search_oute(OutputIterator result, sengo_t sengo) const;
+        inline void search_check(OutputIterator result, sengo_t sengo) const;
 
         /**
          * @breif 王手を検索する。
          * @param sengo 先後いずれの視点か
          * @return 王手
          */
-        std::vector<kiki_t> search_oute(sengo_t sengo) const;
+        std::vector<kiki_t> search_check(sengo_t sengo) const;
 
         /**
          * @breif 追加情報をpushする。
@@ -1671,7 +1671,7 @@ namespace shogipp
         /**
          * @breif 王手を標準出力に出力する。
          */
-        inline void print_oute() const;
+        inline void print_check() const;
 
         /**
          * @breif 局面を標準出力に出力する。
@@ -1946,16 +1946,16 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_oute(OutputIterator result, sengo_t sengo) const
+    inline void kyokumen_t::search_check(OutputIterator result, sengo_t sengo) const
     {
         search_kiki(result, ou_pos[sengo], sengo);
     }
 
-    std::vector<kiki_t> kyokumen_t::search_oute(sengo_t sengo) const
+    std::vector<kiki_t> kyokumen_t::search_check(sengo_t sengo) const
     {
-        std::vector<kiki_t> oute_list;
-        search_oute(std::back_inserter(oute_list), sengo);
-        return oute_list;
+        std::vector<kiki_t> check_list;
+        search_check(std::back_inserter(check_list), sengo);
+        return check_list;
     }
 
     inline void kyokumen_t::push_additional_info()
@@ -1965,21 +1965,21 @@ namespace shogipp
 
     inline void kyokumen_t::push_additional_info(hash_t hash)
     {
-        additional_info.oute_list_stack.push_back(search_oute(sengo()));
+        additional_info.check_list_stack.push_back(search_check(sengo()));
         additional_info.hash_stack.push_back(hash);
     }
 
     inline void kyokumen_t::pop_additional_info()
     {
-        SHOGIPP_ASSERT(!additional_info.oute_list_stack.empty());
+        SHOGIPP_ASSERT(!additional_info.check_list_stack.empty());
         SHOGIPP_ASSERT(!additional_info.hash_stack.empty());
-        additional_info.oute_list_stack.pop_back();
+        additional_info.check_list_stack.pop_back();
         additional_info.hash_stack.pop_back();
     }
 
     inline void kyokumen_t::clear_additional_info()
     {
-        additional_info.oute_list_stack.clear();
+        additional_info.check_list_stack.clear();
         additional_info.hash_stack.clear();
     }
 
@@ -2045,7 +2045,7 @@ namespace shogipp
         std::vector<pos_t> source_list;
         source_list.reserve(pos_size);
         search_source(std::back_inserter(source_list), sengo());
-        for (auto source : source_list)
+        for (pos_t source : source_list)
         {
             std::vector<pos_t> destination_list;
             destination_list.reserve(pos_size);
@@ -2128,14 +2128,14 @@ namespace shogipp
             }
         }
 
-        SHOGIPP_ASSERT(tesu < additional_info.oute_list_stack.size());
-        auto & oute_list = additional_info.oute_list_stack[tesu];
-        if (oute_list.size() == 1)
+        SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
+        auto & check_list = additional_info.check_list_stack[tesu];
+        if (check_list.size() == 1)
         {
             // 合駒の手を検索する。
-            if (oute_list.front().aigoma)
+            if (check_list.front().aigoma)
             {
-                pos_t offset = oute_list.front().offset;
+                pos_t offset = check_list.front().offset;
                 for (pos_t destination = ou_pos[sengo()] + offset; !ban_t::out(destination) && ban[destination] == empty; destination += offset)
                 {
                     // 駒を移動させる合駒
@@ -2162,7 +2162,7 @@ namespace shogipp
                 }
 
                 // 王手している駒を取る手を検索する。
-                pos_t destination = oute_list.front().pos;
+                pos_t destination = check_list.front().pos;
                 std::vector<kiki_t> kiki;
                 search_kiki(std::back_inserter(kiki), destination, !sengo());
                 for (auto & k : kiki)
@@ -2184,11 +2184,11 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_te(OutputIterator result) const
     {
-        SHOGIPP_ASSERT(tesu < additional_info.oute_list_stack.size());
-        auto & oute_list = additional_info.oute_list_stack[tesu];
-        if (oute_list.empty())
+        SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
+        auto & check_list = additional_info.check_list_stack[tesu];
+        if (check_list.empty())
             search_te_nonevasions(result);
-        else // 王手されている場合
+        else
             search_te_evasions(result);
     }
 
@@ -2293,16 +2293,16 @@ namespace shogipp
         print_te(te.begin(), te.end());
     }
 
-    inline void kyokumen_t::print_oute() const
+    inline void kyokumen_t::print_check() const
     {
-        SHOGIPP_ASSERT(tesu < additional_info.oute_list_stack.size());
-        auto & oute_list = additional_info.oute_list_stack[tesu];
-        if (!oute_list.empty())
+        SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
+        auto & check_list = additional_info.check_list_stack[tesu];
+        if (!check_list.empty())
         {
             std::cout << "王手：";
-            for (std::size_t i = 0; i < oute_list.size(); ++i)
+            for (std::size_t i = 0; i < check_list.size(); ++i)
             {
-                const kiki_t & kiki = oute_list[i];
+                const kiki_t & kiki = check_list[i];
                 if (i > 0)
                     std::cout << "　";
                 print_pos(kiki.pos);
@@ -3731,7 +3731,7 @@ namespace shogipp
             std::cout << (kyokumen.tesu + 1) << "手目" << sengo_to_string(kyokumen.sengo()) << "番" << std::endl;
             kyokumen.print();
             kyokumen.print_te();
-            kyokumen.print_oute();
+            kyokumen.print_check();
         }
     }
 

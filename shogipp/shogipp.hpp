@@ -460,6 +460,7 @@ namespace shogipp
     }
 
     using tesu_t = unsigned int;
+    using depth_t = signed int;
 
     inline constexpr sengo_t tesu_to_sengo(tesu_t tesu)
     {
@@ -1710,7 +1711,7 @@ namespace shogipp
          * @param depth 手数
          * @return 局面の数
          */
-        inline unsigned long long count_node(unsigned int depth) const;
+        inline unsigned long long count_node(tesu_t depth) const;
 
         /**
          * @breif 局面ファイルから局面を読み込む。
@@ -2395,7 +2396,7 @@ namespace shogipp
         return tesu_to_sengo(tesu);
     }
 
-    inline unsigned long long kyokumen_t::count_node(unsigned int depth) const
+    inline unsigned long long kyokumen_t::count_node(tesu_t depth) const
     {
         if (depth == 0)
             return 1;
@@ -2958,7 +2959,7 @@ namespace shogipp
     public:
         evaluation_value_t negamax(
             kyokumen_t & kyokumen,
-            int depth,
+            depth_t depth,
             unsigned int & search_count,
             std::optional<te_t> & selected_te
         )
@@ -3015,7 +3016,7 @@ namespace shogipp
             cache_hit_count = 0;
             evaluation_value_cache.clear();
             unsigned int search_count = 0;
-            int default_max_depth = 3;
+            depth_t default_max_depth = 3;
             std::optional<te_t> selected_te;
             evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_te);
             details::timer.search_count() += search_count;
@@ -3046,7 +3047,7 @@ namespace shogipp
     public:
         evaluation_value_t alphabeta(
             kyokumen_t & kyokumen,
-            int depth,
+            depth_t depth,
             evaluation_value_t alpha,
             evaluation_value_t beta,
             unsigned int & search_count,
@@ -3108,7 +3109,7 @@ namespace shogipp
             cache_hit_count = 0;
             evaluation_value_cache.clear();
             unsigned int search_count = 0;
-            int default_max_depth = 3;
+            depth_t default_max_depth = 3;
             std::optional<te_t> selected_te;
             evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), search_count, selected_te);
             details::timer.search_count() += search_count;
@@ -3140,7 +3141,7 @@ namespace shogipp
     public:
         evaluation_value_t extendable_alphabeta(
             kyokumen_t & kyokumen,
-            int depth,
+            depth_t depth,
             evaluation_value_t alpha,
             evaluation_value_t beta,
             unsigned int & search_count,
@@ -3226,7 +3227,7 @@ namespace shogipp
         te_t select_te(kyokumen_t & kyokumen) override
         {
             unsigned int search_count = 0;
-            int default_max_depth = 3;
+            depth_t default_max_depth = 3;
             std::optional<te_t> selected_te;
             evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), search_count, selected_te, npos);
             details::timer.search_count() += search_count;

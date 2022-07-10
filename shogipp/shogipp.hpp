@@ -3787,10 +3787,10 @@ namespace shogipp
 
     static const std::map<std::string, std::shared_ptr<abstract_kishi_t>> kishi_map
     {
-        {"stdin", std::make_shared<stdin_kishi_t>()},
-        {"random", std::make_shared<computer_kishi_t>(std::make_shared<random_evaluator_t>())},
-        {"sample", std::make_shared<computer_kishi_t>(std::make_shared<sample_evaluator_t>())},
-        {"hiyoko", std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t>())},
+        {"stdin"   , std::make_shared<stdin_kishi_t>()},
+        {"random"  , std::make_shared<computer_kishi_t>(std::make_shared<random_evaluator_t  >())},
+        {"sample"  , std::make_shared<computer_kishi_t>(std::make_shared<sample_evaluator_t  >())},
+        {"hiyoko"  , std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t  >())},
         {"niwatori", std::make_shared<computer_kishi_t>(std::make_shared<niwatori_evaluator_t>())},
         {"fukayomi", std::make_shared<computer_kishi_t>(std::make_shared<fukayomi_evaluator_t>())},
     };

@@ -3489,10 +3489,12 @@ namespace shogipp
             undo,
             giveup,
             dump,
+            perft,
         };
 
         id_t id{ id_t::error };
         std::optional<te_t> opt_te;
+        std::optional<tesu_t> opt_depth;
     };
 
     template<typename OutputIterator, typename CharT>
@@ -3540,18 +3542,29 @@ namespace shogipp
                         return command_t{ command_t::id_t::dump };
                     }
 
+                    if (tokens[0] == "perft")
+                    {
+                        if (tokens.size() != 2)
+                            throw invalid_command_line_input{ "unknown command line input" };
+                        tesu_t depth;
+                        try
+                        {
+                            depth = std::stol(tokens[1]);
+                        }
+                        catch (...)
+                        {
+                            throw invalid_command_line_input{ "unknown command line input" };
+                        }
+                        command_t command;
+                        command.id = command_t::id_t::perft;
+                        command.opt_depth = depth;
+                        return command;
+                    }
+
                     unsigned int move_index;
                     try
                     {
                         move_index = std::stol(tokens[0]);
-                    }
-                    catch (const std::invalid_argument &)
-                    {
-                        throw invalid_command_line_input{ "unknown command line input" };
-                    }
-                    catch (const std::out_of_range &)
-                    {
-                        throw invalid_command_line_input{ "unknown command line input" };
                     }
                     catch (...)
                     {
@@ -3730,6 +3743,9 @@ namespace shogipp
                 break;
             case command_t::id_t::dump:
                 kyokumen.print_kifu();
+                break;
+            case command_t::id_t::perft:
+                std::cout << kyokumen.count_node(*cmd.opt_depth) << std::endl;
                 break;
             }
         }

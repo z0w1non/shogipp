@@ -3561,7 +3561,7 @@ namespace shogipp
                         return command;
                     }
 
-                    unsigned int move_index;
+                    std::size_t move_index;
                     try
                     {
                         move_index = std::stol(tokens[0]);
@@ -3574,7 +3574,11 @@ namespace shogipp
                         throw invalid_command_line_input{ "move_index == 0" };
                     if (move_index > te_list.size())
                         throw invalid_command_line_input{ "move_index > te_list.size()" };
-                    return command_t{ command_t::id_t::move, te_list[move_index - 1] };
+                    const std::size_t raw_move_index = move_index - 1;
+                    command_t command;
+                    command.id = command_t::id_t::move;
+                    command.opt_te = te_list[raw_move_index];
+                    return command;
                 }
             }
             catch (const std::exception & e)

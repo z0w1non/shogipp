@@ -1622,6 +1622,20 @@ namespace shogipp
         inline void search_te_nonevasions(OutputIterator result) const;
 
         /**
+         * @breif 王手を外す手のうち王を移動する手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_te_evasions_ou_move(OutputIterator result) const;
+
+        /**
+         * @breif 王手を外す手のうち合駒する手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_te_evasions_aigoma(OutputIterator result) const;
+
+        /**
          * @breif 合法手のうち王手を外す手を検索する。
          * @param result 合法手の出力イテレータ
          */
@@ -1751,7 +1765,7 @@ namespace shogipp
         ban_t ban;                                  // 盤
         mochigoma_t mochigoma_list[sengo_size];     // 持ち駒
         tesu_t tesu;                                // 手数
-        pos_t ou_pos[sengo_size];                   // 王の座標
+        pos_t ou_pos_list[sengo_size];                   // 王の座標
         std::vector<te_t> kifu;                     // 棋譜
         additional_info_t additional_info;          // 追加情報
     };
@@ -1792,7 +1806,7 @@ namespace shogipp
     {
         tesu = 0;
         for (sengo_t sengo : sengo_list)
-            ou_pos[sengo] = default_ou_pos_list[sengo];
+            ou_pos_list[sengo] = default_ou_pos_list[sengo];
         push_additional_info();
     }
 
@@ -1976,7 +1990,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_check(OutputIterator result, sengo_t sengo) const
     {
-        search_kiki(result, ou_pos[sengo], sengo);
+        search_kiki(result, ou_pos_list[sengo], sengo);
     }
 
     std::vector<kiki_t> kyokumen_t::search_check(sengo_t sengo) const
@@ -2026,7 +2040,7 @@ namespace shogipp
             { back_right , { kaku, uma } },
         };
 
-        pos_t ou_pos = this->ou_pos[sengo];
+        pos_t ou_pos = this->ou_pos_list[sengo];
         for (const auto & [offset, hashirigoma_list] : table)
         {
             pos_t reversed_offset = offset * reverse(sengo);
@@ -2074,19 +2088,16 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_te_evasions(OutputIterator result) const
+    inline void kyokumen_t::search_te_evasions_ou_move(OutputIterator result) const
     {
-        const aigoma_info_t aigoma_info = search_aigoma(sengo());
-        pos_t source = ou_pos[sengo()];
-
-        // 王を移動して王手を解除できる手を検索する。
+        const pos_t source = ou_pos_list[sengo()];
         for (const pos_t * p = near_move_offsets(ou); *p; ++p)
         {
-            pos_t destination = source + *p * reverse(sengo());
+            const pos_t destination = source + *p * reverse(sengo());
             if (!ban_t::out(destination)
-                && (ban[destination] == empty || to_sengo(ban[destination]) != to_sengo(ban[source])))
+                && (ban[destination] == empty || to_sengo(ban[destination]) != sengo()))
             {
-                te_t te{ source, destination, ban[source], ban[destination], false };
+                const te_t te{ source, destination, ban[source], ban[destination], false };
                 std::vector<kiki_t> kiki;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(*this);
@@ -2102,58 +2113,68 @@ namespace shogipp
                     *result++ = te;
             }
         }
+    }
 
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_te_evasions_aigoma(OutputIterator result) const
+    {
+        const aigoma_info_t aigoma_info = search_aigoma(sengo());
+        const pos_t ou_pos = ou_pos_list[sengo()];
+        
         SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
         auto & check_list = additional_info.check_list_stack[tesu];
-        if (check_list.size() == 1)
+        if (check_list.size() == 1 && check_list.front().aigoma)
         {
-            // 合駒の手を検索する。
-            if (check_list.front().aigoma)
+            const pos_t offset = check_list.front().offset;
+            for (pos_t destination = ou_pos + offset; !ban_t::out(destination) && ban[destination] == empty; destination += offset)
             {
-                pos_t offset = check_list.front().offset;
-                for (pos_t destination = ou_pos[sengo()] + offset; !ban_t::out(destination) && ban[destination] == empty; destination += offset)
+                // 駒を移動させる合駒
+                std::vector<kiki_t> kiki_list;
+                search_kiki(std::back_inserter(kiki_list), destination, !sengo());
+                for (kiki_t & kiki : kiki_list)
                 {
-                    // 駒を移動させる合駒
-                    std::vector<kiki_t> kiki_list;
-                    search_kiki(std::back_inserter(kiki_list), destination, !sengo());
-                    for (kiki_t & kiki : kiki_list)
-                    {
-                        // 王で合駒はできない。
-                        if (trim_sengo(ban[kiki.pos]) != ou)
-                        {
-                            // 既に合駒として使っている駒は移動できない。
-                            auto aigoma_iter = aigoma_info.find(kiki.pos);
-                            bool is_aigoma = aigoma_iter != aigoma_info.end();
-                            if (!is_aigoma)
-                                search_te_from_positions(result, kiki.pos, destination);
-                        }
-                    }
-
-                    // 駒を打つ合駒
-                    for (koma_t koma = fu; koma <= hi; ++koma)
-                        if (mochigoma_list[sengo()][koma])
-                            if (puttable(koma, destination))
-                                *result++ = { destination, koma };
-                }
-
-                // 王手している駒を取る手を検索する。
-                pos_t destination = check_list.front().pos;
-                std::vector<kiki_t> kiki;
-                search_kiki(std::back_inserter(kiki), destination, !sengo());
-                for (auto & k : kiki)
-                {
-                    // 王を動かす手は既に検索済み
-                    if (trim_sengo(ban[k.pos]) != ou)
+                    // 王で合駒はできない。
+                    if (trim_sengo(ban[kiki.pos]) != ou)
                     {
                         // 既に合駒として使っている駒は移動できない。
-                        auto aigoma_iter = aigoma_info.find(k.pos);
+                        auto aigoma_iter = aigoma_info.find(kiki.pos);
                         bool is_aigoma = aigoma_iter != aigoma_info.end();
                         if (!is_aigoma)
-                            search_te_from_positions(result, k.pos, destination);
+                            search_te_from_positions(result, kiki.pos, destination);
                     }
+                }
+
+                // 駒を打つ合駒
+                for (koma_t koma = fu; koma <= hi; ++koma)
+                    if (mochigoma_list[sengo()][koma])
+                        if (puttable(koma, destination))
+                            *result++ = { destination, koma };
+            }
+
+            // 王手している駒を取る手を検索する。
+            const pos_t destination = check_list.front().pos;
+            std::vector<kiki_t> kiki_list;
+            search_kiki(std::back_inserter(kiki_list), destination, !sengo());
+            for (const kiki_t & kiki : kiki_list)
+            {
+                // 王を動かす手は既に検索済み
+                if (trim_sengo(ban[kiki.pos]) != ou)
+                {
+                    // 既に合駒として使っている駒は移動できない。
+                    auto aigoma_iter = aigoma_info.find(kiki.pos);
+                    bool is_aigoma = aigoma_iter != aigoma_info.end();
+                    if (!is_aigoma)
+                        search_te_from_positions(result, kiki.pos, destination);
                 }
             }
         }
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_te_evasions(OutputIterator result) const
+    {
+        search_te_evasions_ou_move(result);
+        search_te_evasions_aigoma(result);
     }
 
     /**
@@ -2404,7 +2425,7 @@ namespace shogipp
             ban[te.destination()] = te.promote() ? to_promoted(ban[te.source()]) : ban[te.source()];
             ban[te.source()] = empty;
             if (trim_sengo(te.source_koma()) == ou)
-                ou_pos[sengo()] = te.destination();
+                ou_pos_list[sengo()] = te.destination();
         }
         ++tesu;
         kifu.push_back(te);
@@ -2424,7 +2445,7 @@ namespace shogipp
         else
         {
             if (trim_sengo(te.source_koma()) == ou)
-                ou_pos[sengo()] = te.source();
+                ou_pos_list[sengo()] = te.source();
             ban[te.source()] = te.source_koma();
             ban[te.destination()] = te.captured_koma();
             if (te.captured_koma() != empty)

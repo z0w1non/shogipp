@@ -1877,6 +1877,8 @@ namespace shogipp
         if (koma == fu)
         {
             pos_t suji = pos_to_suji(destination);
+
+            // “ñ•à
             for (pos_t dan = 0; dan < dan_size; ++dan)
             {
                 koma_t current = ban[suji_dan_to_pos(suji, dan)];

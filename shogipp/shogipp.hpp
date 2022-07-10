@@ -656,6 +656,9 @@ namespace shogipp
         } impl;
         return impl.map[koma];
     }
+    
+
+    class te_t;
 
     /**
      * @breif ハッシュテーブル
@@ -692,10 +695,20 @@ namespace shogipp
          */
         inline hash_t sengo_hash(sengo_t sengo) const;
 
+        /**
+         * @breif 合法手のハッシュ値を計算する。
+         * @param te 合法手
+         * @param sengo 先手か後手か
+         * @return ハッシュ値
+         */
+        inline hash_t te_hash(const te_t & te, sengo_t sengo) const;
+
     private:
-        hash_t ban_table[koma_enum_number * suji_size * dan_size];
-        hash_t mochigoma_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];
-        hash_t sengo_table[sengo_size];
+        hash_t ban_table[koma_enum_number * suji_size * dan_size];      // 盤のハッシュテーブル
+        hash_t mochigoma_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];   // 持ち駒のハッシュテーブル
+        hash_t sengo_table[sengo_size];                                 // 手番のハッシュテーブル
+        hash_t move_table[(pos_size + 1) * pos_size * sengo_size];      // 移動する手のハッシュテーブル
+        hash_t put_table[pos_size * (hi - fu + 1) * sengo_size];        // 打つ手のハッシュテーブル
     };
 
     static const hash_table_t hash_table;
@@ -704,12 +717,12 @@ namespace shogipp
     {
         std::minstd_rand rand{ SHOGIPP_SEED };
         std::uniform_int_distribution<hash_t> uid{ std::numeric_limits<hash_t>::min(), std::numeric_limits<hash_t>::max() };
-        for (std::size_t i = 0; i < std::size(ban_table); ++i)
-            ban_table[i] = uid(rand);
-        for (std::size_t i = 0; i < std::size(mochigoma_table); ++i)
-            mochigoma_table[i] = uid(rand);
-        for (std::size_t i = 0; i < std::size(sengo_table); ++i)
-            sengo_table[i] = uid(rand);
+        auto random = [&rand, &uid]() -> hash_t { return uid(rand); };
+        std::generate(std::begin(ban_table      ), std::end(ban_table      ), random);
+        std::generate(std::begin(mochigoma_table), std::end(mochigoma_table), random);
+        std::generate(std::begin(sengo_table    ), std::end(sengo_table    ), random);
+        std::generate(std::begin(move_table     ), std::end(move_table     ), random);
+        std::generate(std::begin(put_table      ), std::end(put_table      ), random);
     }
 
     inline hash_t hash_table_t::koma_hash(koma_t koma, pos_t pos) const
@@ -1082,6 +1095,28 @@ namespace shogipp
             reserve(max_size);
         }
     };
+
+    inline hash_t hash_table_t::te_hash(const te_t & te, sengo_t sengo) const
+    {
+        std::size_t index;
+        if (te.is_uchite())
+        {
+            index = static_cast<std::size_t>(te.destination());
+            index *= koma_enum_number;
+            index += te.source_koma();
+            index *= sengo_size;
+            index += sengo;
+            SHOGIPP_ASSERT(index < std::size(put_table));
+            return put_table[index];
+        }
+        index = static_cast<std::size_t>(te.source() - npos);
+        index *= pos_size;
+        index += static_cast<std::size_t>(te.destination());
+        index *= sengo_size;
+        index += sengo;
+        SHOGIPP_ASSERT(index < std::size(move_table));
+        return move_table[index];
+    }
 
     /**
      * @breif 持ち駒

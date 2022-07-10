@@ -1549,7 +1549,6 @@ namespace shogipp
          */
         inline void search_aigoma(aigoma_info_t & aigoma_info, sengo_t sengo) const;
 
-
         /**
          * @breif ‡‹î‚ğŒŸõ‚·‚éB
          * @param sengo æŒã‚¢‚¸‚ê‚Ì‹“_‚©

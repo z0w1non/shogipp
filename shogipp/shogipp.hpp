@@ -2163,7 +2163,7 @@ namespace shogipp
                     // Šù‚É‡‹î‚Æ‚µ‚Äg‚Á‚Ä‚¢‚é‹î‚ÍˆÚ“®‚Å‚«‚È‚¢B
                     auto aigoma_iter = aigoma_info.find(kiki.pos);
                     bool is_aigoma = aigoma_iter != aigoma_info.end();
-                    if (!is_aigoma || check_list.front().offset == kiki.offset * -1)
+                    if (!is_aigoma)
                         search_te_from_positions(result, kiki.pos, destination);
                 }
             }

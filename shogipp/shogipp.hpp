@@ -2123,32 +2123,35 @@ namespace shogipp
         
         SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
         auto & check_list = additional_info.check_list_stack[tesu];
-        if (check_list.size() == 1 && check_list.front().aigoma)
+        if (check_list.size() == 1)
         {
-            const pos_t offset = check_list.front().offset;
-            for (pos_t destination = ou_pos + offset; !ban_t::out(destination) && ban[destination] == empty; destination += offset)
+            if (check_list.front().aigoma)
             {
-                // 駒を移動させる合駒
-                std::vector<kiki_t> kiki_list;
-                search_kiki(std::back_inserter(kiki_list), destination, !sengo());
-                for (kiki_t & kiki : kiki_list)
+                const pos_t offset = check_list.front().offset;
+                for (pos_t destination = ou_pos + offset; !ban_t::out(destination) && ban[destination] == empty; destination += offset)
                 {
-                    // 王で合駒はできない。
-                    if (trim_sengo(ban[kiki.pos]) != ou)
+                    // 駒を移動させる合駒
+                    std::vector<kiki_t> kiki_list;
+                    search_kiki(std::back_inserter(kiki_list), destination, !sengo());
+                    for (kiki_t & kiki : kiki_list)
                     {
-                        // 既に合駒として使っている駒は移動できない。
-                        auto aigoma_iter = aigoma_info.find(kiki.pos);
-                        bool is_aigoma = aigoma_iter != aigoma_info.end();
-                        if (!is_aigoma)
-                            search_te_from_positions(result, kiki.pos, destination);
+                        // 王で合駒はできない。
+                        if (trim_sengo(ban[kiki.pos]) != ou)
+                        {
+                            // 既に合駒として使っている駒は移動できない。
+                            auto aigoma_iter = aigoma_info.find(kiki.pos);
+                            bool is_aigoma = aigoma_iter != aigoma_info.end();
+                            if (!is_aigoma)
+                                search_te_from_positions(result, kiki.pos, destination);
+                        }
                     }
-                }
 
-                // 駒を打つ合駒
-                for (koma_t koma = fu; koma <= hi; ++koma)
-                    if (mochigoma_list[sengo()][koma])
-                        if (puttable(koma, destination))
-                            *result++ = { destination, koma };
+                    // 駒を打つ合駒
+                    for (koma_t koma = fu; koma <= hi; ++koma)
+                        if (mochigoma_list[sengo()][koma])
+                            if (puttable(koma, destination))
+                                *result++ = { destination, koma };
+                }
             }
 
             // 王手している駒を取る手を検索する。
@@ -3453,7 +3456,7 @@ namespace shogipp
     public:
         evaluation_value_t eval(kyokumen_t & kyokumen) override
         {
-            static const int map[]
+            static const evaluation_value_t map[]
             {
                 /* empty    */  0,
                 /* fu       */  1,
@@ -3472,8 +3475,32 @@ namespace shogipp
                 /* ryu      */ 12
             };
 
+            constexpr evaluation_value_t destination_point = 1;
+            constexpr evaluation_value_t kiki_point = -3;
+            constexpr evaluation_value_t himo_point = 3;
+
             evaluation_value_t evaluation_value = 0;
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
+
+            evaluation_value *= 100;
+
+            for (pos_t pos = 0; pos < pos_size; ++pos)
+            {
+                if (!ban_t::out(pos) && kyokumen.ban[pos] != empty)
+                {
+                    std::vector<kiki_t> kiki_list;
+                    sengo_t sengo = to_sengo(kyokumen.ban[pos]);
+                    kyokumen.search_kiki(std::back_inserter(kiki_list), pos, sengo);
+                    evaluation_value += kiki_point * kiki_list.size() * reverse(sengo);
+                    std::vector<pos_t> himo_list;
+                    kyokumen.search_himo(std::back_inserter(himo_list), pos, sengo);
+                    evaluation_value += himo_point * himo_list.size() * reverse(sengo);
+
+                    std::vector<pos_t> destination_list;
+                    kyokumen.search_destination(std::back_inserter(destination_list), pos, sengo);
+                    evaluation_value += destination_point * destination_list.size() * reverse(sengo);
+                }
+            }
 
             return evaluation_value;
         }

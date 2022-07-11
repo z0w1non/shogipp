@@ -1947,7 +1947,7 @@ namespace shogipp
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
     inline void kyokumen_t::search_koma_far(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
-        if (pos_t found = search(pos + offset, offset); found != npos && ban[found] != empty)
+        if (pos_t found = search(pos, offset); found != npos && found != pos + offset && ban[found] != empty)
             if (is_collected(to_sengo(ban[found])) && std::find(first, last, trim_sengo(ban[found])) != last)
                 *result++ = transform(found, offset, true);
     }

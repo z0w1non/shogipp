@@ -485,6 +485,11 @@ namespace shogipp
     }
 
 #ifdef SIZE_OF_HASH
+
+    /**
+     * @breif 任意のバイト数のハッシュ値を提供する。
+     * @tparam HashSize ハッシュ値のバイト数
+     */
     template<std::size_t HashSize>
     class basic_hash_t
     {

@@ -26,6 +26,8 @@
 #include <regex>
 #include <functional>
 
+#define SIZE_OF_HASH 32
+
 //#define NONDETERMINISM
 #ifdef NONDETERMINISM
 #define SHOGIPP_SEED std::random_device{}()
@@ -477,7 +479,89 @@ namespace shogipp
         return sengo ? -1 : 1;
     }
 
+#ifdef SIZE_OF_HASH
+    template<std::size_t HashSize>
+    class basic_hash_t
+    {
+    public:
+        template<typename CharT, typename Traits, std::size_t HashSize>
+        friend std::basic_ostream<CharT, Traits> & operator<<(std::basic_ostream<CharT, Traits> & o, const basic_hash_t<HashSize> & hash);
+
+        constexpr static std::size_t hash_size = HashSize;
+
+        inline basic_hash_t()
+        {
+            static std::minstd_rand rand{ SHOGIPP_SEED };
+            static std::uniform_int_distribution<std::size_t> uid{ std::numeric_limits<std::size_t>::min(), std::numeric_limits<std::size_t>::max() };
+            static_assert(hash_size % sizeof(std::size_t) == 0);
+            auto random = [&]() -> std::size_t { return uid(rand); };
+            for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
+                *reinterpret_cast<std::size_t *>(data + i * sizeof(std::size_t)) = rand();
+        }
+
+        inline basic_hash_t(const basic_hash_t & hash)
+        {
+            std::copy(std::begin(hash.data), std::end(hash.data), std::begin(data));
+        }
+
+        inline basic_hash_t & operator =(const basic_hash_t & hash)
+        {
+            std::copy(std::begin(hash.data), std::end(hash.data), std::begin(data));
+            return *this;
+        }
+
+        inline basic_hash_t & operator ^=(const basic_hash_t & hash)
+        {
+            std::size_t * first = reinterpret_cast<std::size_t *>(data);
+            std::size_t * end = reinterpret_cast<std::size_t *>(data + hash_size);
+            const std::size_t * input = reinterpret_cast<const std::size_t *>(hash.data);
+            while (first != end)
+                *first++ ^= *input++;
+            return *this;
+        }
+
+        inline operator std::size_t() const
+        {
+            std::size_t hash = 0;
+            for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
+                hash ^= *reinterpret_cast<const std::size_t *>(data + i * sizeof(std::size_t));
+            return hash;
+        }
+
+        inline operator std::string() const
+        {
+            std::ostringstream stream;
+            stream << "0x";
+            for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
+                stream << std::hex << std::setfill('0') << *reinterpret_cast<const std::size_t *>(data + i * sizeof(std::size_t));
+            stream << std::flush;
+            return stream.str();
+        }
+
+    private:
+        unsigned char data[hash_size];
+    };
+
+    template<typename CharT, typename Traits, std::size_t HashSize>
+    std::basic_ostream<CharT, Traits> & operator<<(std::basic_ostream<CharT, Traits> & o, const basic_hash_t<HashSize> & hash)
+    {
+        o << static_cast<std::string>(hash);
+        return o;
+    }
+
+    template<std::size_t HashSize>
+    struct basic_hash_hash_t
+    {
+        inline std::size_t operator()(basic_hash_t<HashSize> key) const
+        {
+            return static_cast<std::size_t>(key);
+        }
+    };
+
+    using hash_t = basic_hash_t<SIZE_OF_HASH>;
+#else
     using hash_t = std::size_t;
+#endif
 
     /**
      * @breif ハッシュ値を16進数表現の文字列に変換する。
@@ -486,9 +570,13 @@ namespace shogipp
      */
     inline std::string hash_to_string(hash_t hash)
     {
+#ifdef SIZE_OF_HASH
+        return static_cast<std::string>(hash);
+#else
         std::ostringstream stream;
         stream << "0x" << std::hex << std::setfill('0') << hash << std::flush;
         return stream.str();
+#endif
     }
 
     /*
@@ -728,6 +816,7 @@ namespace shogipp
 
     inline hash_table_t::hash_table_t()
     {
+#ifndef SIZE_OF_HASH
         std::minstd_rand rand{ SHOGIPP_SEED };
         std::uniform_int_distribution<hash_t> uid{ std::numeric_limits<hash_t>::min(), std::numeric_limits<hash_t>::max() };
         auto random = [&rand, &uid]() -> hash_t { return uid(rand); };
@@ -736,6 +825,7 @@ namespace shogipp
         std::generate(std::begin(sengo_table    ), std::end(sengo_table    ), random);
         std::generate(std::begin(move_table     ), std::end(move_table     ), random);
         std::generate(std::begin(put_table      ), std::end(put_table      ), random);
+#endif
     }
 
     inline hash_t hash_table_t::koma_hash(koma_t koma, pos_t pos) const
@@ -2280,7 +2370,7 @@ namespace shogipp
 
     inline hash_t kyokumen_t::make_hash() const
     {
-        hash_t hash = 0;
+        hash_t hash{};
 
         // 盤上の駒のハッシュ値をXOR演算
         for (pos_t pos = 0; pos < pos_size; ++pos)
@@ -2729,7 +2819,7 @@ namespace shogipp
 
     using evaluation_value_t = int;
 
-    template<typename Key, typename Value>
+    template<typename Key, typename Value, typename Hash = std::hash<Key>>
     class lru_cache_t
     {
     public:
@@ -2737,7 +2827,8 @@ namespace shogipp
         using value_type = Value;
         using pair_type = std::pair<key_type, value_type>;
         using list_type = std::list<pair_type>;
-        using unordered_map_type = std::unordered_map<key_type, typename list_type::iterator>;
+        using hash_type = Hash;
+        using unordered_map_type = std::unordered_map<key_type, typename list_type::iterator, hash_type>;
 
         /**
          * @breif LRUで管理されるキャッシュを構築する。
@@ -2799,7 +2890,11 @@ namespace shogipp
         std::size_t capacity;
     };
 
+#ifdef SIZE_OF_HASH
+    using evaluation_value_cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hash_t<SIZE_OF_HASH>>;
+#else
     using evaluation_value_cache_t = lru_cache_t<hash_t, evaluation_value_t>;
+#endif
 
     /**
      * @breif 評価関数オブジェクトのインターフェース

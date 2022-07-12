@@ -26,7 +26,7 @@
 #include <regex>
 #include <functional>
 
-#define SIZE_OF_HASH 32
+#define SIZE_OF_HASH 16
 
 //#define NONDETERMINISM
 #ifdef NONDETERMINISM

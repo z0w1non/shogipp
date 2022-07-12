@@ -469,7 +469,7 @@ namespace shogipp
 
     /**
      * @breif 後手の場合に -1 を、先手の場合に 1 を返す。
-     * @param 先手か後手か
+     * @param sengo 先手か後手か
      * @return 符号反転用の数値
      */
     inline constexpr pos_t reverse(sengo_t sengo)
@@ -478,6 +478,18 @@ namespace shogipp
     }
 
     using hash_t = std::size_t;
+
+    /**
+     * @breif ハッシュ値を16進数表現の文字列に変換する。
+     * @param hash ハッシュ値
+     * @return 16進数表現の文字列
+     */
+    inline std::string hash_to_string(hash_t hash)
+    {
+        std::ostringstream stream;
+        stream << "0x" << std::hex << std::setfill('0') << hash << std::flush;
+        return stream.str();
+    }
 
     /*
      * @breif 駒が成駒か判定する。
@@ -2346,7 +2358,7 @@ namespace shogipp
     {
         for (std::size_t i = 0; first != last; ++i)
         {
-            std::printf("#%3d ", i + 1);
+            std::printf("#%3zd ", i + 1);
             print_te(*first++, sengo());
             std::cout << std::endl;
         }
@@ -3476,8 +3488,8 @@ namespace shogipp
             };
 
             constexpr evaluation_value_t destination_point = 1;
-            constexpr evaluation_value_t kiki_point = -3;
-            constexpr evaluation_value_t himo_point = 3;
+            constexpr evaluation_value_t kiki_point = -10;
+            constexpr evaluation_value_t himo_point = 10;
 
             evaluation_value_t evaluation_value = 0;
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
@@ -3491,14 +3503,14 @@ namespace shogipp
                     std::vector<kiki_t> kiki_list;
                     sengo_t sengo = to_sengo(kyokumen.ban[pos]);
                     kyokumen.search_kiki(std::back_inserter(kiki_list), pos, sengo);
-                    evaluation_value += kiki_point * kiki_list.size() * reverse(sengo);
+                    evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(sengo);
                     std::vector<pos_t> himo_list;
                     kyokumen.search_himo(std::back_inserter(himo_list), pos, sengo);
-                    evaluation_value += himo_point * himo_list.size() * reverse(sengo);
+                    evaluation_value += himo_point * static_cast<evaluation_value_t>(himo_list.size()) * reverse(sengo);
 
                     std::vector<pos_t> destination_list;
                     kyokumen.search_destination(std::back_inserter(destination_list), pos, sengo);
-                    evaluation_value += destination_point * destination_list.size() * reverse(sengo);
+                    evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(sengo);
                 }
             }
 
@@ -3543,6 +3555,7 @@ namespace shogipp
             giveup,
             dump,
             perft,
+            hash,
         };
 
         id_t id{ id_t::error };
@@ -3612,6 +3625,11 @@ namespace shogipp
                         command.id = command_t::id_t::perft;
                         command.opt_depth = depth;
                         return command;
+                    }
+
+                    if (tokens[0] == "hash")
+                    {
+                        return command_t{ command_t::id_t::hash };
                     }
 
                     std::size_t move_index;
@@ -3804,6 +3822,9 @@ namespace shogipp
             case command_t::id_t::perft:
                 std::cout << kyokumen.count_node(*cmd.opt_depth) << std::endl;
                 break;
+            case command_t::id_t::hash:
+                std::cout << hash_to_string(kyokumen.hash()) << std::endl;
+                break;
             }
         }
     }
@@ -3829,6 +3850,7 @@ namespace shogipp
         {
             std::cout << (kyokumen.tesu + 1) << "手目" << sengo_to_string(kyokumen.sengo()) << "番" << std::endl;
             kyokumen.print();
+            std::cout << hash_to_string(kyokumen.hash()) << std::endl;
             kyokumen.print_te();
             kyokumen.print_check();
         }

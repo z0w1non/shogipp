@@ -26,6 +26,11 @@
 #include <regex>
 #include <functional>
 
+/**
+ * @breif ハッシュ値のバイト数を定義する。
+ * @details SIZE_OF_HASH % sizeof(std::size_t) == 0 でなければならない。
+ *          このマクロが定義されていない場合、ハッシュ値として std::size_t を使用する。
+ */
 #define SIZE_OF_HASH 16
 
 //#define NONDETERMINISM

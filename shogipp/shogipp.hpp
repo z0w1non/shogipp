@@ -2221,7 +2221,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_near_destination(OutputIterator result, pos_t source, pos_t offset) const
     {
-        pos_t current = source + offset;
+        const pos_t current = source + offset;
         if (!ban_t::out(current) && (ban[current] == empty || to_sengo(ban[current]) != to_sengo(ban[source])))
             *result++ = current;
     }
@@ -2229,7 +2229,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_destination(OutputIterator result, pos_t source, sengo_t sengo) const
     {
-        koma_t koma = trim_sengo(ban[source]);
+        const koma_t koma = trim_sengo(ban[source]);
         for (const pos_t * offset = far_move_offsets(koma); *offset; ++offset)
             search_far_destination(result, source, *offset * reverse(sengo));
         for (const pos_t * offset = near_move_offsets(koma); *offset; ++offset)
@@ -2256,7 +2256,7 @@ namespace shogipp
         }
         if (koma == fu)
         {
-            pos_t suji = pos_to_suji(destination);
+            const pos_t suji = pos_to_suji(destination);
 
             // 二歩
             for (pos_t dan = 0; dan < dan_size; ++dan)
@@ -2267,7 +2267,7 @@ namespace shogipp
             }
 
             // 打ち歩詰め
-            pos_t pos = destination + front * (reverse(sengo()));
+            const pos_t pos = destination + front * (reverse(sengo()));
             if (!ban_t::out(pos) && ban[pos] != empty && trim_sengo(ban[pos]) == ou && to_sengo(ban[pos]) != sengo())
             {
                 te_t te{ destination, koma };
@@ -2406,17 +2406,17 @@ namespace shogipp
             { back_right , { kaku, uma } },
         };
 
-        pos_t ou_pos = this->ou_pos_list[sengo];
+        const pos_t ou_pos = this->ou_pos_list[sengo];
         for (const auto & [offset, hashirigoma_list] : table)
         {
-            pos_t reversed_offset = offset * reverse(sengo);
-            pos_t first = search(ou_pos, reversed_offset);
+            const pos_t reversed_offset = offset * reverse(sengo);
+            const pos_t first = search(ou_pos, reversed_offset);
             if (first != npos && to_sengo(ban[first]) == sengo)
             {
-                pos_t second = search(first, reversed_offset);
+                const pos_t second = search(first, reversed_offset);
                 if (second != npos && to_sengo(ban[second]) != sengo)
                 {
-                    koma_t kind = trim_sengo(ban[second]);
+                    const koma_t kind = trim_sengo(ban[second]);
                     bool match = std::find(hashirigoma_list.begin(), hashirigoma_list.end(), kind) != hashirigoma_list.end();
                     if (match)
                     {
@@ -2488,7 +2488,7 @@ namespace shogipp
         const pos_t ou_pos = ou_pos_list[sengo()];
         
         SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
-        auto & check_list = additional_info.check_list_stack[tesu];
+        const auto & check_list = additional_info.check_list_stack[tesu];
         if (check_list.size() == 1)
         {
             if (check_list.front().aigoma)
@@ -2505,8 +2505,8 @@ namespace shogipp
                         if (trim_sengo(ban[kiki.pos]) != ou)
                         {
                             // 既に合駒として使っている駒は移動できない。
-                            auto aigoma_iter = aigoma_info.find(kiki.pos);
-                            bool is_aigoma = aigoma_iter != aigoma_info.end();
+                            const auto aigoma_iter = aigoma_info.find(kiki.pos);
+                            const bool is_aigoma = aigoma_iter != aigoma_info.end();
                             if (!is_aigoma)
                                 search_te_from_positions(result, kiki.pos, destination);
                         }
@@ -2530,8 +2530,8 @@ namespace shogipp
                 if (trim_sengo(ban[kiki.pos]) != ou)
                 {
                     // 既に合駒として使っている駒は移動できない。
-                    auto aigoma_iter = aigoma_info.find(kiki.pos);
-                    bool is_aigoma = aigoma_iter != aigoma_info.end();
+                    const auto aigoma_iter = aigoma_info.find(kiki.pos);
+                    const bool is_aigoma = aigoma_iter != aigoma_info.end();
                     if (!is_aigoma)
                         search_te_from_positions(result, kiki.pos, destination);
                 }
@@ -2557,22 +2557,22 @@ namespace shogipp
         std::vector<pos_t> source_list;
         source_list.reserve(pos_size);
         search_source(std::back_inserter(source_list), sengo());
-        for (pos_t source : source_list)
+        for (const pos_t source : source_list)
         {
             std::vector<pos_t> destination_list;
             destination_list.reserve(pos_size);
             search_destination(std::back_inserter(destination_list), source, sengo());
-            auto aigoma_iter = aigoma_info.find(source);
-            bool is_aigoma = aigoma_iter != aigoma_info.end();
+            const auto aigoma_iter = aigoma_info.find(source);
+            const bool is_aigoma = aigoma_iter != aigoma_info.end();
 
-            for (pos_t destination : destination_list)
+            for (const pos_t destination : destination_list)
             {
 #ifndef NDEBUG
                 if (ban[destination] != empty && trim_sengo(ban[destination]) == ou)
                 {
                     ban.print();
                     std::cout << pos_to_string(source) << std::endl;
-                    te_t te{ source, destination, ban[source], ban[destination], false };
+                    const te_t te{ source, destination, ban[source], ban[destination], false };
                     print_te(te, sengo());
                     std::cout << std::endl;
                     print_kifu();
@@ -2606,12 +2606,10 @@ namespace shogipp
     inline void kyokumen_t::search_te_puts(OutputIterator result) const
     {
         for (koma_t koma = fu; koma <= hi; ++koma)
-        {
             if (mochigoma_list[sengo()][koma])
                 for (pos_t destination = 0; destination < pos_size; ++destination)
                     if (puttable(koma, destination))
                         *result++ = { destination, koma };
-        }
     }
 
     template<typename OutputIterator>
@@ -2771,10 +2769,8 @@ namespace shogipp
     inline void kyokumen_t::validate_ban_out()
     {
         for (pos_t pos = 0; pos < pos_size; ++pos)
-        {
             if (ban_t::out(pos))
                 SHOGIPP_ASSERT(ban[pos] == out_of_range);
-        }
     }
 
     inline void kyokumen_t::do_te(const te_t & te)

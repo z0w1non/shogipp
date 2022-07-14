@@ -166,9 +166,9 @@ namespace shogipp
 
         inline void timer_t::print_elapsed_time()
         {
-            std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
-            unsigned long long sps = (unsigned long long)m_search_count * 1000 / duration;
+            const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
+            const unsigned long long sps = (unsigned long long)m_search_count * 1000 / duration;
 
             std::cout
                 << std::endl
@@ -324,10 +324,10 @@ namespace shogipp
      */
     inline pos_t distance(pos_t a, pos_t b)
     {
-        pos_t suji_a = pos_to_suji(a);
-        pos_t dan_a = pos_to_dan(a);
-        pos_t suji_b = pos_to_suji(b);
-        pos_t  dan_b = pos_to_dan(b);
+        const pos_t suji_a = pos_to_suji(a);
+        const pos_t dan_a = pos_to_dan(a);
+        const pos_t suji_b = pos_to_suji(b);
+        const pos_t  dan_b = pos_to_dan(b);
         return static_cast<pos_t>(std::abs(suji_a - suji_b) + std::abs(dan_a - dan_b));
     }
 
@@ -476,7 +476,7 @@ namespace shogipp
     {
         if (rest.size() < size)
             return std::nullopt;
-        auto iter = map.find(std::string{ rest.substr(0, size) });
+        const auto iter = map.find(std::string{ rest.substr(0, size) });
         if (iter == map.end())
             return std::nullopt;
         rest.remove_prefix(size);
@@ -1567,7 +1567,7 @@ namespace shogipp
          */
         inline value_type & operator *()
         {
-            update();
+            evaluate();
             return m_value;
         }
 
@@ -1577,7 +1577,7 @@ namespace shogipp
          */
         inline const value_type & operator *() const
         {
-            update();
+            evaluate();
             return m_value;
         }
 
@@ -1587,7 +1587,7 @@ namespace shogipp
          */
         inline value_type * operator ->()
         {
-            update();
+            evaluate();
             return &m_value;
         }
 
@@ -1597,7 +1597,7 @@ namespace shogipp
          */
         inline const value_type * operator ->() const
         {
-            update();
+            evaluate();
             return &m_value;
         }
 
@@ -1614,7 +1614,7 @@ namespace shogipp
         mutable bool m_valid;
         function_type m_evaluator;
 
-        inline void update() const
+        inline void evaluate() const
         {
             if (!m_valid)
             {

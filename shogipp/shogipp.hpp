@@ -1481,6 +1481,8 @@ namespace shogipp
 
         if (sfen_move[1] == '*')
         {
+            if (sfen_move.size() > 4)
+                throw invalid_usi_input{ "invalid sfen move" };
             auto iter = char_to_koma.find(sfen_move[0]);
             if (iter == char_to_koma.end())
                 throw invalid_usi_input{ "invalid sfen move" };

@@ -2132,7 +2132,6 @@ namespace shogipp
         while (i < sfen.size() && sfen[i] == ' ')
             ++i;
 
-
         if (sfen[i] >= '0' && sfen[i] <= '9')
         {
             tesu_t tesu = static_cast<tesu_t>(sfen[i] - '0');
@@ -2141,6 +2140,38 @@ namespace shogipp
             --tesu;
             /*temp.tesu = tesu;*/ /* unused */
         }
+
+        while (i < sfen.size() && sfen[i] == ' ')
+            ++i;
+
+        constexpr std::string_view moves = "moves";
+        if (i + moves.size() > sfen.size() && sfen.substr(i, moves.size()) == moves)
+        {
+            i += moves.size();
+
+            while (i < sfen.size() && sfen[i] == ' ')
+                ++i;
+
+            while (i < sfen.size() && sfen[i] == ' ')
+            {
+                while (i < sfen.size() && sfen[i] == ' ')
+                    ++i;
+
+                if (i < sfen.size())
+                {
+                    const std::size_t begin = i;
+                    while (i < sfen.size() && sfen[i] != ' ')
+                        ++i;
+
+                    const std::string_view token = sfen.substr(begin, i - begin + 1);
+                    const te_t te{ token, temp.ban };
+                    temp.do_te(te);
+                }
+            }
+        }
+
+        if (temp.sengo() != sengo)
+            throw invalid_usi_input{ "invalid color" };
 
         *this = std::move(temp);
     }

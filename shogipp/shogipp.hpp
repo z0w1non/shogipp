@@ -575,7 +575,8 @@ namespace shogipp
         }
 
     private:
-        unsigned char data[hash_size];
+        using byte_type = unsigned char;
+        byte_type data[hash_size];
     };
 
     template<typename CharT, typename Traits, std::size_t HashSize>
@@ -1275,6 +1276,8 @@ namespace shogipp
     class mochigoma_t
     {
     public:
+        using size_type = unsigned char;
+
         /**
          * @breif 持ち駒を構築する。
          */
@@ -1290,17 +1293,17 @@ namespace shogipp
          * @param 駒
          * @return 駒と対応する持ち駒の数の参照
          */
-        inline unsigned char & operator [](koma_t koma);
+        inline size_type & operator [](koma_t koma);
 
         /**
          * @breif 駒と対応する持ち駒の数の参照を返す。
          * @param 駒
          * @return 駒と対応する持ち駒の数の参照
          */
-        inline const unsigned char & operator [](koma_t koma) const;
+        inline const size_type & operator [](koma_t koma) const;
 
     private:
-        unsigned char count[hi - fu + 1];
+        size_type count[hi - fu + 1];
     };
 
     inline mochigoma_t::mochigoma_t()
@@ -1326,14 +1329,14 @@ namespace shogipp
         std::cout << std::endl;
     }
 
-    inline unsigned char & mochigoma_t::operator [](koma_t koma)
+    inline mochigoma_t::size_type & mochigoma_t::operator [](koma_t koma)
     {
         SHOGIPP_ASSERT(koma != empty);
         SHOGIPP_ASSERT(to_mochigoma(koma) != ou);
         return count[to_mochigoma(koma) - fu];
     }
 
-    inline const unsigned char & mochigoma_t::operator [](koma_t koma) const
+    inline const mochigoma_t::size_type & mochigoma_t::operator [](koma_t koma) const
     {
         return (*const_cast<mochigoma_t *>(this))[koma];
     }
@@ -2030,14 +2033,14 @@ namespace shogipp
         }
         else
         {
-            unsigned char count = 1;
+            mochigoma_t::size_type count = 1;
             while (i < sfen.size() && sfen[i] != ' ')
             {
                 if (sfen[i] >= '0' && sfen[i] <= '9')
                 {
-                    count = static_cast<tesu_t>(sfen[i] - '0');
+                    count = static_cast<mochigoma_t::size_type>(sfen[i] - '0');
                     while (++i < sfen.size() && sfen[i] >= '0' && sfen[i] <= '9')
-                        count = static_cast<tesu_t>(count * 10 + sfen[i] - '0');
+                        count = static_cast<mochigoma_t::size_type>(count * 10 + sfen[i] - '0');
                 }
                 else
                 {
@@ -2812,7 +2815,7 @@ namespace shogipp
 
                     while (true)
                     {
-                        unsigned char count = 1;
+                        mochigoma_t::size_type count = 1;
                         std::optional<koma_t> koma = parse(rest, koma_string_map, koma_string_size);
                         if (!koma)
                             break;
@@ -2825,7 +2828,7 @@ namespace shogipp
                         {
                             if (digit_string_map.find(std::string{ rest.substr(0, digit_string_size) }) != digit_string_map.end())
                             {
-                                unsigned char digit = 0;
+                                mochigoma_t::size_type digit = 0;
                                 do
                                 {
                                     auto digit_iterator = digit_string_map.find(std::string{ rest.substr(0, digit_string_size) });

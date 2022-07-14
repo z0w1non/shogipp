@@ -2240,18 +2240,18 @@ namespace shogipp
     {
         if (ban[destination] != empty)
             return false;
-        if (sengo())
-        {
-            if ((koma == fu || koma == kyo) && destination >= width * (padding_height + 8))
-                return false;
-            if (koma == kei && destination >= width * (padding_height + 7))
-                return false;
-        }
-        else
+        if (sengo() == sente)
         {
             if ((koma == fu || koma == kyo) && destination < width * (padding_height + 1))
                 return false;
             if (koma == kei && destination < width * (padding_height + 2))
+                return false;
+        }
+        else
+        {
+            if ((koma == fu || koma == kyo) && destination >= width * (padding_height + 8))
+                return false;
+            if (koma == kei && destination >= width * (padding_height + 7))
                 return false;
         }
         if (koma == fu)

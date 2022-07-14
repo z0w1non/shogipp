@@ -2069,10 +2069,10 @@ namespace shogipp
             }
             else
             {
-                auto koma_iter = char_to_koma.find(sfen[i]);
-                if (koma_iter == char_to_koma.end())
+                auto iter = char_to_koma.find(sfen[i]);
+                if (iter == char_to_koma.end())
                     throw invalid_usi_input{ "unexpected character" };
-                koma_t koma = koma_iter->second;
+                koma_t koma = iter->second;
                 if (promoted)
                     koma = to_promoted(koma);
                 temp.ban[suji_dan_to_pos(suji, dan)] = koma;
@@ -2118,10 +2118,10 @@ namespace shogipp
                 }
                 else
                 {
-                    auto koma_iter = char_to_koma.find(sfen[i]);
-                    if (koma_iter == char_to_koma.end())
+                    auto iter = char_to_koma.find(sfen[i]);
+                    if (iter == char_to_koma.end())
                         throw invalid_usi_input{ "unexpected character" };
-                    koma_t koma = koma_iter->second;
+                    koma_t koma = iter->second;
                     temp.mochigoma_list[to_sengo(koma)][trim_sengo(koma)] = count;
                     count = 1;
                 }

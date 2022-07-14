@@ -1513,7 +1513,6 @@ namespace shogipp
             m_captured_koma = ban[destination];
             m_promote = promote;
         }
-
     }
 
     /**

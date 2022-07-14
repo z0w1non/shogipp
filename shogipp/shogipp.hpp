@@ -208,6 +208,12 @@ namespace shogipp
         using std::runtime_error::runtime_error;
     };
 
+    class invalid_usi_input
+        : public std::runtime_error
+    {
+        using std::runtime_error::runtime_error;
+    };
+
     using koma_t = unsigned char;
     enum : koma_t
     {
@@ -217,6 +223,26 @@ namespace shogipp
         gote_fu, gote_kyo, gote_kei, gote_gin, gote_kin, gote_kaku, gote_hi, gote_ou, gote_tokin, gote_nari_kyo, gote_nari_kei, gote_nari_gin, gote_uma, gote_ryu,
         koma_enum_number,
         out_of_range = std::numeric_limits<unsigned char>::max()
+    };
+
+    const std::map<char, koma_t>char_to_koma
+    {
+        { 'P', sente_fu },
+        { 'p', gote_fu },
+        { 'L', sente_kyo },
+        { 'l', gote_kyo },
+        { 'N', sente_kei },
+        { 'n', gote_kei },
+        { 'S', sente_gin },
+        { 's', gote_gin },
+        { 'G', sente_kin },
+        { 'g', gote_kin },
+        { 'B', sente_kaku },
+        { 'b', gote_kaku },
+        { 'R', sente_hi },
+        { 'r', gote_hi },
+        { 'K', sente_ou },
+        { 'k', gote_ou },
     };
 
     enum sengo_t : unsigned char
@@ -1340,6 +1366,11 @@ namespace shogipp
          */
         inline void print() const;
 
+        /**
+         * @breif 盤から全ての駒を取り除く。
+         */
+        inline void clear();
+
     private:
         friend class kyokumen_rollback_validator_t;
         koma_t data[pos_size];
@@ -1402,6 +1433,11 @@ namespace shogipp
             std::cout << "| " << dan_to_string(dan) << std::endl;
         }
         std::cout << "+---------------------------+" << std::endl;
+    }
+
+    inline void ban_t::clear()
+    {
+        std::fill(std::begin(data), std::end(data), empty);
     }
 
     /**
@@ -1532,6 +1568,11 @@ namespace shogipp
          * @breif 局面を構築する。
          */
         inline kyokumen_t();
+
+        /**
+         * @breif SFEN表記法に準拠した文字列から局面を構築する。
+         */
+        inline kyokumen_t(std::string_view sfen);
 
         /**
          * @breif 駒が移動する場合に成りが可能か判定する。
@@ -1920,6 +1961,111 @@ namespace shogipp
         for (sengo_t sengo : sengo_list)
             ou_pos_list[sengo] = default_ou_pos_list[sengo];
         push_additional_info();
+    }
+
+    inline kyokumen_t::kyokumen_t(std::string_view sfen)
+    {
+        kyokumen_t temp;
+        temp.ban.clear();
+
+        bool promoted = false;
+        pos_t dan = 0, suji = 0;
+
+        std::size_t i = 0;
+        for (; i < sfen.size(); ++i)
+        {
+            if (sfen[i] == ' ')
+                break;
+            else if (sfen[i] == '+')
+            {
+                promoted = true;
+            }
+            else if (sfen[i] == '/')
+            {
+                if (suji != suji_size)
+                    throw invalid_usi_input{ "unexpected '/'" };
+                ++dan;
+            }
+            else if (sfen[i] >= '1' && sfen[i] <= '9')
+            {
+                suji += static_cast<pos_t>(sfen[i] - '0');
+            }
+            else
+            {
+                auto koma_iter = char_to_koma.find(sfen[i]);
+                if (koma_iter == char_to_koma.end())
+                    throw invalid_usi_input{ "unexpected character" };
+                koma_t koma = koma_iter->second;
+                if (promoted)
+                    koma = to_promoted(koma);
+                temp.ban[suji_dan_to_pos(suji, dan)] = koma;
+                ++suji;
+            }
+        }
+
+        while (i < sfen.size() && sfen[i] == ' ')
+            ++i;
+
+        if (i >= sfen.size())
+            throw invalid_usi_input{ "unexpected sfen end" };
+
+        sengo_t sengo;
+        if (sfen[i] == 'b')
+            sengo = sente;
+        if (sfen[i] == 'w')
+            sengo = gote;
+        else
+            throw invalid_usi_input{ "invalid color" };
+        ++i;
+
+        while (i < sfen.size() && sfen[i] == ' ')
+            ++i;
+
+        if (i >= sfen.size())
+            throw invalid_usi_input{ "unexpected sfen end" };
+
+        if (sfen[i] == '-')
+        {
+            ++i;
+        }
+        else
+        {
+            unsigned char count = 1;
+            while (i < sfen.size() && sfen[i] != ' ')
+            {
+                if (sfen[i] >= '0' && sfen[i] <= '9')
+                {
+                    count = static_cast<tesu_t>(sfen[i] - '0');
+                    while (++i < sfen.size() && sfen[i] >= '0' && sfen[i] <= '9')
+                        count = static_cast<tesu_t>(count * 10 + sfen[i] - '0');
+                }
+                else
+                {
+                    auto koma_iter = char_to_koma.find(sfen[i]);
+                    if (koma_iter == char_to_koma.end())
+                        throw invalid_usi_input{ "unexpected character" };
+                    koma_t koma = koma_iter->second;
+                    temp.mochigoma_list[to_sengo(koma)][trim_sengo(koma)] = count;
+                    count = 1;
+                }
+                ++i;
+            }
+        }
+
+        while (i < sfen.size() && sfen[i] == ' ')
+            ++i;
+
+
+        if (sfen[i] >= '0' && sfen[i] <= '9')
+        {
+            tesu_t tesu = static_cast<tesu_t>(sfen[i] - '0');
+            while (++i < sfen.size() && sfen[i] >= '0' && sfen[i] <= '9')
+                tesu = static_cast<tesu_t>(tesu * 10 + sfen[i] - '0');
+            --tesu;
+            /*temp.tesu = tesu;*/ /* unused */
+        }
+
+        *this = std::move(temp);
     }
 
     inline bool kyokumen_t::promotable(koma_t koma, pos_t source, pos_t destination)
@@ -4098,6 +4244,14 @@ namespace shogipp
         }
 
         return 0;
+    }
+
+    inline void usi_connect()
+    {
+        std::string line;
+        while (std::getline(std::cin, line))
+        {
+        }
     }
 
 } // namespace shogipp

@@ -225,25 +225,71 @@ namespace shogipp
         out_of_range = std::numeric_limits<unsigned char>::max()
     };
 
-    const std::map<char, koma_t>char_to_koma
+    inline std::optional<koma_t> char_to_koma(char c)
     {
-        { 'P', sente_fu },
-        { 'p', gote_fu },
-        { 'L', sente_kyo },
-        { 'l', gote_kyo },
-        { 'N', sente_kei },
-        { 'n', gote_kei },
-        { 'S', sente_gin },
-        { 's', gote_gin },
-        { 'G', sente_kin },
-        { 'g', gote_kin },
-        { 'B', sente_kaku },
-        { 'b', gote_kaku },
-        { 'R', sente_hi },
-        { 'r', gote_hi },
-        { 'K', sente_ou },
-        { 'k', gote_ou },
-    };
+        static const std::map<char, koma_t> map
+        {
+            { 'P', sente_fu },
+            { 'p', gote_fu },
+            { 'L', sente_kyo },
+            { 'l', gote_kyo },
+            { 'N', sente_kei },
+            { 'n', gote_kei },
+            { 'S', sente_gin },
+            { 's', gote_gin },
+            { 'G', sente_kin },
+            { 'g', gote_kin },
+            { 'B', sente_kaku },
+            { 'b', gote_kaku },
+            { 'R', sente_hi },
+            { 'r', gote_hi },
+            { 'K', sente_ou },
+            { 'k', gote_ou },
+        };
+        const auto iter = map.find(c);
+        if (iter == map.end())
+            return std::nullopt;
+        return iter->second;
+    }
+
+    inline std::optional<std::string> koma_to_sfen_string(koma_t koma)
+    {
+        static const std::map<koma_t, std::string> map
+        {
+            { sente_fu       , "P" },
+            { gote_fu        , "p" },
+            { sente_kyo      , "L" },
+            { gote_kyo       , "l" },
+            { sente_kei      , "N" },
+            { gote_kei       , "n" },
+            { sente_gin      , "S" },
+            { gote_gin       , "s" },
+            { sente_kin      , "G" },
+            { gote_kin       , "g" },
+            { sente_kaku     , "B" },
+            { gote_kaku      , "b" },
+            { sente_hi       , "R" },
+            { gote_hi        , "r" },
+            { sente_ou       , "K" },
+            { gote_ou        , "k" },
+            { sente_tokin    , "P+" },
+            { gote_tokin     , "p+" },
+            { sente_nari_kyo , "L+" },
+            { gote_nari_kyo  , "l+" },
+            { sente_nari_kei , "N+" },
+            { gote_nari_kei  , "n+" },
+            { sente_nari_gin , "S+" },
+            { gote_nari_gin  , "s+" },
+            { sente_uma      , "B+" },
+            { gote_uma       , "b+" },
+            { sente_ryu      , "R+" },
+            { gote_ryu       , "r+" },
+        };
+        const auto iter = map.find(koma);
+        if (iter == map.end())
+            return std::nullopt;
+        return iter->second;
+    }
 
     enum sengo_t : unsigned char
     {
@@ -1071,6 +1117,21 @@ namespace shogipp
     }
 
     /**
+     * @breif 座標をSFEN表記法に準拠した文字列に変換する。
+     * @param pos 座標
+     * @return SFEN表記法に準拠した文字列
+     */
+    inline std::string pos_to_sfen_string(pos_t pos)
+    {
+        std::string sfen_string;
+        const char suji = static_cast<char>(pos_to_suji(pos) + 'a');
+        const char dan = static_cast<char>(dan_size - pos_to_dan(pos) + '0');
+        sfen_string += suji;
+        sfen_string += dan;
+        return sfen_string;
+    }
+
+    /**
      * @breif 筋と段から座標を取得する。
      * @param suji 筋
      * @param dan 段
@@ -1193,6 +1254,12 @@ namespace shogipp
          */
         inline bool promote() const noexcept;
 
+        /**
+         * @breif 合法手をSFEN表記法に準拠した文字列に変換する。
+         * @return SFEN表記法に準拠した文字列
+         */
+        inline std::string sfen_string() const;
+
     private:
         pos_t   m_source;           // 移動元の座標(source == npos の場合、持ち駒を打つ)
         pos_t   m_destination;      // 移動先の座標(source == npos の場合、 destination は打つ座標)
@@ -1252,6 +1319,29 @@ namespace shogipp
     {
         SHOGIPP_ASSERT(!is_uchite());
         return m_promote;
+    }
+    
+    inline std::string te_t::sfen_string() const
+    {
+        std::string result;
+        if (is_uchite())
+        {
+            SHOGIPP_ASSERT(to_sengo(source_koma()) == sente);
+            const auto optional_koma = koma_to_sfen_string(source_koma());
+            SHOGIPP_ASSERT(optional_koma.has_value());
+            SHOGIPP_ASSERT(optional_koma->size() == 1);
+            result += *optional_koma;
+            result += '*';
+            result += pos_to_sfen_string(destination());
+        }
+        else
+        {
+            result += pos_to_sfen_string(destination());
+            result += pos_to_sfen_string(source());
+            if (promote())
+                result += '+';
+        }
+        return result;
     }
 
     /**
@@ -1405,6 +1495,11 @@ namespace shogipp
          */
         inline void clear();
 
+        /**
+         * @breif 盤をSFEN表記法に準拠した文字列に変換する。
+         */
+        inline std::string sfen_string() const;
+
     private:
         friend class kyokumen_rollback_validator_t;
         koma_t data[pos_size];
@@ -1474,6 +1569,37 @@ namespace shogipp
         std::fill(std::begin(data), std::end(data), empty);
     }
 
+    inline std::string ban_t::sfen_string() const
+    {
+        std::string result;
+        for (pos_t dan = 0; dan < dan_size; ++dan)
+        {
+            pos_t empty_count = 0;
+            for (pos_t suji = 0; suji < suji_size; ++suji)
+            {
+                const koma_t koma = data[suji_dan_to_pos(suji, dan)];
+                if (koma == empty)
+                    empty_count += 1;
+                else
+                {
+                    if (empty_count > 0)
+                    {
+                        result += static_cast<char>('0' + empty_count);
+                        empty_count = 0;
+                    }
+                    const std::optional<std::string> optional_sfen_string = koma_to_sfen_string(koma);
+                    SHOGIPP_ASSERT(optional_sfen_string.has_value());
+                    result += *optional_sfen_string;
+                }
+            }
+            if (empty_count > 0)
+                result += static_cast<char>('0' + empty_count);
+            if (dan + 1 < dan_size)
+                result += '/';
+        }
+        return result;
+    }
+
     inline te_t::te_t(std::string_view sfen_move, const ban_t & ban)
     {
         if (sfen_move.size() < 4)
@@ -1483,17 +1609,16 @@ namespace shogipp
         {
             if (sfen_move.size() > 4)
                 throw invalid_usi_input{ "invalid sfen move" };
-            auto iter = char_to_koma.find(sfen_move[0]);
-            if (iter == char_to_koma.end())
+            const std::optional<koma_t> optional_koma = char_to_koma(sfen_move[0]);
+            if (!optional_koma)
                 throw invalid_usi_input{ "invalid sfen move" };
-            const koma_t koma = iter->second;
-            if (to_sengo(koma) == gote)
+            if (to_sengo(*optional_koma) == gote)
                 throw invalid_usi_input{ "invalid sfen move" };
             const pos_t destination = sfen_pos_to_pos(sfen_move.substr(2, 2));
 
             m_source = npos;
             m_destination = destination;
-            m_source_koma = koma;
+            m_source_koma = *optional_koma;
             m_captured_koma = empty;
             m_promote = false;
         }
@@ -1992,6 +2117,12 @@ namespace shogipp
          */
         inline void read_kifu_file(std::filesystem::path kifu_file);
 
+        /**
+         * @breif 局面をSFEN表記法に準拠した文字列に変換する。
+         * @return SFEN表記法に準拠した文字列
+         */
+        inline std::string sfen_string() const;
+
         ban_t ban;                                  // 盤
         mochigoma_t mochigoma_list[sengo_size];     // 持ち駒
         tesu_t tesu;                                // 手数
@@ -2069,10 +2200,10 @@ namespace shogipp
             }
             else
             {
-                auto iter = char_to_koma.find(sfen[i]);
-                if (iter == char_to_koma.end())
+                const std::optional<koma_t> optional_koma = char_to_koma(sfen[i]);
+                if (!optional_koma)
                     throw invalid_usi_input{ "unexpected character" };
-                koma_t koma = iter->second;
+                koma_t koma = *optional_koma;
                 if (promoted)
                     koma = to_promoted(koma);
                 temp.ban[suji_dan_to_pos(suji, dan)] = koma;
@@ -2118,11 +2249,10 @@ namespace shogipp
                 }
                 else
                 {
-                    auto iter = char_to_koma.find(sfen[i]);
-                    if (iter == char_to_koma.end())
+                    std::optional<koma_t> optional_koma = char_to_koma(sfen[i]);
+                    if (!optional_koma)
                         throw invalid_usi_input{ "unexpected character" };
-                    koma_t koma = iter->second;
-                    temp.mochigoma_list[to_sengo(koma)][trim_sengo(koma)] = count;
+                    temp.mochigoma_list[to_sengo(*optional_koma)][trim_sengo(*optional_koma)] = count;
                     count = 1;
                 }
                 ++i;
@@ -3077,6 +3207,23 @@ namespace shogipp
         }
     }
 
+    inline std::string kyokumen_t::sfen_string() const
+    {
+        std::string result;
+        result += "sfen ";
+        result += ban.sfen_string();
+        if (!kifu.empty())
+        {
+            result += " moves";
+            for (const te_t & te : kifu)
+            {
+                result += ' ';
+                result += te.sfen_string();
+            }
+        }
+        return result;
+    }
+
     using evaluation_value_t = int;
 
     template<typename Key, typename Value, typename Hash = std::hash<Key>>
@@ -3911,6 +4058,7 @@ namespace shogipp
             dump,
             perft,
             hash,
+            sfen,
         };
 
         id_t id{ id_t::error };
@@ -3985,6 +4133,11 @@ namespace shogipp
                     if (tokens[0] == "hash")
                     {
                         return command_t{ command_t::id_t::hash };
+                    }
+
+                    if (tokens[0] == "sfen")
+                    {
+                        return command_t{ command_t::id_t::sfen };
                     }
 
                     std::size_t move_index;
@@ -4179,6 +4332,9 @@ namespace shogipp
                 break;
             case command_t::id_t::hash:
                 std::cout << hash_to_string(kyokumen.hash()) << std::endl;
+                break;
+            case command_t::id_t::sfen:
+                std::cout << kyokumen.sfen_string() << std::endl;
                 break;
             }
         }

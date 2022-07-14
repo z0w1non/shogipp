@@ -3212,6 +3212,10 @@ namespace shogipp
         std::string result;
         result += "sfen ";
         result += ban.sfen_string();
+        result += ' ';
+        result += sengo() == sente ? 'b' : 'w';
+        result += ' ';
+        result += std::to_string(tesu + 1);
         if (!kifu.empty())
         {
             result += " moves";

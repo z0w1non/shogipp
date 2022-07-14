@@ -2225,6 +2225,7 @@ namespace shogipp
         if (i >= sfen.size())
             throw invalid_usi_input{ "unexpected sfen end" };
 
+        // 例外を投げるためにここでは sengo_to_color_char を使用しない。
         sengo_t sengo;
         if (sfen[i] == 'b')
             sengo = sente;

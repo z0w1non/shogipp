@@ -1088,6 +1088,28 @@ namespace shogipp
     };
 
     /**
+     * @breif SFEN表記法に準拠した座標の文字列から座標を取得する。
+     * @param sfen_pos SFEN表記法に準拠した座標の文字列
+     * @return 座標
+     */
+    inline pos_t sfen_pos_to_pos(std::string_view sfen_pos)
+    {
+        if (sfen_pos.size() != 2)
+            throw invalid_usi_input{ "sfen_pos.size() != 2" };
+        if (sfen_pos[0] < '0')
+            throw invalid_usi_input{ "sfen_pos[0] < '0'" };
+        if (sfen_pos[0] > '9')
+            throw invalid_usi_input{ "sfen_pos[0] > '9'" };
+        if (sfen_pos[1] < 'a')
+            throw invalid_usi_input{ "sfen_pos[1] < 'a'" };
+        if (sfen_pos[1] > 'i')
+            throw invalid_usi_input{ "sfen_pos[1] > 'i'" };
+        const pos_t suji = static_cast<pos_t>(sfen_pos[0] - '0');
+        const pos_t dan = dan_size - static_cast<pos_t>(sfen_pos[1] - 'a');
+        return suji_dan_to_pos(suji, dan);
+    }
+
+    /**
      * @breif 座標を標準出力に出力する。
      * @param pos 座標
      */
@@ -1096,6 +1118,8 @@ namespace shogipp
         std::cout << suji_to_string(pos_to_suji(pos)) << dan_to_string(pos_to_dan(pos));
         std::cout.flush();
     }
+
+    class ban_t;
 
     /**
      * @breif 合法手
@@ -1119,6 +1143,13 @@ namespace shogipp
          * @param promote 成か不成か
          */
         inline te_t(pos_t source, pos_t destination, koma_t source_koma, koma_t captured_koma, bool promote) noexcept;
+
+        /**
+         * @breif SFEN表記法に準拠した moves の後に続く文字列から手を構築する。
+         * @param sfen SFEN表記法に準拠した moves の後に続く文字列
+         * @param ban 盤
+         */
+        inline te_t(std::string_view sfen_move, const ban_t & ban);
 
         /**
          * @breif 打ち手か判定する。
@@ -1441,6 +1472,48 @@ namespace shogipp
     inline void ban_t::clear()
     {
         std::fill(std::begin(data), std::end(data), empty);
+    }
+
+    inline te_t::te_t(std::string_view sfen_move, const ban_t & ban)
+    {
+        if (sfen_move.size() < 4)
+            throw invalid_usi_input{ "invalid sfen move" };
+
+        if (sfen_move[1] == '*')
+        {
+            auto iter = char_to_koma.find(sfen_move[0]);
+            if (iter == char_to_koma.end())
+                throw invalid_usi_input{ "invalid sfen move" };
+            const koma_t koma = iter->second;
+            if (to_sengo(koma) == gote)
+                throw invalid_usi_input{ "invalid sfen move" };
+            const pos_t destination = sfen_pos_to_pos(sfen_move.substr(2, 2));
+
+            m_source = npos;
+            m_destination = destination;
+            m_source_koma = koma;
+            m_captured_koma = empty;
+            m_promote = false;
+        }
+        else
+        {
+            const pos_t source = sfen_pos_to_pos(sfen_move.substr(0, 2));
+            const pos_t destination = sfen_pos_to_pos(sfen_move.substr(2, 2));
+            bool promote;
+            if (sfen_move.size() == 5 && sfen_move[4] == '+')
+                promote = true;
+            else if (sfen_move.size() > 5)
+                throw invalid_usi_input{ "invalid sfen move" };
+            else
+                promote = false;
+
+            m_source = source;
+            m_destination = destination;
+            m_source_koma = ban[source];
+            m_captured_koma = ban[destination];
+            m_promote = promote;
+        }
+
     }
 
     /**

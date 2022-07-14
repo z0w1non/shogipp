@@ -304,6 +304,14 @@ namespace shogipp
         gote
     };
 
+    inline char sengo_to_color_char(sengo_t sengo)
+    {
+        static constexpr char map[] { 'b', 'w' };
+        SHOGIPP_ASSERT(sengo >= sente);
+        SHOGIPP_ASSERT(sengo <= gote);
+        return map[sengo];
+    }
+
     /**
      * @breif ‹t‚ÌŽè”Ô‚ðŽæ“¾‚·‚éB
      * @param sengo æŽè‚©ŒãŽè‚©
@@ -3213,7 +3221,7 @@ namespace shogipp
         result += "sfen ";
         result += ban.sfen_string();
         result += ' ';
-        result += sengo() == sente ? 'b' : 'w';
+        result += sengo_to_color_char(sengo());
         result += ' ';
         result += std::to_string(tesu + 1);
         if (!kifu.empty())

@@ -1699,7 +1699,7 @@ namespace shogipp
 
         inline void print() const
         {
-            for (auto & [pos, candidates] : *this)
+            for (const auto & [pos, candidates] : *this)
                 std::cout << "合駒：" << pos_to_string(pos) << std::endl;
         }
     };
@@ -2189,7 +2189,7 @@ namespace shogipp
         : kyokumen{ kyokumen }
     {
         std::copy(std::begin(kyokumen.board.data), std::end(kyokumen.board.data), std::begin(data));
-        for (color_t color : colors)
+        for (const color_t color : colors)
             std::copy(std::begin(kyokumen.captured_pieces_list), std::end(kyokumen.captured_pieces_list), std::begin(mochigoma_list));
     }
 
@@ -2197,7 +2197,7 @@ namespace shogipp
     {
         for (std::size_t i = 0; i < std::size(data); ++i)
             SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
-        for (color_t color : colors)
+        for (const color_t color : colors)
             for (piece_t piece = fu; piece <= hi; ++piece)
                 SHOGIPP_ASSERT(mochigoma_list[color][piece] == kyokumen.captured_pieces_list[color][piece]);
     }
@@ -2205,7 +2205,7 @@ namespace shogipp
     inline kyokumen_t::kyokumen_t()
     {
         move_count = 0;
-        for (color_t color : colors)
+        for (const color_t color : colors)
             king_pos_list[color] = default_ou_pos_list[color];
         push_additional_info();
     }
@@ -2491,11 +2491,11 @@ namespace shogipp
     template<typename OutputIterator, typename IsCollected, typename Transform>
     inline void kyokumen_t::search_piece(OutputIterator result, pos_t pos, color_t color, IsCollected is_collected, Transform transform) const
     {
-        for (auto & [offset, candidates] : near_kiki_list)
+        for (const auto & [offset, candidates] : near_kiki_list)
             search_piece_near(result, pos, offset * reverse(color), candidates.begin(), candidates.end(), is_collected, transform);
-        for (auto & [offset, candidates] : far_kiki_list_synmmetric)
+        for (const auto & [offset, candidates] : far_kiki_list_synmmetric)
             search_piece_far(result, pos, offset, candidates.begin(), candidates.end(), is_collected, transform);
-        for (auto & [offset, candidates] : far_kiki_list_asynmmetric)
+        for (const auto & [offset, candidates] : far_kiki_list_asynmmetric)
             search_piece_far(result, pos, offset * reverse(color), candidates.begin(), candidates.end(), is_collected, transform);
     }
 
@@ -2669,7 +2669,7 @@ namespace shogipp
                     // 駒を移動させる合駒
                     std::vector<kiki_t> kiki_list;
                     search_kiki(std::back_inserter(kiki_list), destination, !color());
-                    for (kiki_t & kiki : kiki_list)
+                    for (const kiki_t & kiki : kiki_list)
                     {
                         // 王で合駒はできない。
                         if (trim_color(board[kiki.pos]) != ou)
@@ -2811,7 +2811,7 @@ namespace shogipp
                     hash ^= hash_table.piece_hash(piece, pos);
 
         // 持ち駒のハッシュ値をXOR演算
-        for (color_t color : colors)
+        for (const color_t color : colors)
             for (piece_t piece = fu; piece <= hi; ++piece)
                 hash ^= hash_table.captured_piece_hash(piece, captured_pieces_list[color][piece], color);
 
@@ -3501,7 +3501,7 @@ namespace shogipp
             }
         }
 
-        for (auto & [option, params] : params_map)
+        for (const auto & [option, params] : params_map)
             callback(option, params);
     }
 
@@ -3523,14 +3523,14 @@ namespace shogipp
                 evaluation_value += map[trim_color(piece)] * reverse(to_color(piece));
         }
 
-        for (color_t color : colors)
+        for (const color_t color : colors)
             for (piece_t piece = fu; piece <= hi; ++piece)
                 evaluation_value += map[piece] * kyokumen.captured_pieces_list[color][piece] * reverse(move_count_to_color(color));
 
         return evaluation_value;
     }
 
-    using evaluated_moves = std::pair<move_t *, evaluation_value_t>;
+    using evaluated_moves = std::pair<const move_t *, evaluation_value_t>;
 
     /**
      * @breif 合法手を得点により並び替える。
@@ -3610,7 +3610,7 @@ namespace shogipp
             std::vector<evaluated_moves> evaluated_moves;
             auto inserter = std::back_inserter(evaluated_moves);
 
-            for (move_t & move : moves)
+            for (const move_t & move : moves)
             {
                 std::optional<move_t> selected_te_;
                 evaluation_value_t evaluation_value;
@@ -3696,7 +3696,7 @@ namespace shogipp
             std::vector<evaluated_moves> evaluated_moves;
             auto inserter = std::back_inserter(evaluated_moves);
 
-            for (move_t & move : moves)
+            for (const move_t & move : moves)
             {
                 std::optional<move_t> selected_te_;
                 evaluation_value_t evaluation_value;
@@ -3772,7 +3772,7 @@ namespace shogipp
                     auto inserter = std::back_inserter(evaluated_moves);
                     moves_t moves;
                     kyokumen.search_moves(std::back_inserter(moves));
-                    for (move_t & move : moves)
+                    for (const move_t & move : moves)
                     {
                         if (!move.put() && move.destination() == previous_destination)
                         {
@@ -3820,7 +3820,7 @@ namespace shogipp
             std::vector<evaluated_moves> evaluated_moves;
             auto inserter = std::back_inserter(evaluated_moves);
 
-            for (move_t & move : moves)
+            for (const move_t & move : moves)
             {
                 std::optional<move_t> selected_te_;
                 pos_t destination = (!move.put() && move.captured_piece() != empty) ? move.destination() : npos;
@@ -3890,7 +3890,7 @@ namespace shogipp
 
             std::vector<evaluated_moves> scores;
             auto back_inserter = std::back_inserter(scores);
-            for (move_t & t : moves)
+            for (const move_t & t : moves)
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(t);
@@ -4401,7 +4401,7 @@ namespace shogipp
     {
         if (kyokumen.move_count == 0)
         {
-            for (color_t color : colors)
+            for (const color_t color : colors)
                 std::cout << color_to_string(static_cast<color_t>(color)) << "：" << kishi_list[color]->name() << std::endl;
             std::cout << std::endl;
         }

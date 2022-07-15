@@ -12,6 +12,7 @@
 #include <sstream>
 #include <set>
 #include <map>
+#include <unordered_set>
 #include <unordered_map>
 #include <random>
 #include <limits>
@@ -564,6 +565,18 @@ namespace shogipp
         return color ? -1 : 1;
     }
 
+    inline std::size_t unique_hash()
+    {
+        static std::minstd_rand rand{ SHOGIPP_SEED };
+        static std::uniform_int_distribution<std::size_t> uid{ std::numeric_limits<std::size_t>::min(), std::numeric_limits<std::size_t>::max() };
+        static std::unordered_set<std::size_t> returned;
+
+        std::size_t hash;
+        while (hash = uid(rand), returned.find(hash) != returned.end());
+        returned.insert(hash);
+        return hash;
+    }
+
 #ifdef SIZE_OF_HASH
 
     /**
@@ -581,12 +594,9 @@ namespace shogipp
 
         inline basic_hash_t()
         {
-            static std::minstd_rand rand{ SHOGIPP_SEED };
-            static std::uniform_int_distribution<std::size_t> uid{ std::numeric_limits<std::size_t>::min(), std::numeric_limits<std::size_t>::max() };
             static_assert(hash_size % sizeof(std::size_t) == 0);
-            auto random = [&]() -> std::size_t { return uid(rand); };
             for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
-                *reinterpret_cast<std::size_t *>(data + i * sizeof(std::size_t)) = rand();
+                *reinterpret_cast<std::size_t *>(data + i * sizeof(std::size_t)) = unique_hash();
         }
 
         inline basic_hash_t(const basic_hash_t & hash)
@@ -896,7 +906,7 @@ namespace shogipp
         inline hash_t move_hash(const move_t & move, color_t color) const;
 
     private:
-        hash_t board_hash[piece_enum_number * suji_size * dan_size];        // 盤のハッシュテーブル
+        hash_t board_table[piece_enum_number * suji_size * dan_size];        // 盤のハッシュテーブル
         hash_t captured_piece_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];  // 持ち駒のハッシュテーブル
         hash_t color_table[color_size];                                     // 手番のハッシュテーブル
         hash_t move_table[(pos_size + 1) * pos_size * color_size];          // 移動する手のハッシュテーブル
@@ -908,14 +918,11 @@ namespace shogipp
     inline hash_table_t::hash_table_t()
     {
 #ifndef SIZE_OF_HASH
-        std::minstd_rand rand{ SHOGIPP_SEED };
-        std::uniform_int_distribution<hash_t> uid{ std::numeric_limits<hash_t>::min(), std::numeric_limits<hash_t>::max() };
-        auto random = [&rand, &uid]() -> hash_t { return uid(rand); };
-        std::generate(std::begin(ban_table      ), std::end(ban_table      ), random);
-        std::generate(std::begin(mochigoma_table), std::end(mochigoma_table), random);
-        std::generate(std::begin(color_table    ), std::end(color_table    ), random);
-        std::generate(std::begin(move_table     ), std::end(move_table     ), random);
-        std::generate(std::begin(put_table      ), std::end(put_table      ), random);
+        std::generate(std::begin(board_table         ), std::end(board_table         ), unique_hash);
+        std::generate(std::begin(captured_piece_table), std::end(captured_piece_table), unique_hash);
+        std::generate(std::begin(color_table         ), std::end(color_table         ), unique_hash);
+        std::generate(std::begin(move_table          ), std::end(move_table          ), unique_hash);
+        std::generate(std::begin(put_table           ), std::end(put_table           ), unique_hash);
 #endif
     }
 
@@ -926,8 +933,8 @@ namespace shogipp
         index += pos_to_suji(pos);
         index *= dan_size;
         index += pos_to_dan(pos);
-        SHOGIPP_ASSERT(index < std::size(board_hash));
-        return board_hash[index];
+        SHOGIPP_ASSERT(index < std::size(board_table));
+        return board_table[index];
     }
 
     inline hash_t hash_table_t::captured_piece_hash(piece_t piece, std::size_t count, color_t color) const

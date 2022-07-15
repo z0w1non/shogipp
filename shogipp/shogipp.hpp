@@ -549,9 +549,9 @@ namespace shogipp
     using move_count_t = unsigned int;
     using depth_t = signed int;
 
-    inline constexpr color_t move_count_to_color(move_count_t tesu)
+    inline constexpr color_t move_count_to_color(move_count_t move_count)
     {
-        return static_cast<color_t>(tesu % color_size);
+        return static_cast<color_t>(move_count % color_size);
     }
 
     /**
@@ -2153,7 +2153,7 @@ namespace shogipp
 
         board_t board;                                          // 盤
         captured_pieces_t captured_pieces_list[color_size];     // 持ち駒
-        move_count_t tesu;                                      // 手数
+        move_count_t move_count;                                // 手数
         pos_t king_pos_list[color_size];                        // 王の座標
         std::vector<move_t> kifu;                               // 棋譜
         additional_info_t additional_info;                      // 追加情報
@@ -2193,7 +2193,7 @@ namespace shogipp
 
     inline kyokumen_t::kyokumen_t()
     {
-        tesu = 0;
+        move_count = 0;
         for (color_t color : colors)
             king_pos_list[color] = default_ou_pos_list[color];
         push_additional_info();
@@ -2293,11 +2293,11 @@ namespace shogipp
 
         if (sfen[i] >= '0' && sfen[i] <= '9')
         {
-            move_count_t tesu = static_cast<move_count_t>(sfen[i] - '0');
+            move_count_t move_count = static_cast<move_count_t>(sfen[i] - '0');
             while (++i < sfen.size() && sfen[i] >= '0' && sfen[i] <= '9')
-                tesu = static_cast<move_count_t>(tesu * 10 + sfen[i] - '0');
-            --tesu;
-            /*temp.tesu = tesu;*/ /* unused */
+                move_count = static_cast<move_count_t>(move_count * 10 + sfen[i] - '0');
+            --move_count;
+            /*temp.move_count = move_count;*/ /* unused */
         }
 
         while (i < sfen.size() && sfen[i] == ' ')
@@ -2646,8 +2646,8 @@ namespace shogipp
         const aigoma_info_t aigoma_info = search_aigoma(color());
         const pos_t ou_pos = king_pos_list[color()];
         
-        SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
-        const auto & check_list = additional_info.check_list_stack[tesu];
+        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
+        const auto & check_list = additional_info.check_list_stack[move_count];
         if (check_list.size() == 1)
         {
             if (check_list.front().aigoma)
@@ -2774,8 +2774,8 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_moves(OutputIterator result) const
     {
-        SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
-        auto & check_list = additional_info.check_list_stack[tesu];
+        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
+        auto & check_list = additional_info.check_list_stack[move_count];
         if (check_list.empty())
             search_moves_nonevasions(result);
         else
@@ -2885,8 +2885,8 @@ namespace shogipp
 
     inline void kyokumen_t::print_check() const
     {
-        SHOGIPP_ASSERT(tesu < additional_info.check_list_stack.size());
-        auto & check_list = additional_info.check_list_stack[tesu];
+        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
+        auto & check_list = additional_info.check_list_stack[move_count];
         if (!check_list.empty())
         {
             std::cout << "王手：";
@@ -2912,17 +2912,17 @@ namespace shogipp
 
     inline void kyokumen_t::print_kifu() const
     {
-        for (move_count_t tesu = 0; tesu < static_cast<move_count_t>(kifu.size()); ++tesu)
+        for (move_count_t move_count = 0; move_count < static_cast<move_count_t>(kifu.size()); ++move_count)
         {
-            print_move(kifu[tesu], move_count_to_color(tesu));
+            print_move(kifu[move_count], move_count_to_color(move_count));
             std::cout << std::endl;
         }
     }
 
     inline hash_t kyokumen_t::hash() const
     {
-        SHOGIPP_ASSERT(tesu < additional_info.hash_stack.size());
-        return additional_info.hash_stack[tesu];
+        SHOGIPP_ASSERT(move_count < additional_info.hash_stack.size());
+        return additional_info.hash_stack[move_count];
     }
 
     inline void kyokumen_t::validate_board_out()
@@ -2951,7 +2951,7 @@ namespace shogipp
             if (trim_color(move.source_piece()) == ou)
                 king_pos_list[color()] = move.destination();
         }
-        ++tesu;
+        ++move_count;
         kifu.push_back(move);
         push_additional_info(hash);
         validate_board_out();
@@ -2959,8 +2959,8 @@ namespace shogipp
 
     inline void kyokumen_t::undo_move(const move_t & move)
     {
-        SHOGIPP_ASSERT(tesu > 0);
-        --tesu;
+        SHOGIPP_ASSERT(move_count > 0);
+        --move_count;
         if (move.put())
         {
             ++captured_pieces_list[color()][move.source_piece()];
@@ -2981,7 +2981,7 @@ namespace shogipp
 
     inline color_t kyokumen_t::color() const
     {
-        return move_count_to_color(tesu);
+        return move_count_to_color(move_count);
     }
 
     inline unsigned long long kyokumen_t::count_node(move_count_t depth) const
@@ -3004,7 +3004,7 @@ namespace shogipp
     {
         static const std::string mochigoma_string = "持ち駒：";
         static const std::string nothing_string = "なし";
-        static const std::string tesu_suffix = "手目";
+        static const std::string move_count_suffix = "手目";
         static const std::string color_suffix = "番";
 
         std::ifstream stream{ kyokumen_file };
@@ -3034,7 +3034,7 @@ namespace shogipp
                         throw file_format_error{ "read_kyokumen_file 1-1" };
                     --temp_move_count;
 
-                    parse(rest, tesu_suffix);
+                    parse(rest, move_count_suffix);
 
                     std::optional<color_t> color = parse(rest, color_string_map, color_string_size);
 
@@ -3043,7 +3043,7 @@ namespace shogipp
 
                     parse(rest, color_suffix);
 
-                    temp_kyokumen.tesu = temp_move_count;
+                    temp_kyokumen.move_count = temp_move_count;
                     continue;
                 }
                 
@@ -3244,7 +3244,7 @@ namespace shogipp
         result += ' ';
         result += color_to_color_char(color());
         result += ' ';
-        result += std::to_string(tesu + 1);
+        result += std::to_string(move_count + 1);
         if (!kifu.empty())
         {
             result += " moves";
@@ -4347,7 +4347,7 @@ namespace shogipp
                 update_moves();
                 return !moves.empty();
             case command_t::id_t::undo:
-                if (kyokumen.tesu >= 2)
+                if (kyokumen.move_count >= 2)
                 {
                     for (int i = 0; i < 2; ++i)
                         kyokumen.undo_move(kyokumen.kifu.back());
@@ -4375,7 +4375,7 @@ namespace shogipp
 
     inline void taikyoku_t::print() const
     {
-        if (kyokumen.tesu == 0)
+        if (kyokumen.move_count == 0)
         {
             for (color_t color : colors)
                 std::cout << color_to_string(static_cast<color_t>(color)) << "：" << kishi_list[color]->name() << std::endl;
@@ -4385,14 +4385,14 @@ namespace shogipp
         if (moves.empty())
         {
             auto & winner_evaluator = kishi_list[!kyokumen.color()];
-            std::cout << kyokumen.tesu << "手詰み" << std::endl;
+            std::cout << kyokumen.move_count << "手詰み" << std::endl;
             kyokumen.print();
             std::cout << color_to_string(!kyokumen.color()) << "勝利（" << winner_evaluator->name() << "）";
             std::cout.flush();
         }
         else
         {
-            std::cout << (kyokumen.tesu + 1) << "手目" << color_to_string(kyokumen.color()) << "番" << std::endl;
+            std::cout << (kyokumen.move_count + 1) << "手目" << color_to_string(kyokumen.color()) << "番" << std::endl;
             kyokumen.print();
             std::cout << hash_to_string(kyokumen.hash()) << std::endl;
             kyokumen.print_move();

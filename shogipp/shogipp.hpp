@@ -26,6 +26,7 @@
 #include <utility>
 #include <regex>
 #include <functional>
+#include <mutex>
 
 /**
  * @breif ハッシュ値のバイト数を定義する。
@@ -3347,14 +3348,32 @@ namespace shogipp
     using evaluation_value_cache_t = lru_cache_t<hash_t, evaluation_value_t>;
 #endif
 
-    using cache_hit_count_t = unsigned long long;
+    using search_count_t = unsigned long long;
 
+    /**
+     * @breif 合法手と評価値を対応付けるキャッシュとその関連情報
+     */
     class cache_t
     {
     public:
-        cache_hit_count_t search_count{};
-        cache_hit_count_t cache_hit_count{};
+        search_count_t search_count{};
+        search_count_t cache_hit_count{};
         evaluation_value_cache_t evaluation_value_cache{ std::numeric_limits<std::size_t>::max() };
+    };
+
+    class usi_info_t
+    {
+        depth_t depth{};
+        depth_t seldepth{};
+        std::chrono::system_clock::time_point begin;
+        search_count_t nodes{};
+        std::stack<move_t> pv;
+        // multipv
+        evaluation_value_t cp{};
+        move_count_t mate{};
+        move_t currmove;
+        search_count_t search_count{};
+        search_count_t cache_hit_count{};
     };
 
     /**
@@ -3642,7 +3661,7 @@ namespace shogipp
             const evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, cache, selected_move);
             details::timer.search_count() += cache.search_count;
             std::cout << "読み手数：" << cache.search_count << std::endl;
-            const cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+            const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
             std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_move.has_value());
@@ -3731,7 +3750,7 @@ namespace shogipp
             const evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move);
             details::timer.search_count() += cache.search_count;
             std::cout << "読み手数：" << cache.search_count << std::endl;
-            const cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+            const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
             std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_move.has_value());
@@ -3856,7 +3875,7 @@ namespace shogipp
             const evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move, npos);
             details::timer.search_count() += cache.search_count;
             std::cout << "読み手数：" << cache.search_count << std::endl;
-            const cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+            const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
             std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_move.has_value());
@@ -4472,6 +4491,84 @@ namespace shogipp
         kyokumen_t kyokumen;
         do_taikyoku(kyokumen, sente_kishi, gote_kishi);
     }
+
+    /**
+     * @breif USIプロトコルで通信する機能を提供する。
+     */
+    class usi_engine_t
+    {
+        inline void receive()
+        {
+            std::string line;
+
+            while (std::getline(std::cin, line))
+            {
+                std::vector<std::string> tokens;
+                split_tokens(std::back_inserter(tokens), std::string_view{ line });
+
+                if (tokens.empty())
+                {
+                    continue;
+                }
+                if (tokens[0] == "usi")
+                {
+                    std::cout << "id name " << name() << std::endl;
+                    std::cout << "id author " << author() << std::endl;
+                    std::cout << "usiok" << std::endl;
+                }
+                else if (tokens[0] == "isready")
+                {
+                    ready();
+                    std::cout << "readyok" << std::endl;
+                }
+                else if (tokens[0] == "usinewgame")
+                {
+
+                }
+                else if (tokens[0] == "position ")
+                {
+
+                }
+                else if (tokens[0] == "go")
+                {
+
+                }
+                else if (tokens[0] == "stop")
+                {
+
+                }
+                else if (tokens[0] == "quit")
+                {
+                    return;
+                }
+                else if (tokens[0] == "gameover")
+                {
+                    ;
+                }
+            }
+        }
+
+        /**
+         * @breif プログラムの名前を返す。
+         * @return プログラムの名前
+         */
+        virtual const char * name() = 0;
+
+        /**
+         * @breif プログラムの開発者名を返す。
+         * @return プログラムの開発者名
+         */
+        virtual const char * author() = 0;
+
+        /**
+         * @breif isready コマンドを受信した場合に呼び出される。
+         */
+        virtual void ready() = 0;
+
+    private:
+        std::mutex m_mutex;
+        usi_info_t m_usi_info;
+    };
 
     static const std::map<std::string, std::shared_ptr<abstract_kishi_t>> kishi_map
     {

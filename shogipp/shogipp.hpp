@@ -2026,7 +2026,7 @@ namespace shogipp
         inline void search_moves_evasions(OutputIterator result) const;
 
         /**
-         * @breif 王手を外さない手のうち駒を動かすte する。
+         * @breif 王手を外さない手のうち駒を動かす手を検索する。
          * @param result 合法手の出力イテレータ
          */
         template<typename OutputIterator>
@@ -2430,14 +2430,14 @@ namespace shogipp
             if (!board_t::out(pos) && board[pos] != empty && trim_color(board[pos]) == ou && to_color(board[pos]) != color())
             {
                 move_t move{ destination, piece };
-                moves_t te_list;
+                moves_t moves;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(*this);
                     const_cast<kyokumen_t &>(*this).do_move(move);
-                    search_moves(std::back_inserter(te_list));
+                    search_moves(std::back_inserter(moves));
                     const_cast<kyokumen_t &>(*this).undo_move(move);
                 }
-                if (te_list.empty())
+                if (moves.empty())
                     return false;
             }
         }
@@ -2784,9 +2784,9 @@ namespace shogipp
 
     inline moves_t kyokumen_t::search_moves() const
     {
-        moves_t te_list;
-        search_moves(std::back_inserter(te_list));
-        return te_list;
+        moves_t moves;
+        search_moves(std::back_inserter(moves));
+        return moves;
     }
 
     inline hash_t kyokumen_t::make_hash() const
@@ -3023,27 +3023,27 @@ namespace shogipp
                 std::string_view rest = line;
                 if (rest.size() >= 1 && rest[0] >= '0' && rest[0] <= '9')
                 {
-                    move_count_t temp_tesu = 0;
+                    move_count_t temp_move_count = 0;
                     do
                     {
-                        temp_tesu *= 10;
-                        temp_tesu += rest[0] - '0';
+                        temp_move_count *= 10;
+                        temp_move_count += rest[0] - '0';
                         rest.remove_prefix(1);
                     } while (rest.size() >= 1 && rest[0] >= '0' && rest[0] <= '9');
-                    if (temp_tesu == 0)
+                    if (temp_move_count == 0)
                         throw file_format_error{ "read_kyokumen_file 1-1" };
-                    --temp_tesu;
+                    --temp_move_count;
 
                     parse(rest, tesu_suffix);
 
                     std::optional<color_t> color = parse(rest, color_string_map, color_string_size);
 
-                    if (move_count_to_color(temp_tesu) != *color)
+                    if (move_count_to_color(temp_move_count) != *color)
                         throw file_format_error{ "read_kyokumen_file 1-6" };
 
                     parse(rest, color_suffix);
 
-                    temp_kyokumen.tesu = temp_tesu;
+                    temp_kyokumen.tesu = temp_move_count;
                     continue;
                 }
                 
@@ -3349,7 +3349,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        virtual move_t select_te(kyokumen_t & kyokumen) = 0;
+        virtual move_t select_move(kyokumen_t & kyokumen) = 0;
 
         /**
          * @breif 評価関数オブジェクトの名前を返す。
@@ -3365,13 +3365,13 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        move_t select_te(kyokumen_t & kyokumen)
+        move_t select_move(kyokumen_t & kyokumen)
         {
             bool selected = false;
 
             unsigned int id;
-            moves_t te_list;
-            kyokumen.search_moves(std::back_inserter(te_list));
+            moves_t moves;
+            kyokumen.search_moves(std::back_inserter(moves));
             
             while (!selected)
             {
@@ -3382,7 +3382,7 @@ namespace shogipp
                     std::cin >> id;
                     if (id == 0)
                         throw invalid_command_line_input{ "invalid command line input" };
-                    if (id > te_list.size())
+                    if (id > moves.size())
                         throw invalid_command_line_input{ "invalid command line input" };
                     --id;
                     selected = true;
@@ -3394,7 +3394,7 @@ namespace shogipp
                     std::cin.ignore();
                 }
             }
-            return te_list[id];
+            return moves[id];
         }
 
         const char * name()
@@ -3509,30 +3509,30 @@ namespace shogipp
         return evaluation_value;
     }
 
-    using evaluated_te = std::pair<move_t *, evaluation_value_t>;
+    using evaluated_moves = std::pair<move_t *, evaluation_value_t>;
 
     /**
      * @breif 合法手を得点により並び替える。
-     * @param first scored_te の先頭を指すランダムアクセスイテレータ
-     * @param last scored_te の末尾を指すランダムアクセスイテレータ
+     * @param first evaluated_moves の先頭を指すランダムアクセスイテレータ
+     * @param last evaluated_moves の末尾を指すランダムアクセスイテレータ
      * @param color 先手か後手か
      * @details 評価値の符号を手番により変更するようにしたため、現在この関数を使用する予定はない。
      */
     template<typename RandomAccessIterator>
-    void sort_te_by_evaluation_value(RandomAccessIterator first, RandomAccessIterator last, color_t color)
+    void sort_moves_by_evaluation_value(RandomAccessIterator first, RandomAccessIterator last, color_t color)
     {
-        using comparator = bool (const evaluated_te & a, const evaluated_te & b);
+        using comparator = bool (const evaluated_moves & a, const evaluated_moves & b);
         comparator * const map[]{
-            [](const evaluated_te & a, const evaluated_te & b) -> bool { return a.second > b.second; },
-            [](const evaluated_te & a, const evaluated_te & b) -> bool { return a.second < b.second; }
+            [](const evaluated_moves & a, const evaluated_moves & b) -> bool { return a.second > b.second; },
+            [](const evaluated_moves & a, const evaluated_moves & b) -> bool { return a.second < b.second; }
         };
         std::sort(first, last, map[color]);
     }
 
     /**
      * @breif 合法手を区分により並び替える。
-     * @param first scored_te の先頭を指すランダムアクセスイテレータ
-     * @param last scored_te の末尾を指すランダムアクセスイテレータ
+     * @param first evaluated_moves の先頭を指すランダムアクセスイテレータ
+     * @param last evaluated_moves の末尾を指すランダムアクセスイテレータ
      * @details 駒取りが発生する手、駒取りが発生しない手、打つ手の順に並び替える。
      */
     template<typename RandomAccessIterator>
@@ -3547,9 +3547,9 @@ namespace shogipp
      * @param last scored_te の末尾を指すランダムアクセスイテレータ
      */
     template<typename RandomAccessIterator>
-    void sort_te_by_evaluation_value(RandomAccessIterator first, RandomAccessIterator last)
+    void sort_moves_by_evaluation_value(RandomAccessIterator first, RandomAccessIterator last)
     {
-        std::sort(first, last, [](const evaluated_te & a, const evaluated_te & b) -> bool { return a.second > b.second; });
+        std::sort(first, last, [](const evaluated_moves & a, const evaluated_moves & b) -> bool { return a.second > b.second; });
     }
 
     /**
@@ -3563,7 +3563,7 @@ namespace shogipp
             kyokumen_t & kyokumen,
             depth_t depth,
             unsigned int & search_count,
-            std::optional<move_t> & selected_te
+            std::optional<move_t> & selected_move
         )
         {
             if (depth <= 0)
@@ -3580,16 +3580,16 @@ namespace shogipp
                 return evaluation_value;
             }
 
-            moves_t te_list;
-            kyokumen.search_moves(std::back_inserter(te_list));
+            moves_t moves;
+            kyokumen.search_moves(std::back_inserter(moves));
 
-            if (te_list.empty())
+            if (moves.empty())
                 return -std::numeric_limits<evaluation_value_t>::max();
 
-            std::vector<evaluated_te> evaluated_te_list;
-            auto inserter = std::back_inserter(evaluated_te_list);
+            std::vector<evaluated_moves> evaluated_moves;
+            auto inserter = std::back_inserter(evaluated_moves);
 
-            for (move_t & move : te_list)
+            for (move_t & move : moves)
             {
                 std::optional<move_t> selected_te_;
                 evaluation_value_t evaluation_value;
@@ -3602,10 +3602,10 @@ namespace shogipp
                 *inserter++ = { &move, evaluation_value };
             }
 
-            SHOGIPP_ASSERT(!te_list.empty());
-            sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
-            selected_te = *evaluated_te_list.front().first;
-            return evaluated_te_list.front().second;
+            SHOGIPP_ASSERT(!moves.empty());
+            sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+            selected_move = *evaluated_moves.front().first;
+            return evaluated_moves.front().second;
         }
 
         /**
@@ -3613,20 +3613,20 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t select_te(kyokumen_t & kyokumen) override
+        move_t select_move(kyokumen_t & kyokumen) override
         {
             cache_hit_count = 0;
             evaluation_value_cache.clear();
             unsigned int search_count = 0;
             depth_t default_max_depth = 3;
-            std::optional<move_t> selected_te;
-            evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_te);
+            std::optional<move_t> selected_move;
+            evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, search_count, selected_move);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "読み手数（キャッシュ）：" << cache_hit_count << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
-            SHOGIPP_ASSERT(selected_te.has_value());
-            return *selected_te;
+            SHOGIPP_ASSERT(selected_move.has_value());
+            return *selected_move;
         }
 
         /**
@@ -3653,7 +3653,7 @@ namespace shogipp
             evaluation_value_t alpha,
             evaluation_value_t beta,
             unsigned int & search_count,
-            std::optional<move_t> & selected_te)
+            std::optional<move_t> & selected_move)
         {
             if (depth <= 0)
             {
@@ -3669,17 +3669,17 @@ namespace shogipp
                 return evaluation_value;
             }
 
-            moves_t te_list;
-            kyokumen.search_moves(std::back_inserter(te_list));
-            sort_te_by_category(te_list.begin(), te_list.end());
+            moves_t moves;
+            kyokumen.search_moves(std::back_inserter(moves));
+            sort_te_by_category(moves.begin(), moves.end());
 
-            if (te_list.empty())
+            if (moves.empty())
                 return -std::numeric_limits<evaluation_value_t>::max();
 
-            std::vector<evaluated_te> evaluated_te_list;
-            auto inserter = std::back_inserter(evaluated_te_list);
+            std::vector<evaluated_moves> evaluated_moves;
+            auto inserter = std::back_inserter(evaluated_moves);
 
-            for (move_t & move : te_list)
+            for (move_t & move : moves)
             {
                 std::optional<move_t> selected_te_;
                 evaluation_value_t evaluation_value;
@@ -3695,10 +3695,10 @@ namespace shogipp
                     break;
             }
 
-            SHOGIPP_ASSERT(!te_list.empty());
-            sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
-            selected_te = *evaluated_te_list.front().first;
-            return evaluated_te_list.front().second;
+            SHOGIPP_ASSERT(!moves.empty());
+            sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+            selected_move = *evaluated_moves.front().first;
+            return evaluated_moves.front().second;
         }
 
         /**
@@ -3706,20 +3706,20 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t select_te(kyokumen_t & kyokumen) override
+        move_t select_move(kyokumen_t & kyokumen) override
         {
             cache_hit_count = 0;
             evaluation_value_cache.clear();
             unsigned int search_count = 0;
             depth_t default_max_depth = 3;
-            std::optional<move_t> selected_te;
-            evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), search_count, selected_te);
+            std::optional<move_t> selected_move;
+            evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), search_count, selected_move);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "読み手数（キャッシュ）：" << cache_hit_count << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
-            SHOGIPP_ASSERT(selected_te.has_value());
-            return *selected_te;
+            SHOGIPP_ASSERT(selected_move.has_value());
+            return *selected_move;
         }
 
         /**
@@ -3747,7 +3747,7 @@ namespace shogipp
             evaluation_value_t alpha,
             evaluation_value_t beta,
             unsigned int & search_count,
-            std::optional<move_t> & selected_te,
+            std::optional<move_t> & selected_move,
             pos_t previous_destination)
         {
             if (depth <= 0)
@@ -3755,11 +3755,11 @@ namespace shogipp
                 // 前回駒取りが発生していた場合、探索を延長する。
                 if (previous_destination != npos)
                 {
-                    std::vector<evaluated_te> evaluated_te_list;
-                    auto inserter = std::back_inserter(evaluated_te_list);
-                    moves_t te_list;
-                    kyokumen.search_moves(std::back_inserter(te_list));
-                    for (move_t & move : te_list)
+                    std::vector<evaluated_moves> evaluated_moves;
+                    auto inserter = std::back_inserter(evaluated_moves);
+                    moves_t moves;
+                    kyokumen.search_moves(std::back_inserter(moves));
+                    for (move_t & move : moves)
                     {
                         if (!move.put() && move.destination() == previous_destination)
                         {
@@ -3777,28 +3777,28 @@ namespace shogipp
                                 break;
                         }
                     }
-                    if (!evaluated_te_list.empty())
+                    if (!evaluated_moves.empty())
                     {
-                        sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
-                        selected_te = *evaluated_te_list.front().first;
-                        return evaluated_te_list.front().second;
+                        sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+                        selected_move = *evaluated_moves.front().first;
+                        return evaluated_moves.front().second;
                     }
                 }
                 ++search_count;
                 return eval(kyokumen) * reverse(kyokumen.color());
             }
 
-            moves_t te_list;
-            kyokumen.search_moves(std::back_inserter(te_list));
-            sort_te_by_category(te_list.begin(), te_list.end());
+            moves_t moves;
+            kyokumen.search_moves(std::back_inserter(moves));
+            sort_te_by_category(moves.begin(), moves.end());
 
-            if (te_list.empty())
+            if (moves.empty())
                 return -std::numeric_limits<evaluation_value_t>::max();
 
-            std::vector<evaluated_te> evaluated_te_list;
-            auto inserter = std::back_inserter(evaluated_te_list);
+            std::vector<evaluated_moves> evaluated_moves;
+            auto inserter = std::back_inserter(evaluated_moves);
 
-            for (move_t & move : te_list)
+            for (move_t & move : moves)
             {
                 std::optional<move_t> selected_te_;
                 pos_t destination = (!move.put() && move.captured_piece() != empty) ? move.destination() : npos;
@@ -3815,10 +3815,10 @@ namespace shogipp
                     break;
             }
 
-            SHOGIPP_ASSERT(!te_list.empty());
-            sort_te_by_evaluation_value(evaluated_te_list.begin(), evaluated_te_list.end());
-            selected_te = *evaluated_te_list.front().first;
-            return evaluated_te_list.front().second;
+            SHOGIPP_ASSERT(!moves.empty());
+            sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+            selected_move = *evaluated_moves.front().first;
+            return evaluated_moves.front().second;
         }
 
         /**
@@ -3826,17 +3826,17 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t select_te(kyokumen_t & kyokumen) override
+        move_t select_move(kyokumen_t & kyokumen) override
         {
             unsigned int search_count = 0;
             depth_t default_max_depth = 3;
-            std::optional<move_t> selected_te;
-            evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), search_count, selected_te, npos);
+            std::optional<move_t> selected_move;
+            evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), search_count, selected_move, npos);
             details::timer.search_count() += search_count;
             std::cout << "読み手数：" << search_count << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
-            SHOGIPP_ASSERT(selected_te.has_value());
-            return *selected_te;
+            SHOGIPP_ASSERT(selected_move.has_value());
+            return *selected_move;
         }
 
         /**
@@ -3859,14 +3859,14 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t select_te(kyokumen_t & kyokumen) override
+        move_t select_move(kyokumen_t & kyokumen) override
         {
-            moves_t te_list;
-            kyokumen.search_moves(std::back_inserter(te_list));
+            moves_t moves;
+            kyokumen.search_moves(std::back_inserter(moves));
 
-            std::vector<evaluated_te> scores;
+            std::vector<evaluated_moves> scores;
             auto back_inserter = std::back_inserter(scores);
-            for (move_t & t : te_list)
+            for (move_t & t : moves)
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(t);
@@ -4112,10 +4112,10 @@ namespace shogipp
 
     /**
      * @breif 標準入力からコマンドを読み込む。
-     * @param te_list 合法手
+     * @param moves 合法手
      * @return 読み込まれたコマンド
      */
-    inline command_t read_command_line_input(const moves_t & te_list)
+    inline command_t read_command_line_input(const moves_t & moves)
     {
         std::string command_line;
         while (true)
@@ -4184,12 +4184,12 @@ namespace shogipp
                     }
                     if (move_index == 0)
                         throw invalid_command_line_input{ "move_index == 0" };
-                    if (move_index > te_list.size())
-                        throw invalid_command_line_input{ "move_index > te_list.size()" };
+                    if (move_index > moves.size())
+                        throw invalid_command_line_input{ "move_index > moves.size()" };
                     const std::size_t raw_move_index = move_index - 1;
                     command_t command;
                     command.id = command_t::id_t::move;
-                    command.opt_te = te_list[raw_move_index];
+                    command.opt_te = moves[raw_move_index];
                     return command;
                 }
             }
@@ -4244,7 +4244,7 @@ namespace shogipp
         inline void update_moves() const;
 
         std::shared_ptr<abstract_kishi_t> kishi_list[color_size];
-        mutable moves_t te_list;
+        mutable moves_t moves;
         kyokumen_t kyokumen;
         bool black_win;
     };
@@ -4312,7 +4312,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        return command_t{ command_t::id_t::move, ptr->select_te(taikyoku.kyokumen) };
+        return command_t{ command_t::id_t::move, ptr->select_move(taikyoku.kyokumen) };
     }
 
     const char * computer_kishi_t::name() const
@@ -4345,14 +4345,14 @@ namespace shogipp
                 std::cout << std::endl << std::endl;
                 kyokumen.do_move(*cmd.opt_te);
                 update_moves();
-                return !te_list.empty();
+                return !moves.empty();
             case command_t::id_t::undo:
                 if (kyokumen.tesu >= 2)
                 {
                     for (int i = 0; i < 2; ++i)
                         kyokumen.undo_move(kyokumen.kifu.back());
                     update_moves();
-                    return !te_list.empty();
+                    return !moves.empty();
                 }
                 break;
             case command_t::id_t::giveup:
@@ -4382,7 +4382,7 @@ namespace shogipp
             std::cout << std::endl;
         }
 
-        if (te_list.empty())
+        if (moves.empty())
         {
             auto & winner_evaluator = kishi_list[!kyokumen.color()];
             std::cout << kyokumen.tesu << "手詰み" << std::endl;
@@ -4402,13 +4402,13 @@ namespace shogipp
 
     inline const moves_t & taikyoku_t::get_moves() const
     {
-        return te_list;
+        return moves;
     }
 
     inline void taikyoku_t::update_moves() const
     {
-        te_list.clear();
-        kyokumen.search_moves(std::back_inserter(te_list));
+        moves.clear();
+        kyokumen.search_moves(std::back_inserter(moves));
     }
 
     /**

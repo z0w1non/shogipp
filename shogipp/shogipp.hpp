@@ -565,6 +565,10 @@ namespace shogipp
         return color ? -1 : 1;
     }
 
+    /**
+     * @breif 重複しないハッシュ値を返す。
+     * @return 重複しないハッシュ値
+     */
     inline std::size_t unique_hash()
     {
         static std::minstd_rand rand{ SHOGIPP_SEED };

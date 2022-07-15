@@ -3590,13 +3590,13 @@ namespace shogipp
             if (depth <= 0)
             {
                 ++cache.search_count;
-                std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+                const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
                 if (cached_evaluation_value)
                 {
                     ++cache.cache_hit_count;
                     return *cached_evaluation_value;
                 }
-                evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
+                const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
                 cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
                 return evaluation_value;
             }
@@ -3639,10 +3639,10 @@ namespace shogipp
             cache_t cache;
             depth_t default_max_depth = 3;
             std::optional<move_t> selected_move;
-            evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, cache, selected_move);
+            const evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, cache, selected_move);
             details::timer.search_count() += cache.search_count;
             std::cout << "読み手数：" << cache.search_count << std::endl;
-            cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+            const cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
             std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_move.has_value());
@@ -3675,13 +3675,13 @@ namespace shogipp
             if (depth <= 0)
             {
                 ++cache.search_count;
-                std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+                const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
                 if (cached_evaluation_value)
                 {
                     ++cache.cache_hit_count;
                     return *cached_evaluation_value;
                 }
-                evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
+                const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
                 cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
                 return evaluation_value;
             }
@@ -3728,10 +3728,10 @@ namespace shogipp
             cache_t cache;
             depth_t default_max_depth = 3;
             std::optional<move_t> selected_move;
-            evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move);
+            const evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move);
             details::timer.search_count() += cache.search_count;
             std::cout << "読み手数：" << cache.search_count << std::endl;
-            cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+            const cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
             std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_move.has_value());
@@ -3799,13 +3799,13 @@ namespace shogipp
                 }
 
                 ++cache.search_count;
-                std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+                const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
                 if (cached_evaluation_value)
                 {
                     ++cache.cache_hit_count;
                     return *cached_evaluation_value;
                 }
-                evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
+                const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
                 cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
                 return evaluation_value;
             }
@@ -3853,10 +3853,10 @@ namespace shogipp
             cache_t cache;
             depth_t default_max_depth = 3;
             std::optional<move_t> selected_move;
-            evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move, npos);
+            const evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move, npos);
             details::timer.search_count() += cache.search_count;
             std::cout << "読み手数：" << cache.search_count << std::endl;
-            cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+            const cache_hit_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
             std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
             std::cout << "評価値：" << evaluation_value << std::endl;
             SHOGIPP_ASSERT(selected_move.has_value());

@@ -3547,7 +3547,7 @@ namespace shogipp
      * @details ‹îæ‚è‚ª”­¶‚·‚éèA‹îæ‚è‚ª”­¶‚µ‚È‚¢èA‘Å‚Âè‚Ì‡‚É•À‚Ñ‘Ö‚¦‚éB
      */
     template<typename RandomAccessIterator>
-    void sort_te_by_category(RandomAccessIterator first, RandomAccessIterator last)
+    void sort_moves_by_category(RandomAccessIterator first, RandomAccessIterator last)
     {
         std::sort(first, last, [](const move_t & a, const move_t & b) -> bool { return to_category(a) >= to_category(b); });
     }
@@ -3682,7 +3682,7 @@ namespace shogipp
 
             moves_t moves;
             kyokumen.search_moves(std::back_inserter(moves));
-            sort_te_by_category(moves.begin(), moves.end());
+            sort_moves_by_category(moves.begin(), moves.end());
 
             if (moves.empty())
                 return -std::numeric_limits<evaluation_value_t>::max();
@@ -3801,7 +3801,7 @@ namespace shogipp
 
             moves_t moves;
             kyokumen.search_moves(std::back_inserter(moves));
-            sort_te_by_category(moves.begin(), moves.end());
+            sort_moves_by_category(moves.begin(), moves.end());
 
             if (moves.empty())
                 return -std::numeric_limits<evaluation_value_t>::max();

@@ -2340,7 +2340,7 @@ namespace shogipp
                         ++i;
 
                     const std::string_view token = sfen.substr(begin, i - begin + 1);
-                    temp.kifu.emplace_back(token, temp.board);
+                    /*temp.kifu.emplace_back(token, temp.board);*/
                 }
             }
         }

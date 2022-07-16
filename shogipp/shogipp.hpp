@@ -3361,21 +3361,6 @@ namespace shogipp
         evaluation_value_cache_t evaluation_value_cache{ std::numeric_limits<std::size_t>::max() };
     };
 
-    class usi_info_t
-    {
-        depth_t depth{};
-        depth_t seldepth{};
-        std::chrono::system_clock::time_point begin;
-        search_count_t nodes{};
-        std::stack<move_t> pv;
-        // multipv
-        evaluation_value_t cp{};
-        move_count_t mate{};
-        move_t currmove;
-        search_count_t search_count{};
-        search_count_t cache_hit_count{};
-    };
-
     /**
      * @breif 評価関数オブジェクトのインターフェース
      */
@@ -3591,6 +3576,25 @@ namespace shogipp
     {
         std::sort(first, last, [](const evaluated_moves & a, const evaluated_moves & b) -> bool { return a.second > b.second; });
     }
+
+    /**
+     * @breif USIプロトコルでクライアントからサーバーに送信される情報を表現する。
+     */
+    class usi_info_t
+    {
+        depth_t depth{};
+        depth_t seldepth{};
+        std::chrono::system_clock::time_point begin;
+        search_count_t nodes{};
+        std::stack<move_t> pv;
+        // multipv
+        evaluation_value_t cp{};
+        move_count_t mate{};
+        move_t currmove;
+        search_count_t search_count{};
+        search_count_t cache_hit_count{};
+        std::mutex m_mutex;
+    };
 
     /**
      * @breif negamax で合法手を選択する評価関数オブジェクトの抽象クラス
@@ -4506,34 +4510,119 @@ namespace shogipp
                 std::vector<std::string> tokens;
                 split_tokens(std::back_inserter(tokens), std::string_view{ line });
 
+                std::size_t current = 0;
+
                 if (tokens.empty())
                 {
                     continue;
                 }
-                if (tokens[0] == "usi")
+                if (tokens[current] == "usi")
                 {
                     std::cout << "id name " << name() << std::endl;
                     std::cout << "id author " << author() << std::endl;
                     std::cout << "usiok" << std::endl;
                 }
-                else if (tokens[0] == "isready")
+                else if (tokens[current] == "isready")
                 {
                     ready();
                     std::cout << "readyok" << std::endl;
                 }
-                else if (tokens[0] == "usinewgame")
+                else if (tokens[current] == "usinewgame")
                 {
-
+                   
                 }
-                else if (tokens[0] == "position ")
+                else if (tokens[current] == "position")
                 {
-
                 }
-                else if (tokens[0] == "go")
+                else if (tokens[current] == "go")
                 {
+                    std::optional<unsigned long> opt_btime;
+                    std::optional<unsigned long> opt_wtime;
+                    std::optional<unsigned long> opt_byoyomi;
+                    std::optional<unsigned long> opt_binc;
+                    std::optional<unsigned long> opt_winc;
+                    bool infinite = false;
+                    bool mate = false;
 
+                    ++current;
+                    while (current < tokens.size())
+                    {
+                        if (tokens[current] == "ponder")
+                        {
+                            ++current;
+                        }
+                        else if (tokens[current] == "btime")
+                        {
+                            ++current;
+                            if (current < tokens.size())
+                            {
+                                throw invalid_usi_input{ "unexpected end of command" };
+                            }
+                            opt_btime = std::stoul(tokens[current]);
+                            ++current;
+                        }
+                        else if (tokens[current] == "wtime")
+                        {
+                            ++current;
+                            if (current < tokens.size())
+                            {
+                                throw invalid_usi_input{ "unexpected end of command" };
+                            }
+                            opt_wtime = std::stoul(tokens[current]);
+                            ++current;
+                        }
+                        else if (tokens[current] == "byoyomi")
+                        {
+                            ++current;
+                            if (current < tokens.size())
+                            {
+                                throw invalid_usi_input{ "unexpected end of command" };
+                            }
+                            opt_byoyomi = std::stoul(tokens[current]);
+                            ++current;
+                        }
+                        else if (tokens[current] == "binc")
+                        {
+                            ++current;
+                            if (current < tokens.size())
+                            {
+                                throw invalid_usi_input{ "unexpected end of command" };
+                            }
+                            opt_binc = std::stoul(tokens[current]);
+                            ++current;
+                        }
+                        else if (tokens[current] == "winc")
+                        {
+                            ++current;
+                            if (current < tokens.size())
+                            {
+                                throw invalid_usi_input{ "unexpected end of command" };
+                            }
+                            opt_winc = std::stoul(tokens[current]);
+                            ++current;
+                        }
+                        else if (tokens[current] == "infinite")
+                        {
+                            ++current;
+                            infinite = true;
+                        }
+                        else if (tokens[current] == "mate")
+                        {
+                            ++current;
+                            mate = true;
+                        }
+                    }
+
+                    if (mate)
+                    {
+                        ;
+                    }
+                    else
+                    {
+
+                    }
                 }
-                else if (tokens[0] == "stop")
+                else if (tokens[current] == "stop")
                 {
 
                 }
@@ -4566,7 +4655,6 @@ namespace shogipp
         virtual void ready() = 0;
 
     private:
-        std::mutex m_mutex;
         usi_info_t m_usi_info;
     };
 

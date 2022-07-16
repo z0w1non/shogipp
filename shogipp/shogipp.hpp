@@ -3374,7 +3374,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        virtual move_t select_move(kyokumen_t & kyokumen) = 0;
+        virtual move_t best_move(kyokumen_t & kyokumen) = 0;
 
         /**
          * @breif 評価関数オブジェクトの名前を返す。
@@ -3390,7 +3390,7 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        move_t select_move(kyokumen_t & kyokumen)
+        move_t best_move(kyokumen_t & kyokumen)
         {
             bool selected = false;
 
@@ -3582,6 +3582,7 @@ namespace shogipp
      */
     class usi_info_t
     {
+    public:
         depth_t depth{};
         depth_t seldepth{};
         std::chrono::system_clock::time_point begin;
@@ -3593,9 +3594,12 @@ namespace shogipp
         move_t currmove;
         search_count_t search_count{};
         search_count_t cache_hit_count{};
-        std::mutex m_mutex;
+        std::mutex mutex;
     };
 
+    /**
+     * @breif 局面に対して評価値を返す機能を提供する。
+     */
     class evaluatable_t
     {
     public:
@@ -3621,17 +3625,17 @@ namespace shogipp
             kyokumen_t & kyokumen,
             depth_t depth,
             cache_t & cache,
-            std::optional<move_t> & selected_move
+            std::optional<move_t> & candidate_move
         );
 
-        move_t select_move(kyokumen_t & kyokumen) override;
+        move_t best_move(kyokumen_t & kyokumen) override;
     };
 
     evaluation_value_t negamax_evaluator_t::negamax(
         kyokumen_t & kyokumen,
         depth_t depth,
         cache_t & cache,
-        std::optional<move_t> & selected_move
+        std::optional<move_t> & candidate_move
     )
     {
         if (depth <= 0)
@@ -3659,12 +3663,12 @@ namespace shogipp
 
         for (const move_t & move : moves)
         {
-            std::optional<move_t> selected_te_;
+            std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -negamax(kyokumen, depth - 1, cache, selected_te_);
+                evaluation_value = -negamax(kyokumen, depth - 1, cache, nested_candidate_move);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -3672,23 +3676,23 @@ namespace shogipp
 
         SHOGIPP_ASSERT(!moves.empty());
         sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
-        selected_move = *evaluated_moves.front().first;
+        candidate_move = *evaluated_moves.front().first;
         return evaluated_moves.front().second;
     }
 
-    move_t negamax_evaluator_t::select_move(kyokumen_t & kyokumen)
+    move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen)
     {
         cache_t cache;
         depth_t default_max_depth = 3;
-        std::optional<move_t> selected_move;
-        const evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, cache, selected_move);
+        std::optional<move_t> candidate_move;
+        const evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, cache, candidate_move);
         details::timer.search_count() += cache.search_count;
         std::cout << "読み手数：" << cache.search_count << std::endl;
         const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
         std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
         std::cout << "評価値：" << evaluation_value << std::endl;
-        SHOGIPP_ASSERT(selected_move.has_value());
-        return *selected_move;
+        SHOGIPP_ASSERT(candidate_move.has_value());
+        return *candidate_move;
     }
 
     /**
@@ -3705,9 +3709,9 @@ namespace shogipp
             evaluation_value_t alpha,
             evaluation_value_t beta,
             cache_t & cache,
-            std::optional<move_t> & selected_move);
+            std::optional<move_t> & candidate_move);
 
-        move_t select_move(kyokumen_t & kyokumen) override;
+        move_t best_move(kyokumen_t & kyokumen) override;
     };
 
     evaluation_value_t alphabeta_evaluator_t::alphabeta(
@@ -3716,7 +3720,7 @@ namespace shogipp
         evaluation_value_t alpha,
         evaluation_value_t beta,
         cache_t & cache,
-        std::optional<move_t> & selected_move)
+        std::optional<move_t> & candidate_move)
     {
         if (depth <= 0)
         {
@@ -3744,12 +3748,12 @@ namespace shogipp
 
         for (const move_t & move : moves)
         {
-            std::optional<move_t> selected_te_;
+            std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_);
+                evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -3760,23 +3764,23 @@ namespace shogipp
 
         SHOGIPP_ASSERT(!moves.empty());
         sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
-        selected_move = *evaluated_moves.front().first;
+        candidate_move = *evaluated_moves.front().first;
         return evaluated_moves.front().second;
     }
 
-    move_t alphabeta_evaluator_t::select_move(kyokumen_t & kyokumen)
+    move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen)
     {
         cache_t cache;
         depth_t default_max_depth = 3;
-        std::optional<move_t> selected_move;
-        const evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move);
+        std::optional<move_t> candidate_move;
+        const evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move);
         details::timer.search_count() += cache.search_count;
         std::cout << "読み手数：" << cache.search_count << std::endl;
         const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
         std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
         std::cout << "評価値：" << evaluation_value << std::endl;
-        SHOGIPP_ASSERT(selected_move.has_value());
-        return *selected_move;
+        SHOGIPP_ASSERT(candidate_move.has_value());
+        return *candidate_move;
     }
 
     /**
@@ -3794,10 +3798,10 @@ namespace shogipp
             evaluation_value_t alpha,
             evaluation_value_t beta,
             cache_t & cache,
-            std::optional<move_t> & selected_move,
+            std::optional<move_t> & candidate_move,
             pos_t previous_destination);
 
-        move_t select_move(kyokumen_t & kyokumen) override;
+        move_t best_move(kyokumen_t & kyokumen) override;
     };
 
     evaluation_value_t extendable_alphabeta_evaluator_t::extendable_alphabeta(
@@ -3806,7 +3810,7 @@ namespace shogipp
         evaluation_value_t alpha,
         evaluation_value_t beta,
         cache_t & cache,
-        std::optional<move_t> & selected_move,
+        std::optional<move_t> & candidate_move,
         pos_t previous_destination)
     {
         if (depth <= 0)
@@ -3822,12 +3826,12 @@ namespace shogipp
                 {
                     if (!move.put() && move.destination() == previous_destination)
                     {
-                        std::optional<move_t> selected_te_;
+                        std::optional<move_t> nested_candidate_move;
                         evaluation_value_t evaluation_value;
                         {
                             VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                             kyokumen.do_move(move);
-                            evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_, previous_destination);
+                            evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move, previous_destination);
                             kyokumen.undo_move(move);
                         }
                         *inserter++ = { &move, evaluation_value };
@@ -3839,7 +3843,7 @@ namespace shogipp
                 if (!evaluated_moves.empty())
                 {
                     sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
-                    selected_move = *evaluated_moves.front().first;
+                    candidate_move = *evaluated_moves.front().first;
                     return evaluated_moves.front().second;
                 }
             }
@@ -3868,13 +3872,13 @@ namespace shogipp
 
         for (const move_t & move : moves)
         {
-            std::optional<move_t> selected_te_;
+            std::optional<move_t> nested_candidate_move;
             pos_t destination = (!move.put() && move.captured_piece() != empty) ? move.destination() : npos;
             evaluation_value_t evaluation_value;
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_, destination);
+                evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move, destination);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -3885,23 +3889,23 @@ namespace shogipp
 
         SHOGIPP_ASSERT(!moves.empty());
         sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
-        selected_move = *evaluated_moves.front().first;
+        candidate_move = *evaluated_moves.front().first;
         return evaluated_moves.front().second;
     }
 
-    move_t extendable_alphabeta_evaluator_t::select_move(kyokumen_t & kyokumen)
+    move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen)
     {
         cache_t cache;
         depth_t default_max_depth = 3;
-        std::optional<move_t> selected_move;
-        const evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move, npos);
+        std::optional<move_t> candidate_move;
+        const evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, npos);
         details::timer.search_count() += cache.search_count;
         std::cout << "読み手数：" << cache.search_count << std::endl;
         const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
         std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
         std::cout << "評価値：" << evaluation_value << std::endl;
-        SHOGIPP_ASSERT(selected_move.has_value());
-        return *selected_move;
+        SHOGIPP_ASSERT(candidate_move.has_value());
+        return *candidate_move;
     }
 
     /**
@@ -3916,7 +3920,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t select_move(kyokumen_t & kyokumen) override
+        move_t best_move(kyokumen_t & kyokumen) override
         {
             moves_t moves;
             kyokumen.search_moves(std::back_inserter(moves));
@@ -4369,7 +4373,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        return command_t{ command_t::id_t::move, ptr->select_move(taikyoku.kyokumen) };
+        return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen) };
     }
 
     const char * computer_kishi_t::name() const

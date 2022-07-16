@@ -27,6 +27,8 @@
 #include <regex>
 #include <functional>
 #include <mutex>
+#include <future>
+#include <thread>
 
 /**
  * @breif ハッシュ値のバイト数を定義する。
@@ -211,6 +213,12 @@ namespace shogipp
     };
 
     class invalid_usi_input
+        : public std::runtime_error
+    {
+        using std::runtime_error::runtime_error;
+    };
+
+    class usi_stop_exception
         : public std::runtime_error
     {
         using std::runtime_error::runtime_error;
@@ -549,7 +557,7 @@ namespace shogipp
     }
 
     using move_count_t = unsigned int;
-    using depth_t = signed int;
+    using depth_t = unsigned int;
 
     inline constexpr color_t move_count_to_color(move_count_t move_count)
     {
@@ -1796,8 +1804,9 @@ namespace shogipp
     class additional_info_t
     {
     public:
-        std::vector<std::vector<kiki_t>> check_list_stack;   // 手番にかかっている王手
+        std::vector<std::vector<kiki_t>> check_list_stack;  // 手番にかかっている王手
         std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
+        pos_t king_pos_list[color_size];                    // 王の座標
     };
 
     /**
@@ -2165,8 +2174,7 @@ namespace shogipp
 
         board_t board;                                          // 盤
         captured_pieces_t captured_pieces_list[color_size];     // 持ち駒
-        move_count_t move_count;                                // 手数
-        pos_t king_pos_list[color_size];                        // 王の座標
+        move_count_t move_count = 0;                            // 手数
         std::vector<move_t> kifu;                               // 棋譜
         additional_info_t additional_info;                      // 追加情報
     };
@@ -2205,9 +2213,6 @@ namespace shogipp
 
     inline kyokumen_t::kyokumen_t()
     {
-        move_count = 0;
-        for (const color_t color : colors)
-            king_pos_list[color] = default_ou_pos_list[color];
         push_additional_info();
     }
 
@@ -2335,14 +2340,16 @@ namespace shogipp
                         ++i;
 
                     const std::string_view token = sfen.substr(begin, i - begin + 1);
-                    const move_t move{ token, temp.board };
-                    temp.do_move(move);
+                    temp.kifu.emplace_back(token, temp.board);
                 }
             }
         }
 
         if (temp.color() != color)
             throw invalid_usi_input{ "invalid color" };
+
+        temp.clear_additional_info();
+        temp.push_additional_info();
 
         *this = std::move(temp);
     }
@@ -2527,7 +2534,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_check(OutputIterator result, color_t color) const
     {
-        search_kiki(result, king_pos_list[color], color);
+        search_kiki(result, additional_info.king_pos_list[color], color);
     }
 
     std::vector<kiki_t> kyokumen_t::search_check(color_t color) const
@@ -2546,6 +2553,12 @@ namespace shogipp
     {
         additional_info.check_list_stack.push_back(search_check(color()));
         additional_info.hash_stack.push_back(hash);
+        if (kifu.empty())
+        {
+            for (pos_t pos = 0; pos < pos_size; ++pos)
+                if (!board_t::out(board[pos]) && board[pos] != empty && trim_color(board[pos]) == ou)
+                    additional_info.king_pos_list[to_color(board[pos])] = pos;
+        }
     }
 
     inline void kyokumen_t::pop_additional_info()
@@ -2577,11 +2590,11 @@ namespace shogipp
             { back_right , { kaku, uma } },
         };
 
-        const pos_t ou_pos = this->king_pos_list[color];
+        const pos_t king_pos = additional_info.king_pos_list[color];
         for (const auto & [offset, hashirigoma_list] : table)
         {
             const pos_t reversed_offset = offset * reverse(color);
-            const pos_t first = search(ou_pos, reversed_offset);
+            const pos_t first = search(king_pos, reversed_offset);
             if (first != npos && to_color(board[first]) == color)
             {
                 const pos_t second = search(first, reversed_offset);
@@ -2592,7 +2605,7 @@ namespace shogipp
                     if (match)
                     {
                         std::vector<pos_t> candidates;
-                        for (pos_t candidate = second; candidate != ou_pos; candidate -= reversed_offset)
+                        for (pos_t candidate = second; candidate != king_pos; candidate -= reversed_offset)
                             candidates.push_back(candidate);
                         aigoma_info[first] = std::move(candidates);
                     }
@@ -2627,7 +2640,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_moves_evasions_ou_move(OutputIterator result) const
     {
-        const pos_t source = king_pos_list[color()];
+        const pos_t source = additional_info.king_pos_list[color()];
         for (const pos_t * p = near_move_offsets(ou); *p; ++p)
         {
             const pos_t destination = source + *p * reverse(color());
@@ -2656,7 +2669,7 @@ namespace shogipp
     inline void kyokumen_t::search_moves_evasions_aigoma(OutputIterator result) const
     {
         const aigoma_info_t aigoma_info = search_aigoma(color());
-        const pos_t ou_pos = king_pos_list[color()];
+        const pos_t ou_pos = additional_info.king_pos_list[color()];
         
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         const auto & check_list = additional_info.check_list_stack[move_count];
@@ -2961,7 +2974,7 @@ namespace shogipp
             board[move.destination()] = move.promote() ? to_promoted(board[move.source()]) : board[move.source()];
             board[move.source()] = empty;
             if (trim_color(move.source_piece()) == ou)
-                king_pos_list[color()] = move.destination();
+                additional_info.king_pos_list[color()] = move.destination();
         }
         ++move_count;
         kifu.push_back(move);
@@ -2981,7 +2994,7 @@ namespace shogipp
         else
         {
             if (trim_color(move.source_piece()) == ou)
-                king_pos_list[color()] = move.source();
+                additional_info.king_pos_list[color()] = move.source();
             board[move.source()] = move.source_piece();
             board[move.destination()] = move.captured_piece();
             if (move.captured_piece() != empty)
@@ -3343,23 +3356,12 @@ namespace shogipp
     };
 
 #ifdef SIZE_OF_HASH
-    using evaluation_value_cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hash_t<SIZE_OF_HASH>>;
+    using cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hash_t<SIZE_OF_HASH>>;
 #else
     using evaluation_value_cache_t = lru_cache_t<hash_t, evaluation_value_t>;
 #endif
 
     using search_count_t = unsigned long long;
-
-    /**
-     * @breif 合法手と評価値を対応付けるキャッシュとその関連情報
-     */
-    class cache_t
-    {
-    public:
-        search_count_t search_count{};
-        search_count_t cache_hit_count{};
-        evaluation_value_cache_t evaluation_value_cache{ std::numeric_limits<std::size_t>::max() };
-    };
 
     /**
      * @breif 評価関数オブジェクトのインターフェース
@@ -3591,10 +3593,21 @@ namespace shogipp
         // multipv
         evaluation_value_t cp{};
         move_count_t mate{};
-        move_t currmove;
-        search_count_t search_count{};
+        std::optional<move_t> currmove;
         search_count_t cache_hit_count{};
+        bool requested_to_stop{};
         std::mutex mutex;
+
+        inline unsigned long long time() const
+        {
+            std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            return static_cast<unsigned long long >(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+        }
+
+        inline unsigned long long hashfull() const
+        {
+            return nodes * 1000 / cache_hit_count;
+        }
     };
 
     /**
@@ -3629,6 +3642,11 @@ namespace shogipp
         );
 
         move_t best_move(kyokumen_t & kyokumen) override;
+
+        usi_info_t * usi_info{};
+
+    private:
+        depth_t max_depth = 3;
     };
 
     evaluation_value_t negamax_evaluator_t::negamax(
@@ -3638,17 +3656,29 @@ namespace shogipp
         std::optional<move_t> & candidate_move
     )
     {
-        if (depth <= 0)
+        if (usi_info)
         {
-            ++cache.search_count;
-            const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            if (usi_info->requested_to_stop)
+                throw usi_stop_exception{ "requested to stop" };
+            usi_info->depth = depth;
+            usi_info->nodes += 1;
+        }
+
+        if (depth >= max_depth)
+        {
+            const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
             if (cached_evaluation_value)
             {
-                ++cache.cache_hit_count;
+                if (usi_info)
+                {
+                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                    ++usi_info->cache_hit_count;
+                }
                 return *cached_evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-            cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
+            cache.push(kyokumen.hash(), evaluation_value);
             return evaluation_value;
         }
 
@@ -3663,12 +3693,18 @@ namespace shogipp
 
         for (const move_t & move : moves)
         {
+            if (usi_info && depth == 0)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                usi_info->currmove = move;
+            }
+
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -negamax(kyokumen, depth - 1, cache, nested_candidate_move);
+                evaluation_value = -negamax(kyokumen, depth + 1, cache, nested_candidate_move);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -3682,16 +3718,34 @@ namespace shogipp
 
     move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen)
     {
-        cache_t cache;
-        depth_t default_max_depth = 3;
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            usi_info->begin = std::chrono::system_clock::now();
+        }
+
+        cache_t cache{ std::numeric_limits<std::size_t>::max() };
         std::optional<move_t> candidate_move;
-        const evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, cache, candidate_move);
-        details::timer.search_count() += cache.search_count;
-        std::cout << "読み手数：" << cache.search_count << std::endl;
-        const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
-        std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
-        std::cout << "評価値：" << evaluation_value << std::endl;
-        SHOGIPP_ASSERT(candidate_move.has_value());
+        evaluation_value_t evaluation_value;
+        try
+        {
+            evaluation_value = negamax(kyokumen, 0, cache, candidate_move);
+        }
+        catch (const usi_stop_exception &)
+        {
+            ;
+        }
+
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            details::timer.search_count() += usi_info->nodes;
+            std::cout << "読み手数：" << usi_info->nodes << std::endl;
+            std::cout << "キャッシュ適用率：" << usi_info->hashfull() << "%" << std::endl;
+            std::cout << "評価値：" << evaluation_value << std::endl;
+            SHOGIPP_ASSERT(candidate_move.has_value());
+        }
+
         return *candidate_move;
     }
 
@@ -3712,6 +3766,11 @@ namespace shogipp
             std::optional<move_t> & candidate_move);
 
         move_t best_move(kyokumen_t & kyokumen) override;
+
+        usi_info_t * usi_info{};
+
+    private:
+        depth_t max_depth = 3;
     };
 
     evaluation_value_t alphabeta_evaluator_t::alphabeta(
@@ -3722,17 +3781,29 @@ namespace shogipp
         cache_t & cache,
         std::optional<move_t> & candidate_move)
     {
-        if (depth <= 0)
+        if (usi_info)
         {
-            ++cache.search_count;
-            const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            if (usi_info->requested_to_stop)
+                throw usi_stop_exception{ "requested to stop" };
+            usi_info->depth = depth;
+            usi_info->nodes += 1;
+        }
+        
+        if (depth >= max_depth)
+        {
+            const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
             if (cached_evaluation_value)
             {
-                ++cache.cache_hit_count;
+                if (usi_info)
+                {
+                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                    ++usi_info->cache_hit_count;
+                }
                 return *cached_evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-            cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
+            cache.push(kyokumen.hash(), evaluation_value);
             return evaluation_value;
         }
 
@@ -3748,12 +3819,18 @@ namespace shogipp
 
         for (const move_t & move : moves)
         {
+            if (usi_info && depth == 0)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                usi_info->currmove = move;
+            }
+
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move);
+                evaluation_value = -alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -3770,16 +3847,34 @@ namespace shogipp
 
     move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen)
     {
-        cache_t cache;
-        depth_t default_max_depth = 3;
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            usi_info->begin = std::chrono::system_clock::now();
+        }
+
+        cache_t cache{ std::numeric_limits<std::size_t>::max() };
         std::optional<move_t> candidate_move;
-        const evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move);
-        details::timer.search_count() += cache.search_count;
-        std::cout << "読み手数：" << cache.search_count << std::endl;
-        const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
-        std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
-        std::cout << "評価値：" << evaluation_value << std::endl;
-        SHOGIPP_ASSERT(candidate_move.has_value());
+        evaluation_value_t evaluation_value;
+        try
+        {
+            evaluation_value = alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move);
+        }
+        catch (const usi_stop_exception &)
+        {
+            ;
+        }
+
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            details::timer.search_count() += usi_info->nodes;
+            std::cout << "読み手数：" << usi_info->nodes << std::endl;
+            std::cout << "キャッシュ適用率：" << usi_info->hashfull() << "%" << std::endl;
+            std::cout << "評価値：" << evaluation_value << std::endl;
+            SHOGIPP_ASSERT(candidate_move.has_value());
+        }
+
         return *candidate_move;
     }
 
@@ -3802,6 +3897,10 @@ namespace shogipp
             pos_t previous_destination);
 
         move_t best_move(kyokumen_t & kyokumen) override;
+        usi_info_t * usi_info{};
+
+    private:
+        depth_t default_max_depth = 3;
     };
 
     evaluation_value_t extendable_alphabeta_evaluator_t::extendable_alphabeta(
@@ -3813,7 +3912,16 @@ namespace shogipp
         std::optional<move_t> & candidate_move,
         pos_t previous_destination)
     {
-        if (depth <= 0)
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            if (usi_info->requested_to_stop)
+                throw usi_stop_exception{ "requested to stop" };
+            usi_info->depth = depth;
+            usi_info->nodes += 1;
+        }
+        
+        if (depth >= default_max_depth)
         {
             // 前回駒取りが発生していた場合、探索を延長する。
             if (previous_destination != npos)
@@ -3848,15 +3956,18 @@ namespace shogipp
                 }
             }
 
-            ++cache.search_count;
-            const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+            const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
             if (cached_evaluation_value)
             {
-                ++cache.cache_hit_count;
+                if (usi_info)
+                {
+                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                    ++usi_info->cache_hit_count;
+                }
                 return *cached_evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-            cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
+            cache.push(kyokumen.hash(), evaluation_value);
             return evaluation_value;
         }
 
@@ -3872,13 +3983,19 @@ namespace shogipp
 
         for (const move_t & move : moves)
         {
+            if (usi_info && depth == 0)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                usi_info->currmove = move;
+            }
+
             std::optional<move_t> nested_candidate_move;
             pos_t destination = (!move.put() && move.captured_piece() != empty) ? move.destination() : npos;
             evaluation_value_t evaluation_value;
             {
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move, destination);
+                evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, destination);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -3895,16 +4012,34 @@ namespace shogipp
 
     move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen)
     {
-        cache_t cache;
-        depth_t default_max_depth = 3;
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            usi_info->begin = std::chrono::system_clock::now();
+        }
+
+        cache_t cache{ std::numeric_limits<std::size_t>::max() };
         std::optional<move_t> candidate_move;
-        const evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, npos);
-        details::timer.search_count() += cache.search_count;
-        std::cout << "読み手数：" << cache.search_count << std::endl;
-        const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
-        std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
-        std::cout << "評価値：" << evaluation_value << std::endl;
-        SHOGIPP_ASSERT(candidate_move.has_value());
+        evaluation_value_t evaluation_value;
+        try
+        {
+            evaluation_value = extendable_alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, npos);
+        }
+        catch (const usi_stop_exception &)
+        {
+            ;
+        }
+
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            details::timer.search_count() += usi_info->nodes;
+            std::cout << "読み手数：" << usi_info->nodes << std::endl;
+            std::cout << "キャッシュ適用率：" << usi_info->hashfull() << "%" << std::endl;
+            std::cout << "評価値：" << evaluation_value << std::endl;
+            SHOGIPP_ASSERT(candidate_move.has_value());
+        }
+
         return *candidate_move;
     }
 
@@ -4518,6 +4653,9 @@ namespace shogipp
         inline void receive()
         {
             std::string line;
+            std::string position;
+            std::vector<std::string> moves;
+            usi_info_t usi_info;
 
             while (std::getline(std::cin, line))
             {
@@ -4555,6 +4693,7 @@ namespace shogipp
                     std::optional<unsigned long> opt_byoyomi;
                     std::optional<unsigned long> opt_binc;
                     std::optional<unsigned long> opt_winc;
+                    bool ponder = false;
                     bool infinite = false;
                     bool mate = false;
 
@@ -4564,6 +4703,7 @@ namespace shogipp
                         if (tokens[current] == "ponder")
                         {
                             ++current;
+                            ponder = true;
                         }
                         else if (tokens[current] == "btime")
                         {
@@ -4627,22 +4767,34 @@ namespace shogipp
                         }
                     }
 
-                    if (mate)
+                    if (ponder)
+                    {
+                        ;
+                    }
+                    else if (mate)
                     {
                         ;
                     }
                     else
                     {
-
+                        kyokumen_t kyokumen{ position };
+                        auto evaluator = std::make_shared<hiyoko_evaluator_t>();
+                        evaluator->usi_info = &usi_info;
+                        std::thread thread([=]() mutable -> move_t
+                            {
+                                return evaluator->best_move(kyokumen);
+                            }
+                        );
                     }
                 }
                 else if (tokens[current] == "stop")
                 {
-
+                    std::lock_guard<decltype(usi_info.mutex)> lock{ usi_info.mutex };
+                    usi_info.requested_to_stop = true;
                 }
                 else if (tokens[0] == "quit")
                 {
-                    return;
+                    std::terminate();
                 }
                 else if (tokens[0] == "gameover")
                 {

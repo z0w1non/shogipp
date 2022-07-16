@@ -3367,7 +3367,7 @@ namespace shogipp
     class abstract_evaluator_t
     {
     public:
-        virtual ~abstract_evaluator_t() {};
+        virtual ~abstract_evaluator_t() {}
 
         /**
          * @breif 局面に対して合法手を選択する。
@@ -3596,81 +3596,10 @@ namespace shogipp
         std::mutex m_mutex;
     };
 
-    /**
-     * @breif negamax で合法手を選択する評価関数オブジェクトの抽象クラス
-     */
-    class negamax_evaluator_t
-        : public abstract_evaluator_t
+    class evaluatable_t
     {
     public:
-        evaluation_value_t negamax(
-            kyokumen_t & kyokumen,
-            depth_t depth,
-            cache_t & cache,
-            std::optional<move_t> & selected_move
-        )
-        {
-            if (depth <= 0)
-            {
-                ++cache.search_count;
-                const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
-                if (cached_evaluation_value)
-                {
-                    ++cache.cache_hit_count;
-                    return *cached_evaluation_value;
-                }
-                const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-                cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
-                return evaluation_value;
-            }
-
-            moves_t moves;
-            kyokumen.search_moves(std::back_inserter(moves));
-
-            if (moves.empty())
-                return -std::numeric_limits<evaluation_value_t>::max();
-
-            std::vector<evaluated_moves> evaluated_moves;
-            auto inserter = std::back_inserter(evaluated_moves);
-
-            for (const move_t & move : moves)
-            {
-                std::optional<move_t> selected_te_;
-                evaluation_value_t evaluation_value;
-                {
-                    VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                    kyokumen.do_move(move);
-                    evaluation_value = -negamax(kyokumen, depth - 1, cache, selected_te_);
-                    kyokumen.undo_move(move);
-                }
-                *inserter++ = { &move, evaluation_value };
-            }
-
-            SHOGIPP_ASSERT(!moves.empty());
-            sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
-            selected_move = *evaluated_moves.front().first;
-            return evaluated_moves.front().second;
-        }
-
-        /**
-         * @breif 局面に対して minimax で合法手を選択する。
-         * @param kyokumen 局面
-         * @return 選択された合法手
-         */
-        move_t select_move(kyokumen_t & kyokumen) override
-        {
-            cache_t cache;
-            depth_t default_max_depth = 3;
-            std::optional<move_t> selected_move;
-            const evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, cache, selected_move);
-            details::timer.search_count() += cache.search_count;
-            std::cout << "読み手数：" << cache.search_count << std::endl;
-            const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
-            std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
-            std::cout << "評価値：" << evaluation_value << std::endl;
-            SHOGIPP_ASSERT(selected_move.has_value());
-            return *selected_move;
-        }
+        virtual ~evaluatable_t() {}
 
         /**
          * @breif 局面に対して評価値を返す。
@@ -3681,10 +3610,93 @@ namespace shogipp
     };
 
     /**
+     * @breif negamax で合法手を選択する評価関数オブジェクトの抽象クラス
+     */
+    class negamax_evaluator_t
+        : public abstract_evaluator_t
+        , public evaluatable_t
+    {
+    public:
+        evaluation_value_t negamax(
+            kyokumen_t & kyokumen,
+            depth_t depth,
+            cache_t & cache,
+            std::optional<move_t> & selected_move
+        );
+
+        move_t select_move(kyokumen_t & kyokumen) override;
+    };
+
+    evaluation_value_t negamax_evaluator_t::negamax(
+        kyokumen_t & kyokumen,
+        depth_t depth,
+        cache_t & cache,
+        std::optional<move_t> & selected_move
+    )
+    {
+        if (depth <= 0)
+        {
+            ++cache.search_count;
+            const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+            if (cached_evaluation_value)
+            {
+                ++cache.cache_hit_count;
+                return *cached_evaluation_value;
+            }
+            const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
+            cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
+            return evaluation_value;
+        }
+
+        moves_t moves;
+        kyokumen.search_moves(std::back_inserter(moves));
+
+        if (moves.empty())
+            return -std::numeric_limits<evaluation_value_t>::max();
+
+        std::vector<evaluated_moves> evaluated_moves;
+        auto inserter = std::back_inserter(evaluated_moves);
+
+        for (const move_t & move : moves)
+        {
+            std::optional<move_t> selected_te_;
+            evaluation_value_t evaluation_value;
+            {
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
+                kyokumen.do_move(move);
+                evaluation_value = -negamax(kyokumen, depth - 1, cache, selected_te_);
+                kyokumen.undo_move(move);
+            }
+            *inserter++ = { &move, evaluation_value };
+        }
+
+        SHOGIPP_ASSERT(!moves.empty());
+        sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+        selected_move = *evaluated_moves.front().first;
+        return evaluated_moves.front().second;
+    }
+
+    move_t negamax_evaluator_t::select_move(kyokumen_t & kyokumen)
+    {
+        cache_t cache;
+        depth_t default_max_depth = 3;
+        std::optional<move_t> selected_move;
+        const evaluation_value_t evaluation_value = negamax(kyokumen, default_max_depth, cache, selected_move);
+        details::timer.search_count() += cache.search_count;
+        std::cout << "読み手数：" << cache.search_count << std::endl;
+        const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+        std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
+        std::cout << "評価値：" << evaluation_value << std::endl;
+        SHOGIPP_ASSERT(selected_move.has_value());
+        return *selected_move;
+    }
+
+    /**
      * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
      */
     class alphabeta_evaluator_t
         : public abstract_evaluator_t
+        , public evaluatable_t
     {
     public:
         evaluation_value_t alphabeta(
@@ -3693,81 +3705,79 @@ namespace shogipp
             evaluation_value_t alpha,
             evaluation_value_t beta,
             cache_t & cache,
-            std::optional<move_t> & selected_move)
-        {
-            if (depth <= 0)
-            {
-                ++cache.search_count;
-                const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
-                if (cached_evaluation_value)
-                {
-                    ++cache.cache_hit_count;
-                    return *cached_evaluation_value;
-                }
-                const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-                cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
-                return evaluation_value;
-            }
+            std::optional<move_t> & selected_move);
 
-            moves_t moves;
-            kyokumen.search_moves(std::back_inserter(moves));
-            sort_moves_by_category(moves.begin(), moves.end());
-
-            if (moves.empty())
-                return -std::numeric_limits<evaluation_value_t>::max();
-
-            std::vector<evaluated_moves> evaluated_moves;
-            auto inserter = std::back_inserter(evaluated_moves);
-
-            for (const move_t & move : moves)
-            {
-                std::optional<move_t> selected_te_;
-                evaluation_value_t evaluation_value;
-                {
-                    VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                    kyokumen.do_move(move);
-                    evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_);
-                    kyokumen.undo_move(move);
-                }
-                *inserter++ = { &move, evaluation_value };
-                alpha = std::max(alpha, evaluation_value);
-                if (alpha >= beta)
-                    break;
-            }
-
-            SHOGIPP_ASSERT(!moves.empty());
-            sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
-            selected_move = *evaluated_moves.front().first;
-            return evaluated_moves.front().second;
-        }
-
-        /**
-         * @breif 局面に対して minimax で合法手を選択する。
-         * @param kyokumen 局面
-         * @return 選択された合法手
-         */
-        move_t select_move(kyokumen_t & kyokumen) override
-        {
-            cache_t cache;
-            depth_t default_max_depth = 3;
-            std::optional<move_t> selected_move;
-            const evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move);
-            details::timer.search_count() += cache.search_count;
-            std::cout << "読み手数：" << cache.search_count << std::endl;
-            const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
-            std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
-            std::cout << "評価値：" << evaluation_value << std::endl;
-            SHOGIPP_ASSERT(selected_move.has_value());
-            return *selected_move;
-        }
-
-        /**
-         * @breif 局面に対して評価値を返す。
-         * @param kyokumen 局面
-         * @return 局面の評価値
-         */
-        virtual evaluation_value_t evaluate(kyokumen_t & kyokumen) = 0;
+        move_t select_move(kyokumen_t & kyokumen) override;
     };
+
+    evaluation_value_t alphabeta_evaluator_t::alphabeta(
+        kyokumen_t & kyokumen,
+        depth_t depth,
+        evaluation_value_t alpha,
+        evaluation_value_t beta,
+        cache_t & cache,
+        std::optional<move_t> & selected_move)
+    {
+        if (depth <= 0)
+        {
+            ++cache.search_count;
+            const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+            if (cached_evaluation_value)
+            {
+                ++cache.cache_hit_count;
+                return *cached_evaluation_value;
+            }
+            const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
+            cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
+            return evaluation_value;
+        }
+
+        moves_t moves;
+        kyokumen.search_moves(std::back_inserter(moves));
+        sort_moves_by_category(moves.begin(), moves.end());
+
+        if (moves.empty())
+            return -std::numeric_limits<evaluation_value_t>::max();
+
+        std::vector<evaluated_moves> evaluated_moves;
+        auto inserter = std::back_inserter(evaluated_moves);
+
+        for (const move_t & move : moves)
+        {
+            std::optional<move_t> selected_te_;
+            evaluation_value_t evaluation_value;
+            {
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
+                kyokumen.do_move(move);
+                evaluation_value = -alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_);
+                kyokumen.undo_move(move);
+            }
+            *inserter++ = { &move, evaluation_value };
+            alpha = std::max(alpha, evaluation_value);
+            if (alpha >= beta)
+                break;
+        }
+
+        SHOGIPP_ASSERT(!moves.empty());
+        sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+        selected_move = *evaluated_moves.front().first;
+        return evaluated_moves.front().second;
+    }
+
+    move_t alphabeta_evaluator_t::select_move(kyokumen_t & kyokumen)
+    {
+        cache_t cache;
+        depth_t default_max_depth = 3;
+        std::optional<move_t> selected_move;
+        const evaluation_value_t evaluation_value = alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move);
+        details::timer.search_count() += cache.search_count;
+        std::cout << "読み手数：" << cache.search_count << std::endl;
+        const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+        std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
+        std::cout << "評価値：" << evaluation_value << std::endl;
+        SHOGIPP_ASSERT(selected_move.has_value());
+        return *selected_move;
+    }
 
     /**
      * @breif alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
@@ -3775,6 +3785,7 @@ namespace shogipp
      */
     class extendable_alphabeta_evaluator_t
         : public abstract_evaluator_t
+        , public evaluatable_t
     {
     public:
         evaluation_value_t extendable_alphabeta(
@@ -3784,115 +3795,114 @@ namespace shogipp
             evaluation_value_t beta,
             cache_t & cache,
             std::optional<move_t> & selected_move,
-            pos_t previous_destination)
-        {
-            if (depth <= 0)
-            {
-                // 前回駒取りが発生していた場合、探索を延長する。
-                if (previous_destination != npos)
-                {
-                    std::vector<evaluated_moves> evaluated_moves;
-                    auto inserter = std::back_inserter(evaluated_moves);
-                    moves_t moves;
-                    kyokumen.search_moves(std::back_inserter(moves));
-                    for (const move_t & move : moves)
-                    {
-                        if (!move.put() && move.destination() == previous_destination)
-                        {
-                            std::optional<move_t> selected_te_;
-                            evaluation_value_t evaluation_value;
-                            {
-                                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                                kyokumen.do_move(move);
-                                evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_, previous_destination);
-                                kyokumen.undo_move(move);
-                            }
-                            *inserter++ = { &move, evaluation_value };
-                            alpha = std::max(alpha, evaluation_value);
-                            if (alpha >= beta)
-                                break;
-                        }
-                    }
-                    if (!evaluated_moves.empty())
-                    {
-                        sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
-                        selected_move = *evaluated_moves.front().first;
-                        return evaluated_moves.front().second;
-                    }
-                }
+            pos_t previous_destination);
 
-                ++cache.search_count;
-                const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
-                if (cached_evaluation_value)
-                {
-                    ++cache.cache_hit_count;
-                    return *cached_evaluation_value;
-                }
-                const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-                cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
-                return evaluation_value;
-            }
-
-            moves_t moves;
-            kyokumen.search_moves(std::back_inserter(moves));
-            sort_moves_by_category(moves.begin(), moves.end());
-
-            if (moves.empty())
-                return -std::numeric_limits<evaluation_value_t>::max();
-
-            std::vector<evaluated_moves> evaluated_moves;
-            auto inserter = std::back_inserter(evaluated_moves);
-
-            for (const move_t & move : moves)
-            {
-                std::optional<move_t> selected_te_;
-                pos_t destination = (!move.put() && move.captured_piece() != empty) ? move.destination() : npos;
-                evaluation_value_t evaluation_value;
-                {
-                    VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                    kyokumen.do_move(move);
-                    evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_, destination);
-                    kyokumen.undo_move(move);
-                }
-                *inserter++ = { &move, evaluation_value };
-                alpha = std::max(alpha, evaluation_value);
-                if (alpha >= beta)
-                    break;
-            }
-
-            SHOGIPP_ASSERT(!moves.empty());
-            sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
-            selected_move = *evaluated_moves.front().first;
-            return evaluated_moves.front().second;
-        }
-
-        /**
-         * @breif 局面に対して minimax で合法手を選択する。
-         * @param kyokumen 局面
-         * @return 選択された合法手
-         */
-        move_t select_move(kyokumen_t & kyokumen) override
-        {
-            cache_t cache;
-            depth_t default_max_depth = 3;
-            std::optional<move_t> selected_move;
-            const evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move, npos);
-            details::timer.search_count() += cache.search_count;
-            std::cout << "読み手数：" << cache.search_count << std::endl;
-            const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
-            std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
-            std::cout << "評価値：" << evaluation_value << std::endl;
-            SHOGIPP_ASSERT(selected_move.has_value());
-            return *selected_move;
-        }
-
-        /**
-         * @breif 局面に対して評価値を返す。
-         * @param kyokumen 局面
-         * @return 局面の評価値
-         */
-        virtual evaluation_value_t evaluate(kyokumen_t & kyokumen) = 0;
+        move_t select_move(kyokumen_t & kyokumen) override;
     };
+
+    evaluation_value_t extendable_alphabeta_evaluator_t::extendable_alphabeta(
+        kyokumen_t & kyokumen,
+        depth_t depth,
+        evaluation_value_t alpha,
+        evaluation_value_t beta,
+        cache_t & cache,
+        std::optional<move_t> & selected_move,
+        pos_t previous_destination)
+    {
+        if (depth <= 0)
+        {
+            // 前回駒取りが発生していた場合、探索を延長する。
+            if (previous_destination != npos)
+            {
+                std::vector<evaluated_moves> evaluated_moves;
+                auto inserter = std::back_inserter(evaluated_moves);
+                moves_t moves;
+                kyokumen.search_moves(std::back_inserter(moves));
+                for (const move_t & move : moves)
+                {
+                    if (!move.put() && move.destination() == previous_destination)
+                    {
+                        std::optional<move_t> selected_te_;
+                        evaluation_value_t evaluation_value;
+                        {
+                            VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
+                            kyokumen.do_move(move);
+                            evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_, previous_destination);
+                            kyokumen.undo_move(move);
+                        }
+                        *inserter++ = { &move, evaluation_value };
+                        alpha = std::max(alpha, evaluation_value);
+                        if (alpha >= beta)
+                            break;
+                    }
+                }
+                if (!evaluated_moves.empty())
+                {
+                    sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+                    selected_move = *evaluated_moves.front().first;
+                    return evaluated_moves.front().second;
+                }
+            }
+
+            ++cache.search_count;
+            const std::optional<evaluation_value_t> cached_evaluation_value = cache.evaluation_value_cache.get(kyokumen.hash());
+            if (cached_evaluation_value)
+            {
+                ++cache.cache_hit_count;
+                return *cached_evaluation_value;
+            }
+            const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
+            cache.evaluation_value_cache.push(kyokumen.hash(), evaluation_value);
+            return evaluation_value;
+        }
+
+        moves_t moves;
+        kyokumen.search_moves(std::back_inserter(moves));
+        sort_moves_by_category(moves.begin(), moves.end());
+
+        if (moves.empty())
+            return -std::numeric_limits<evaluation_value_t>::max();
+
+        std::vector<evaluated_moves> evaluated_moves;
+        auto inserter = std::back_inserter(evaluated_moves);
+
+        for (const move_t & move : moves)
+        {
+            std::optional<move_t> selected_te_;
+            pos_t destination = (!move.put() && move.captured_piece() != empty) ? move.destination() : npos;
+            evaluation_value_t evaluation_value;
+            {
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
+                kyokumen.do_move(move);
+                evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, selected_te_, destination);
+                kyokumen.undo_move(move);
+            }
+            *inserter++ = { &move, evaluation_value };
+            alpha = std::max(alpha, evaluation_value);
+            if (alpha >= beta)
+                break;
+        }
+
+        SHOGIPP_ASSERT(!moves.empty());
+        sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+        selected_move = *evaluated_moves.front().first;
+        return evaluated_moves.front().second;
+    }
+
+    move_t extendable_alphabeta_evaluator_t::select_move(kyokumen_t & kyokumen)
+    {
+        cache_t cache;
+        depth_t default_max_depth = 3;
+        std::optional<move_t> selected_move;
+        const evaluation_value_t evaluation_value = extendable_alphabeta(kyokumen, default_max_depth, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, selected_move, npos);
+        details::timer.search_count() += cache.search_count;
+        std::cout << "読み手数：" << cache.search_count << std::endl;
+        const search_count_t cache_hit_ratio = cache.cache_hit_count * 100 / cache.search_count;
+        std::cout << "キャッシュ適用率：" << cache_hit_ratio << "%" << std::endl;
+        std::cout << "評価値：" << evaluation_value << std::endl;
+        SHOGIPP_ASSERT(selected_move.has_value());
+        return *selected_move;
+    }
 
     /**
      * @breif 単純に評価値が最も高い手を返す評価関数オブジェクトの抽象クラス

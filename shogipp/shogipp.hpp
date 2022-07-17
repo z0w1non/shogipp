@@ -44,14 +44,6 @@
 #define SHOGIPP_SEED
 #endif
 
-#ifndef DEFAULT_SENTE_KISHI
-#define DEFAULT_SENTE_KISHI "stdin"
-#endif
-
-#ifndef DEFAULT_GOTE_KISHI
-#define DEFAULT_GOTE_KISHI "stdin"
-#endif
-
 #ifdef NDEBUG
 #define SHOGIPP_ASSERT(expr)
 #else
@@ -2927,9 +2919,10 @@ namespace shogipp
 
     inline void kyokumen_t::print_kifu() const
     {
-        for (const color_t & color : colors)
+        for (move_count_t i = 0; i < static_cast<move_count_t>(kifu.size()); ++i)
         {
-            print_move(kifu[color], color);
+            move_count_t diff = static_cast<move_count_t>(kifu.size() - i);
+            print_move(kifu[i], diff % color_size == 0 ? color() : !color());
             std::cout << std::endl;
         }
     }
@@ -3452,30 +3445,83 @@ namespace shogipp
     class usi_info_t
     {
     public:
+        enum class state_t : unsigned int
+        {
+            not_ready,
+            searching,
+            terminated,
+            requested_to_stop
+        };
+
         depth_t depth{};
         depth_t seldepth{};
         std::chrono::system_clock::time_point begin;
         search_count_t nodes{};
-        std::stack<move_t> pv;
+        std::vector<move_t> pv;
         // multipv
         evaluation_value_t cp{};
         move_count_t mate{};
         std::optional<move_t> currmove;
         std::optional<move_t> best_move;
         search_count_t cache_hit_count{};
-        bool requested_to_stop{};
+        state_t state = state_t::not_ready;
         milli_second_time_t limit_time;
-        std::mutex mutex;
+        mutable std::recursive_mutex mutex;
 
         inline milli_second_time_t time() const
         {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
             std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             return static_cast<milli_second_time_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
         }
 
         inline search_count_t hashfull() const
         {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
             return nodes * 1000 / cache_hit_count;
+        }
+
+        inline search_count_t nps() const
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            return nodes * 1000 / time();
+        }
+
+        inline void ondemand_print() const
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            std::cout << "info"
+                //<< "pv " << pv
+                //<< "multipv " << multipv
+                //<< "score cp " << cp
+                //<< "score mate " << mate
+                ;
+
+            if (currmove)
+                std::cout << " currmove " << currmove->sfen_string();
+
+            std::cout << std::endl;
+        }
+
+        inline void periodic_print() const
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            std::cout << "info"
+                << " depth " << depth
+                << " seldepth " << seldepth
+                << " time " << time()
+                << " nodes " << nodes
+                << " hashfull " << hashfull()
+                << " nps " << nps()
+                << std::endl;
+        }
+
+        inline void terminate()
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            if (best_move)
+                std::cout << best_move->sfen_string() << std::endl;
+            state = state_t::terminated;
         }
     };
 
@@ -3512,7 +3558,7 @@ namespace shogipp
 
         move_t best_move(kyokumen_t & kyokumen) override;
 
-        usi_info_t * usi_info{};
+        std::shared_ptr<usi_info_t> usi_info;
 
     private:
         depth_t max_depth = 3;
@@ -3528,7 +3574,7 @@ namespace shogipp
         if (usi_info)
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            if (usi_info->requested_to_stop)
+            if (usi_info->state == usi_info_t::state_t::requested_to_stop)
                 throw usi_stop_exception{ "requested to stop" };
             usi_info->depth = depth;
             usi_info->nodes += 1;
@@ -3567,6 +3613,7 @@ namespace shogipp
             {
                 std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
                 usi_info->currmove = move;
+                usi_info->ondemand_print();
             }
 
             std::optional<move_t> nested_candidate_move;
@@ -3599,6 +3646,7 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             usi_info->begin = std::chrono::system_clock::now();
+            usi_info->state = usi_info_t::state_t::searching;
         }
 
         cache_t cache{ std::numeric_limits<std::size_t>::max() };
@@ -3617,9 +3665,7 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             details::timer.search_count() += usi_info->nodes;
-            std::cout << "読み手数：" << usi_info->nodes << std::endl;
-            std::cout << "キャッシュ適用率：" << usi_info->hashfull() << "%" << std::endl;
-            std::cout << "評価値：" << evaluation_value << std::endl;
+            usi_info->terminate();
             SHOGIPP_ASSERT(candidate_move.has_value());
         }
 
@@ -3644,7 +3690,7 @@ namespace shogipp
 
         move_t best_move(kyokumen_t & kyokumen) override;
 
-        usi_info_t * usi_info{};
+        std::shared_ptr<usi_info_t> usi_info;
 
     private:
         depth_t max_depth = 3;
@@ -3661,7 +3707,7 @@ namespace shogipp
         if (usi_info)
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            if (usi_info->requested_to_stop)
+            if (usi_info->state == usi_info_t::state_t::requested_to_stop)
                 throw usi_stop_exception{ "requested to stop" };
             usi_info->depth = depth;
             usi_info->nodes += 1;
@@ -3701,6 +3747,7 @@ namespace shogipp
             {
                 std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
                 usi_info->currmove = move;
+                usi_info->ondemand_print();
             }
 
             std::optional<move_t> nested_candidate_move;
@@ -3737,6 +3784,7 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             usi_info->begin = std::chrono::system_clock::now();
+            usi_info->state = usi_info_t::state_t::searching;
         }
 
         cache_t cache{ std::numeric_limits<std::size_t>::max() };
@@ -3755,9 +3803,7 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             details::timer.search_count() += usi_info->nodes;
-            std::cout << "読み手数：" << usi_info->nodes << std::endl;
-            std::cout << "キャッシュ適用率：" << usi_info->hashfull() << "%" << std::endl;
-            std::cout << "評価値：" << evaluation_value << std::endl;
+            usi_info->terminate();
             SHOGIPP_ASSERT(candidate_move.has_value());
         }
 
@@ -3783,7 +3829,8 @@ namespace shogipp
             pos_t previous_destination);
 
         move_t best_move(kyokumen_t & kyokumen) override;
-        usi_info_t * usi_info{};
+
+        std::shared_ptr<usi_info_t> usi_info;
 
     private:
         depth_t default_max_depth = 3;
@@ -3801,7 +3848,7 @@ namespace shogipp
         if (usi_info)
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            if (usi_info->requested_to_stop)
+            if (usi_info->state == usi_info_t::state_t::requested_to_stop)
                 throw usi_stop_exception{ "requested to stop" };
             usi_info->depth = depth;
             usi_info->nodes += 1;
@@ -3874,6 +3921,7 @@ namespace shogipp
             {
                 std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
                 usi_info->currmove = move;
+                usi_info->ondemand_print();
             }
 
             std::optional<move_t> nested_candidate_move;
@@ -3911,6 +3959,7 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             usi_info->begin = std::chrono::system_clock::now();
+            usi_info->state = usi_info_t::state_t::searching;
         }
 
         cache_t cache{ std::numeric_limits<std::size_t>::max() };
@@ -3929,9 +3978,7 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             details::timer.search_count() += usi_info->nodes;
-            std::cout << "読み手数：" << usi_info->nodes << std::endl;
-            std::cout << "キャッシュ適用率：" << usi_info->hashfull() << "%" << std::endl;
-            std::cout << "評価値：" << evaluation_value << std::endl;
+            usi_info->terminate();
             SHOGIPP_ASSERT(candidate_move.has_value());
         }
 
@@ -4545,12 +4592,16 @@ namespace shogipp
      */
     class usi_engine_t
     {
-        inline void receive()
+    public:
+        /**
+         * @breif USIプロトコルで通信を開始する。
+         */
+        inline void run()
         {
             std::string line;
             std::string position;
             std::vector<std::string> moves;
-            usi_info_t usi_info;
+            std::shared_ptr<usi_info_t> usi_info;
 
             while (std::getline(std::cin, line))
             {
@@ -4674,18 +4725,47 @@ namespace shogipp
                     {
                         kyokumen_t kyokumen{ position };
                         auto evaluator = std::make_shared<hiyoko_evaluator_t>();
-                        evaluator->usi_info = &usi_info;
-                        std::thread thread([=]() mutable -> move_t
+                        usi_info = std::make_shared<usi_info_t>();
+                        evaluator->usi_info = usi_info;
+                        std::thread search_thread([=]() mutable -> move_t { evaluator->best_move(kyokumen); });
+                        std::thread notify_thread([=]()
                             {
-                                return evaluator->best_move(kyokumen);
+                                while (true)
+                                {
+                                    {
+                                        std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                                        if (usi_info->state == usi_info_t::state_t::terminated)
+                                            return;
+                                        usi_info->periodic_print();
+                                    }
+                                    std::this_thread::sleep_for(std::chrono::milliseconds{ 1000 });
+                                }
                             }
                         );
                     }
                 }
                 else if (tokens[current] == "stop")
                 {
-                    std::lock_guard<decltype(usi_info.mutex)> lock{ usi_info.mutex };
-                    usi_info.requested_to_stop = true;
+                    if (usi_info)
+                    {
+                        std::optional<move_t> best_move;
+
+                        {
+                            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                            best_move = usi_info->best_move;
+                            usi_info->state = usi_info_t::state_t::requested_to_stop;
+                        }
+                        usi_info = nullptr;
+
+                        if (best_move)
+                            std::cout << "bestmove " << best_move->sfen_string() << std::endl;
+                        else
+                            throw invalid_usi_input{ "unexpected stop command" };
+                    }
+                    else
+                    {
+                        throw invalid_usi_input{ "unexpected stop command" };
+                    }
                 }
                 else if (tokens[0] == "quit")
                 {
@@ -4734,8 +4814,8 @@ namespace shogipp
         try
         {
             std::string kifu_path;
-            std::string sente_name = DEFAULT_SENTE_KISHI;
-            std::string gote_name = DEFAULT_GOTE_KISHI;
+            std::optional<std::string> sente_name;
+            std::optional<std::string> gote_name;
 
             std::shared_ptr<abstract_evaluator_t> a, b;
 
@@ -4756,29 +4836,37 @@ namespace shogipp
             };
             parse_program_options(argc, argv, callback);
 
-            auto sente_iter = kishi_map.find(sente_name);
-            if (sente_iter == kishi_map.end())
+            if (!sente_name || !gote_name)
             {
-                throw invalid_command_line_input{"invalid sente name"};
-            }
-            const std::shared_ptr<abstract_kishi_t> & sente_kishi = sente_iter->second;
-
-            auto gote_iter = kishi_map.find(gote_name);
-            if (gote_iter == kishi_map.end())
-            {
-                throw invalid_command_line_input{ "invalid gote name" };
-            }
-            const std::shared_ptr<abstract_kishi_t> & gote_kishi = gote_iter->second;
-
-            if (!kifu_path.empty())
-            {
-                kyokumen_t kyokumen;
-                kyokumen.read_kifu_file(kifu_path);
-                do_taikyoku(kyokumen, sente_kishi, gote_kishi);
+                //usi_engine_t usi_engine;
+                //usi_engine.run();
             }
             else
             {
-                do_taikyoku(sente_kishi, gote_kishi);
+                auto sente_iter = kishi_map.find(*sente_name);
+                if (sente_iter == kishi_map.end())
+                {
+                    throw invalid_command_line_input{ "invalid sente name" };
+                }
+                const std::shared_ptr<abstract_kishi_t> & sente_kishi = sente_iter->second;
+
+                auto gote_iter = kishi_map.find(*gote_name);
+                if (gote_iter == kishi_map.end())
+                {
+                    throw invalid_command_line_input{ "invalid gote name" };
+                }
+                const std::shared_ptr<abstract_kishi_t> & gote_kishi = gote_iter->second;
+
+                if (!kifu_path.empty())
+                {
+                    kyokumen_t kyokumen;
+                    kyokumen.read_kifu_file(kifu_path);
+                    do_taikyoku(kyokumen, sente_kishi, gote_kishi);
+                }
+                else
+                {
+                    do_taikyoku(sente_kishi, gote_kishi);
+                }
             }
         }
         catch (const std::exception & e)

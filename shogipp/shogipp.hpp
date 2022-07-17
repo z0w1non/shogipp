@@ -4525,8 +4525,7 @@ namespace shogipp
             auto & winner_evaluator = kishi_list[!kyokumen.color()];
             std::cout << kyokumen.move_count << "手詰み" << std::endl;
             kyokumen.print();
-            std::cout << color_to_string(!kyokumen.color()) << "勝利（" << winner_evaluator->name() << "）";
-            std::cout.flush();
+            std::cout << color_to_string(!kyokumen.color()) << "勝利（" << winner_evaluator->name() << "）" << std::flush;
         }
         else
         {

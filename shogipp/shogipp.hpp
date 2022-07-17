@@ -2921,7 +2921,7 @@ namespace shogipp
     {
         for (move_count_t i = 0; i < static_cast<move_count_t>(kifu.size()); ++i)
         {
-            move_count_t diff = static_cast<move_count_t>(kifu.size() - i);
+            const move_count_t diff = static_cast<move_count_t>(kifu.size() - i);
             print_move(kifu[i], diff % color_size == 0 ? color() : !color());
             std::cout << std::endl;
         }

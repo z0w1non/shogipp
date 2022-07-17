@@ -98,6 +98,9 @@
 
 namespace shogipp
 {
+    using search_count_t = unsigned long long;
+    using milli_second_time_t = unsigned long long;
+
     namespace details
     {
         SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)")
@@ -144,17 +147,17 @@ namespace shogipp
              * @breif 読み手数の参照を返す。
              * @return 読み手数の参照
              */
-            inline unsigned long long & search_count();
+            inline search_count_t & search_count();
 
             /**
              * @breif 読み手数の参照を返す。
              * @return 読み手数の参照
              */
-            inline const unsigned long long & search_count() const;
+            inline const search_count_t & search_count() const;
 
         private:
             std::chrono::system_clock::time_point m_begin;
-            unsigned long long m_search_count;
+            search_count_t m_search_count;
         };
 
         inline timer_t::timer_t()
@@ -172,7 +175,7 @@ namespace shogipp
         {
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
-            const unsigned long long sps = (unsigned long long)m_search_count * 1000 / duration;
+            const search_count_t sps = m_search_count * 1000 / duration;
 
             std::cout
                 << std::endl
@@ -181,12 +184,12 @@ namespace shogipp
                 << "読み手速度[手/s]: " << sps << std::endl << std::endl;
         }
 
-        inline unsigned long long & timer_t::search_count()
+        inline search_count_t & timer_t::search_count()
         {
             return m_search_count;
         }
 
-        inline const unsigned long long & timer_t::search_count() const
+        inline const search_count_t & timer_t::search_count() const
         {
             return m_search_count;
         }
@@ -558,11 +561,6 @@ namespace shogipp
 
     using move_count_t = unsigned int;
     using depth_t = unsigned int;
-
-    inline constexpr color_t move_count_to_color(move_count_t move_count)
-    {
-        return static_cast<color_t>(move_count % color_size);
-    }
 
     /**
      * @breif 後手の場合に -1 を、先手の場合に 1 を返す。
@@ -2152,13 +2150,7 @@ namespace shogipp
          * @param depth 手数
          * @return 局面の数
          */
-        inline unsigned long long count_node(move_count_t depth) const;
-
-        /**
-         * @breif 局面ファイルから局面を読み込む。
-         * @param kyokumen_file 局面ファイル
-         */
-        inline void read_kyokumen_file(std::filesystem::path kyokumen_file);
+        inline search_count_t count_node(move_count_t depth) const;
 
         /**
          * @breif 棋譜ファイルから棋譜を読み込む。
@@ -2175,6 +2167,7 @@ namespace shogipp
         board_t board;                                          // 盤
         captured_pieces_t captured_pieces_list[color_size];     // 持ち駒
         move_count_t move_count = 0;                            // 手数
+        color_t m_color = black;                                // 手番
         std::vector<move_t> kifu;                               // 棋譜
         additional_info_t additional_info;                      // 追加情報
     };
@@ -2262,7 +2255,6 @@ namespace shogipp
         if (i >= sfen.size())
             throw invalid_usi_input{ "unexpected sfen end" };
 
-        // 例外を投げるためにここでは color_to_color_char を使用しない。
         color_t color;
         if (sfen[i] == 'b')
             color = black;
@@ -2271,6 +2263,7 @@ namespace shogipp
         else
             throw invalid_usi_input{ "invalid color" };
         ++i;
+        temp.m_color = color;
 
         while (i < sfen.size() && sfen[i] == ' ')
             ++i;
@@ -2344,9 +2337,6 @@ namespace shogipp
                 }
             }
         }
-
-        if (temp.color() != color)
-            throw invalid_usi_input{ "invalid color" };
 
         temp.clear_additional_info();
         temp.push_additional_info();
@@ -2937,9 +2927,9 @@ namespace shogipp
 
     inline void kyokumen_t::print_kifu() const
     {
-        for (move_count_t move_count = 0; move_count < static_cast<move_count_t>(kifu.size()); ++move_count)
+        for (const color_t & color : colors)
         {
-            print_move(kifu[move_count], move_count_to_color(move_count));
+            print_move(kifu[color], color);
             std::cout << std::endl;
         }
     }
@@ -2977,6 +2967,7 @@ namespace shogipp
                 additional_info.king_pos_list[color()] = move.destination();
         }
         ++move_count;
+        m_color = !m_color;
         kifu.push_back(move);
         push_additional_info(hash);
         validate_board_out();
@@ -2986,6 +2977,7 @@ namespace shogipp
     {
         SHOGIPP_ASSERT(move_count > 0);
         --move_count;
+        m_color = !m_color;
         if (move.put())
         {
             ++captured_pieces_list[color()][move.source_piece()];
@@ -3006,15 +2998,15 @@ namespace shogipp
 
     inline color_t kyokumen_t::color() const
     {
-        return move_count_to_color(move_count);
+        return m_color;
     }
 
-    inline unsigned long long kyokumen_t::count_node(move_count_t depth) const
+    inline search_count_t kyokumen_t::count_node(move_count_t depth) const
     {
         if (depth == 0)
             return 1;
 
-        unsigned long long count = 0;
+        search_count_t count = 0;
         for (const move_t & move : search_moves())
         {
             VALIDATE_KYOKUMEN_ROLLBACK(*this);
@@ -3023,129 +3015,6 @@ namespace shogipp
             const_cast<kyokumen_t &>(*this).undo_move(move);
         }
         return count;
-    }
-
-    inline void kyokumen_t::read_kyokumen_file(std::filesystem::path kyokumen_file)
-    {
-        static const std::string mochigoma_string = "持ち駒：";
-        static const std::string nothing_string = "なし";
-        static const std::string move_count_suffix = "手目";
-        static const std::string color_suffix = "番";
-
-        std::ifstream stream{ kyokumen_file };
-        std::string line;
-        pos_t dan = 0;
-
-        kyokumen_t temp_kyokumen;
-
-        try
-        {
-            while (std::getline(stream, line))
-            {
-                if (line.empty() || (!line.empty() && line.front() == '#'))
-                    continue;
-
-                std::string_view rest = line;
-                if (rest.size() >= 1 && rest[0] >= '0' && rest[0] <= '9')
-                {
-                    move_count_t temp_move_count = 0;
-                    do
-                    {
-                        temp_move_count *= 10;
-                        temp_move_count += rest[0] - '0';
-                        rest.remove_prefix(1);
-                    } while (rest.size() >= 1 && rest[0] >= '0' && rest[0] <= '9');
-                    if (temp_move_count == 0)
-                        throw file_format_error{ "read_kyokumen_file 1-1" };
-                    --temp_move_count;
-
-                    parse(rest, move_count_suffix);
-
-                    std::optional<color_t> color = parse(rest, color_string_map, color_string_size);
-
-                    if (move_count_to_color(temp_move_count) != *color)
-                        throw file_format_error{ "read_kyokumen_file 1-6" };
-
-                    parse(rest, color_suffix);
-
-                    temp_kyokumen.move_count = temp_move_count;
-                    continue;
-                }
-                
-                if (rest.size() >= 1 && rest[0] == '|')
-                {
-                    rest.remove_prefix(1);
-                    for (pos_t suji = 0; suji < suji_size; ++suji)
-                    {
-                        std::optional<color_t> color = parse(rest, color_prefix_string_map, color_prefix_string_size);
-                        std::optional<piece_t> piece = parse(rest, piece_string_map, piece_string_size);
-                        if (*piece != empty && *color == white)
-                            piece = to_gote(*piece);
-                        temp_kyokumen.board[suji_dan_to_pos(suji, dan)] = *piece;
-                    }
-                    ++dan;
-                    continue;
-                }
-                
-                if (rest.size() >= color_string_size)
-                {
-                    std::optional<color_t> color = parse(rest, color_string_map, color_string_size);
-                    if (!color)
-                        continue;
-
-                    parse(rest, mochigoma_string);
-
-                    if (rest.size() >= nothing_string.size() && rest == nothing_string)
-                        continue;
-
-                    while (true)
-                    {
-                        captured_pieces_t::size_type count = 1;
-                        std::optional<piece_t> piece = parse(rest, piece_string_map, piece_string_size);
-                        if (!piece)
-                            break;
-                        if (piece < fu)
-                            throw file_format_error{ "read_kyokumen_file 2-1" };
-                        if (piece > hi)
-                            throw file_format_error{ "read_kyokumen_file 2-2" };
-
-                        if (rest.size() >= digit_string_size)
-                        {
-                            if (digit_string_map.find(std::string{ rest.substr(0, digit_string_size) }) != digit_string_map.end())
-                            {
-                                captured_pieces_t::size_type digit = 0;
-                                do
-                                {
-                                    auto digit_iterator = digit_string_map.find(std::string{ rest.substr(0, digit_string_size) });
-                                    if (digit_iterator == digit_string_map.end())
-                                        break;
-                                    digit *= 10;
-                                    digit += digit_iterator->second;
-                                    rest.remove_prefix(digit_string_size);
-                                } while (rest.size() >= digit_string_size);
-                                count = digit;
-                            }
-                        }
-                        if (count > 18)
-                            throw file_format_error{ "read_kyokumen_file 2-3" };
-
-                        temp_kyokumen.captured_pieces_list[*color][*piece] = count;
-                    }
-                }
-            }
-            
-            temp_kyokumen.clear_additional_info();
-            temp_kyokumen.push_additional_info();
-            std::swap(*this, temp_kyokumen);
-        }
-        catch (const parse_error & e)
-        {
-            throw file_format_error{ e.what() };
-        }
-        catch (const file_format_error &)
-        {
-            throw;
-        }
     }
 
     inline void kyokumen_t::read_kifu_file(std::filesystem::path kifu_file)
@@ -3361,8 +3230,6 @@ namespace shogipp
     using evaluation_value_cache_t = lru_cache_t<hash_t, evaluation_value_t>;
 #endif
 
-    using search_count_t = unsigned long long;
-
     /**
      * @breif 評価関数オブジェクトのインターフェース
      */
@@ -3531,7 +3398,7 @@ namespace shogipp
 
         for (const color_t color : colors)
             for (piece_t piece = fu; piece <= hi; ++piece)
-                evaluation_value += map[piece] * kyokumen.captured_pieces_list[color][piece] * reverse(move_count_to_color(color));
+                evaluation_value += map[piece] * kyokumen.captured_pieces_list[color][piece] * reverse(color);
 
         return evaluation_value;
     }
@@ -3594,17 +3461,19 @@ namespace shogipp
         evaluation_value_t cp{};
         move_count_t mate{};
         std::optional<move_t> currmove;
+        std::optional<move_t> best_move;
         search_count_t cache_hit_count{};
         bool requested_to_stop{};
+        milli_second_time_t limit_time;
         std::mutex mutex;
 
-        inline unsigned long long time() const
+        inline milli_second_time_t time() const
         {
             std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            return static_cast<unsigned long long >(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+            return static_cast<milli_second_time_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
         }
 
-        inline unsigned long long hashfull() const
+        inline search_count_t hashfull() const
         {
             return nodes * 1000 / cache_hit_count;
         }
@@ -3690,6 +3559,7 @@ namespace shogipp
 
         std::vector<evaluated_moves> evaluated_moves;
         auto inserter = std::back_inserter(evaluated_moves);
+        evaluation_value_t max_evaluation_value = -std::numeric_limits<evaluation_value_t>::max();
 
         for (const move_t & move : moves)
         {
@@ -3708,6 +3578,13 @@ namespace shogipp
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
+
+            if (usi_info && depth == 0 && evaluation_value > max_evaluation_value)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                usi_info->best_move = move;
+            }
+            max_evaluation_value = evaluation_value;
         }
 
         SHOGIPP_ASSERT(!moves.empty());
@@ -3816,6 +3693,7 @@ namespace shogipp
 
         std::vector<evaluated_moves> evaluated_moves;
         auto inserter = std::back_inserter(evaluated_moves);
+        evaluation_value_t max_evaluation_value = -std::numeric_limits<evaluation_value_t>::max();
 
         for (const move_t & move : moves)
         {
@@ -3834,6 +3712,14 @@ namespace shogipp
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
+
+            if (usi_info && depth == 0 && evaluation_value > max_evaluation_value)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                usi_info->best_move = move;
+            }
+            max_evaluation_value = evaluation_value;
+
             alpha = std::max(alpha, evaluation_value);
             if (alpha >= beta)
                 break;
@@ -3980,6 +3866,7 @@ namespace shogipp
 
         std::vector<evaluated_moves> evaluated_moves;
         auto inserter = std::back_inserter(evaluated_moves);
+        evaluation_value_t max_evaluation_value = -std::numeric_limits<evaluation_value_t>::max();
 
         for (const move_t & move : moves)
         {
@@ -3999,6 +3886,14 @@ namespace shogipp
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
+
+            if (usi_info && depth == 0 && evaluation_value > max_evaluation_value)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                usi_info->best_move = move;
+            }
+            max_evaluation_value = evaluation_value;
+
             alpha = std::max(alpha, evaluation_value);
             if (alpha >= beta)
                 break;
@@ -4839,7 +4734,6 @@ namespace shogipp
         try
         {
             std::string kifu_path;
-            std::string kyokumen_path;
             std::string sente_name = DEFAULT_SENTE_KISHI;
             std::string gote_name = DEFAULT_GOTE_KISHI;
 
@@ -4850,10 +4744,6 @@ namespace shogipp
                 if (option == "kifu" && !params.empty())
                 {
                     kifu_path = params[0];
-                }
-                else if (option == "kyokumen" && !params.empty())
-                {
-                    kyokumen_path = params[0];
                 }
                 else if (option == "sente" && !params.empty())
                 {
@@ -4880,20 +4770,10 @@ namespace shogipp
             }
             const std::shared_ptr<abstract_kishi_t> & gote_kishi = gote_iter->second;
 
-            if (!kifu_path.empty() && !kyokumen_path.empty())
-            {
-                throw invalid_command_line_input{ "!kifu.empty() && !kyokumen.empty()" };
-            }
-            else if (!kifu_path.empty())
+            if (!kifu_path.empty())
             {
                 kyokumen_t kyokumen;
                 kyokumen.read_kifu_file(kifu_path);
-                do_taikyoku(kyokumen, sente_kishi, gote_kishi);
-            }
-            else if (!kyokumen_path.empty())
-            {
-                kyokumen_t kyokumen;
-                kyokumen.read_kyokumen_file(kyokumen_path);
                 do_taikyoku(kyokumen, sente_kishi, gote_kishi);
             }
             else

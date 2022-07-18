@@ -4892,7 +4892,7 @@ namespace shogipp
                             else
                             {
                                 if (!opt_time[kyokumen.color()])
-                                    throw invalid_usi_input{ "time limit not specified" };
+                                    throw invalid_usi_input{ "limit time not specified" };
                                 milli_second_time_t limit_time = *opt_time[kyokumen.color()];
                                 if (opt_byoyomi)
                                     limit_time += *opt_byoyomi;

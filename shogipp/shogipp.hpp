@@ -97,15 +97,15 @@ namespace shogipp
     {
         SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)")
 
-        /**
-         * @breif SHOGIPP_ASSERT マクロの実装
-         * @param assertion 式を評価した bool 値
-         * @param expr 式を表現する文字列
-         * @param file __FILE__
-         * @param func __func__
-         * @param line __LINE__
-         */
-        inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
+            /**
+             * @breif SHOGIPP_ASSERT マクロの実装
+             * @param assertion 式を評価した bool 値
+             * @param expr 式を表現する文字列
+             * @param file __FILE__
+             * @param func __func__
+             * @param line __LINE__
+             */
+            inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
         {
             if (!assertion)
             {
@@ -187,6 +187,25 @@ namespace shogipp
         }
 
         thread_local timer_t timer;
+
+        inline void trim_front_space(std::string_view & sv)
+        {
+            while (!sv.empty() && sv.front() == ' ')
+                sv.remove_prefix(1);
+        }
+
+        inline bool try_parse(std::string_view & sv, std::string_view token)
+        {
+            if (sv.size() >= token.size())
+            {
+                if (sv.substr(0, token.size()) == token)
+                {
+                    sv.remove_prefix(token.size());
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     class file_format_error
@@ -1811,9 +1830,9 @@ namespace shogipp
         inline kyokumen_t();
 
         /**
-         * @breif SFEN表記法に準拠した文字列から局面を構築する。
+         * @breif position コマンドで指定された文字列から局面を構築する。
          */
-        inline kyokumen_t(std::string_view sfen);
+        inline kyokumen_t(std::string_view position);
 
         /**
          * @breif 駒が移動する場合に成りが可能か判定する。
@@ -2201,137 +2220,133 @@ namespace shogipp
         push_additional_info();
     }
 
-    inline kyokumen_t::kyokumen_t(std::string_view sfen)
+    inline kyokumen_t::kyokumen_t(std::string_view position)
     {
         kyokumen_t temp;
-        temp.board.clear();
+        bool promoted = false;        
+        std::string_view rest = position;
 
-        bool promoted = false;
-        pos_t dan = 0, suji = 0;
+        details::trim_front_space(rest);
+        constexpr std::string_view a = "sfen";
+        if (!details::try_parse(rest, a))
+            throw invalid_usi_input{ "sfen not found" };
 
-        std::size_t i = 0;
-        for (; i < sfen.size(); ++i)
+        details::trim_front_space(rest);
+        constexpr std::string_view startpos = "startpos";
+        bool is_startpos = details::try_parse(rest, startpos);
+        if (!is_startpos)
         {
-            if (sfen[i] == ' ')
-                break;
-            else if (sfen[i] == '+')
+            details::trim_front_space(rest);
+            temp.board.clear();
+            pos_t dan = 0, suji = 0;
+
+            for (; !rest.empty() && !std::isspace(rest[0]); rest.remove_prefix(1))
             {
-                promoted = true;
-            }
-            else if (sfen[i] == '/')
-            {
-                if (suji != suji_size)
-                    throw invalid_usi_input{ "unexpected '/'" };
-                ++dan;
-            }
-            else if (sfen[i] >= '1' && sfen[i] <= '9')
-            {
-                suji += static_cast<pos_t>(sfen[i] - '0');
-            }
-            else
-            {
-                const std::optional<piece_t> optional_piece = char_to_piece(sfen[i]);
-                if (!optional_piece)
-                    throw invalid_usi_input{ "unexpected character" };
-                piece_t piece = *optional_piece;
-                if (promoted)
-                    piece = to_promoted(piece);
-                temp.board[suji_dan_to_pos(suji, dan)] = piece;
-                ++suji;
+                if (rest[0] == '+')
+                {
+                    promoted = true;
+                }
+                else if (rest[0] == '/')
+                {
+                    if (suji != suji_size)
+                        throw invalid_usi_input{ "unexpected '/'" };
+                    ++dan;
+                    suji = 0;
+                }
+                else if (rest[0] >= '1' && rest[0] <= '9')
+                {
+                    suji += static_cast<pos_t>(rest[0] - '0');
+                }
+                else
+                {
+                    const std::optional<piece_t> optional_piece = char_to_piece(rest[0]);
+                    if (!optional_piece)
+                        throw invalid_usi_input{ "unexpected character" };
+                    piece_t piece = *optional_piece;
+                    if (promoted)
+                        piece = to_promoted(piece);
+                    temp.board[suji_dan_to_pos(suji, dan)] = piece;
+                    ++suji;
+                }
             }
         }
 
-        while (i < sfen.size() && sfen[i] == ' ')
-            ++i;
-
-        if (i >= sfen.size())
-            throw invalid_usi_input{ "unexpected sfen end" };
-
+        details::trim_front_space(rest);
+        if (rest.empty())
+            throw invalid_usi_input{ "unexpected sfen end 1"};
         color_t color;
-        if (sfen[i] == 'b')
+        if (rest[0] == 'b')
             color = black;
-        if (sfen[i] == 'w')
+        if (rest[0] == 'w')
             color = white;
         else
             throw invalid_usi_input{ "invalid color" };
-        ++i;
+        rest.remove_prefix(1);
         temp.m_color = color;
 
-        while (i < sfen.size() && sfen[i] == ' ')
-            ++i;
+        temp.clear_additional_info();
+        temp.push_additional_info();
 
-        if (i >= sfen.size())
-            throw invalid_usi_input{ "unexpected sfen end" };
-
-        if (sfen[i] == '-')
+        details::trim_front_space(rest);
+        if (rest.empty())
+            throw invalid_usi_input{ "unexpected sfen end 2" };
+        if (rest[0] == '-')
         {
-            ++i;
+            rest.remove_prefix(1);
         }
         else
         {
             captured_pieces_t::size_type count = 1;
-            while (i < sfen.size() && sfen[i] != ' ')
+            while (!rest.empty() && rest[0] != ' ')
             {
-                if (sfen[i] >= '0' && sfen[i] <= '9')
+                if (rest[0] >= '0' && rest[0] <= '9')
                 {
-                    count = static_cast<captured_pieces_t::size_type>(sfen[i] - '0');
-                    while (++i < sfen.size() && sfen[i] >= '0' && sfen[i] <= '9')
-                        count = static_cast<captured_pieces_t::size_type>(count * 10 + sfen[i] - '0');
+                    count = static_cast<captured_pieces_t::size_type>(rest[0] - '0');
+                    while (!rest.empty() && rest[0] >= '0' && rest[0] <= '9')
+                        count = static_cast<captured_pieces_t::size_type>(count * 10 + rest[0] - '0');
                 }
                 else
                 {
-                    std::optional<piece_t> optional_piece = char_to_piece(sfen[i]);
+                    std::optional<piece_t> optional_piece = char_to_piece(rest[0]);
                     if (!optional_piece)
                         throw invalid_usi_input{ "unexpected character" };
                     temp.captured_pieces_list[to_color(*optional_piece)][trim_color(*optional_piece)] = count;
                     count = 1;
                 }
-                ++i;
+                rest.remove_prefix(1);
             }
         }
 
-        while (i < sfen.size() && sfen[i] == ' ')
-            ++i;
-
-        if (sfen[i] >= '0' && sfen[i] <= '9')
+        details::trim_front_space(rest);
+        move_count_t move_count = 0;
+        while (!rest.empty() && rest[0] >= '0' && rest[0] <= '9')
         {
-            move_count_t move_count = static_cast<move_count_t>(sfen[i] - '0');
-            while (++i < sfen.size() && sfen[i] >= '0' && sfen[i] <= '9')
-                move_count = static_cast<move_count_t>(move_count * 10 + sfen[i] - '0');
-            --move_count;
-            /*temp.move_count = move_count;*/ /* unused */
+            move_count = static_cast<move_count_t>(move_count * 10 + rest[0] - '0');
+            rest.remove_prefix(1);
         }
+        --move_count;
+        /* unused move_count */
 
-        while (i < sfen.size() && sfen[i] == ' ')
-            ++i;
-
+        details::trim_front_space(rest);
         constexpr std::string_view moves = "moves";
-        if (i + moves.size() > sfen.size() && sfen.substr(i, moves.size()) == moves)
+        bool found_moves = details::try_parse(rest, moves);
+        if (found_moves)
         {
-            i += moves.size();
-
-            while (i < sfen.size() && sfen[i] == ' ')
-                ++i;
-
-            while (i < sfen.size() && sfen[i] == ' ')
+            if (!rest.empty() && rest.substr(0, moves.size()) == moves)
             {
-                while (i < sfen.size() && sfen[i] == ' ')
-                    ++i;
-
-                if (i < sfen.size())
+                rest.remove_prefix(moves.size());
+                details::trim_front_space(rest);
+                while (!rest.empty())
                 {
-                    const std::size_t begin = i;
-                    while (i < sfen.size() && sfen[i] != ' ')
-                        ++i;
-
-                    const std::string_view token = sfen.substr(begin, i - begin + 1);
-                    /*temp.kifu.emplace_back(token, temp.board);*/
+                    auto iter = std::find_if(rest.begin(), rest.end(), [](char c) -> bool { return std::isspace(c); });
+                    const std::string_view::size_type length = static_cast<std::string_view::size_type>(std::distance(rest.begin(), rest.end()));
+                    const std::string_view token = std::string_view{ rest.data(), length };
+                    const move_t move{ token, temp.board };
+                    temp.do_move(move);
+                    details::trim_front_space(rest);
                 }
             }
         }
-
-        temp.clear_additional_info();
-        temp.push_additional_info();
 
         *this = std::move(temp);
     }
@@ -3474,6 +3489,7 @@ namespace shogipp
         state_t state = state_t::not_ready;
         milli_second_time_t limit_time;
         std::map<std::string, std::string> options;
+        bool ponder = false;
 
         mutable std::recursive_mutex mutex;
 
@@ -3606,12 +3622,12 @@ namespace shogipp
         }
 
         /**
-         * @breif state に state_t::terminated を設定し、 bestmove コマンドを出力する。
+         * @breif state に state_t::terminated を設定し、ponder == false であれば bestmove コマンドを出力する。
          */
         inline void terminate()
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
-            if (best_move)
+            if (best_move && !ponder)
                 std::cout << "bestmove " << best_move->sfen_string() << std::endl;
             state = state_t::terminated;
         }
@@ -4700,6 +4716,7 @@ namespace shogipp
             std::string position;
             std::vector<std::string> moves;
             std::shared_ptr<usi_info_t> usi_info;
+            std::map<std::string, std::string> setoptions;
 
             while (std::getline(std::cin, line))
             {
@@ -4730,7 +4747,7 @@ namespace shogipp
                         if (tokens[current] == "name")
                         {
                             ++current;
-                            if (current < tokens.size())
+                            if (current >= tokens.size())
                             {
                                 throw invalid_usi_input{ "unexpected end of command" };
                             }
@@ -4740,7 +4757,7 @@ namespace shogipp
                         else if (tokens[current] == "value")
                         {
                             ++current;
-                            if (current < tokens.size())
+                            if (current >= tokens.size())
                             {
                                 throw invalid_usi_input{ "unexpected end of command" };
                             }
@@ -4758,10 +4775,7 @@ namespace shogipp
                         throw invalid_usi_input{ "value parameter not specified" };
                     }
 
-                    {
-                        std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                        usi_info->options[*name] = *value;
-                    }
+                    setoptions[*name] = *value;
                 }
                 else if (tokens[current] == "isready")
                 {
@@ -4770,18 +4784,24 @@ namespace shogipp
                 }
                 else if (tokens[current] == "usinewgame")
                 {
-                   
+                    ;
                 }
                 else if (tokens[current] == "position")
                 {
+                    ++current;
+                    position.clear();
+                    for (std::size_t i = current; i < tokens.size(); ++i)
+                    {
+                        if (i > current)
+                            position += ' ';
+                        position += tokens[i];
+                    }
                 }
                 else if (tokens[current] == "go")
                 {
-                    std::optional<unsigned long> opt_btime;
-                    std::optional<unsigned long> opt_wtime;
+                    std::optional<unsigned long> opt_time[color_size];
                     std::optional<unsigned long> opt_byoyomi;
-                    std::optional<unsigned long> opt_binc;
-                    std::optional<unsigned long> opt_winc;
+                    std::optional<unsigned long> opt_inc[color_size];
                     bool ponder = false;
                     bool infinite = false;
                     bool mate = false;
@@ -4797,29 +4817,29 @@ namespace shogipp
                         else if (tokens[current] == "btime")
                         {
                             ++current;
-                            if (current < tokens.size())
+                            if (current >= tokens.size())
                             {
-                                throw invalid_usi_input{ "unexpected end of command" };
+                                throw invalid_usi_input{ "btime value not found" };
                             }
-                            opt_btime = std::stoul(tokens[current]);
+                            opt_time[black] = std::stoul(tokens[current]);
                             ++current;
                         }
                         else if (tokens[current] == "wtime")
                         {
                             ++current;
-                            if (current < tokens.size())
+                            if (current >= tokens.size())
                             {
-                                throw invalid_usi_input{ "unexpected end of command" };
+                                throw invalid_usi_input{ "wtime value not found" };
                             }
-                            opt_wtime = std::stoul(tokens[current]);
+                            opt_time[white] = std::stoul(tokens[current]);
                             ++current;
                         }
                         else if (tokens[current] == "byoyomi")
                         {
                             ++current;
-                            if (current < tokens.size())
+                            if (current >= tokens.size())
                             {
-                                throw invalid_usi_input{ "unexpected end of command" };
+                                throw invalid_usi_input{ "byoyomi value not found" };
                             }
                             opt_byoyomi = std::stoul(tokens[current]);
                             ++current;
@@ -4827,21 +4847,21 @@ namespace shogipp
                         else if (tokens[current] == "binc")
                         {
                             ++current;
-                            if (current < tokens.size())
+                            if (current >= tokens.size())
                             {
-                                throw invalid_usi_input{ "unexpected end of command" };
+                                throw invalid_usi_input{ "binc value not found" };
                             }
-                            opt_binc = std::stoul(tokens[current]);
+                            opt_inc[black] = std::stoul(tokens[current]);
                             ++current;
                         }
                         else if (tokens[current] == "winc")
                         {
                             ++current;
-                            if (current < tokens.size())
+                            if (current >= tokens.size())
                             {
-                                throw invalid_usi_input{ "unexpected end of command" };
+                                throw invalid_usi_input{ "win value not found" };
                             }
-                            opt_winc = std::stoul(tokens[current]);
+                            opt_inc[white] = std::stoul(tokens[current]);
                             ++current;
                         }
                         else if (tokens[current] == "infinite")
@@ -4856,19 +4876,30 @@ namespace shogipp
                         }
                     }
 
-                    if (ponder)
+                    if (mate)
                     {
                         ;
                     }
-                    else if (mate)
-                    {
-                        ;
-                    }
-                    else
+                    else // ponder or none
                     {
                         kyokumen_t kyokumen{ position };
                         auto evaluator = std::make_shared<hiyoko_evaluator_t>();
                         usi_info = std::make_shared<usi_info_t>();
+
+                        {
+                            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                            if (infinite)
+                                usi_info->limit_time = std::numeric_limits<decltype(usi_info->limit_time)>::max();
+                            else
+                            {
+                                if (!opt_time[kyokumen.color()])
+                                    throw invalid_usi_input{ "time limit not specified" };
+                                usi_info->limit_time = *opt_time[kyokumen.color()];
+                            }
+                            usi_info->ponder = ponder;
+                            usi_info->options = setoptions;
+                        }
+
                         evaluator->usi_info = usi_info;
                         std::thread search_thread([=]() mutable { evaluator->best_move(kyokumen); });
                         std::thread notify_thread([=]()
@@ -4898,17 +4929,26 @@ namespace shogipp
                             best_move = usi_info->best_move;
                             usi_info->state = usi_info_t::state_t::requested_to_stop;
                         }
-                        usi_info = nullptr;
+                        usi_info = std::make_shared<usi_info_t>();
 
-                        if (best_move)
-                            std::cout << "bestmove " << best_move->sfen_string() << std::endl;
-                        else
+                        if (!best_move)
                             throw invalid_usi_input{ "unexpected stop command" };
                     }
                     else
                     {
                         throw invalid_usi_input{ "unexpected stop command" };
                     }
+                }
+                else if (tokens[0] == "ponderhit")
+                {
+                    std::optional<move_t> best_move;
+                    {
+                        std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                        if (usi_info->state == usi_info_t::state_t::terminated)
+                            best_move = usi_info->best_move;
+                    }
+                    if (best_move)
+                        std::cout << "bestmove " << best_move->sfen_string() << std::endl;
                 }
                 else if (tokens[0] == "quit")
                 {
@@ -4984,6 +5024,15 @@ namespace shogipp
         { "hiyoko"  , std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t  >()) },
         { "niwatori", std::make_shared<computer_kishi_t>(std::make_shared<niwatori_evaluator_t>()) },
         { "fukayomi", std::make_shared<computer_kishi_t>(std::make_shared<fukayomi_evaluator_t>()) },
+    };
+
+    static const std::map<std::string, std::shared_ptr<abstract_evaluator_t>> evaluator_map
+    {
+        { "random"  , std::make_shared<random_evaluator_t  >() },
+        { "sample"  , std::make_shared<sample_evaluator_t  >() },
+        { "hiyoko"  , std::make_shared<hiyoko_evaluator_t  >() },
+        { "niwatori", std::make_shared<niwatori_evaluator_t>() },
+        { "fukayomi", std::make_shared<fukayomi_evaluator_t>() },
     };
 
     inline int parse_command_line(int argc, const char ** argv)

@@ -2227,16 +2227,15 @@ namespace shogipp
         std::string_view rest = position;
 
         details::trim_front_space(rest);
-        constexpr std::string_view a = "sfen";
-        if (!details::try_parse(rest, a))
-            throw invalid_usi_input{ "sfen not found" };
-
-        details::trim_front_space(rest);
         constexpr std::string_view startpos = "startpos";
         bool is_startpos = details::try_parse(rest, startpos);
         if (!is_startpos)
         {
             details::trim_front_space(rest);
+            constexpr std::string_view sfen = "sfen";
+            if (!details::try_parse(rest, sfen))
+                throw invalid_usi_input{ "sfen not found" };
+
             temp.board.clear();
             pos_t dan = 0, suji = 0;
 
@@ -4859,7 +4858,7 @@ namespace shogipp
                             ++current;
                             if (current >= tokens.size())
                             {
-                                throw invalid_usi_input{ "win value not found" };
+                                throw invalid_usi_input{ "winc value not found" };
                             }
                             opt_inc[white] = std::stoul(tokens[current]);
                             ++current;
@@ -4894,7 +4893,10 @@ namespace shogipp
                             {
                                 if (!opt_time[kyokumen.color()])
                                     throw invalid_usi_input{ "time limit not specified" };
-                                usi_info->limit_time = *opt_time[kyokumen.color()];
+                                milli_second_time_t limit_time = *opt_time[kyokumen.color()];
+                                if (opt_byoyomi)
+                                    limit_time += *opt_byoyomi;
+                                usi_info->limit_time = limit_time;
                             }
                             usi_info->ponder = ponder;
                             usi_info->options = setoptions;

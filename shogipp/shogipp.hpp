@@ -3166,6 +3166,11 @@ namespace shogipp
         {
         }
 
+        inline lru_cache_t(const lru_cache_t &) = default;
+        inline lru_cache_t(lru_cache_t &&) = default;
+        inline lru_cache_t & operator =(const lru_cache_t &) = default;
+        inline lru_cache_t & operator =(lru_cache_t &&) = default;
+
         /**
          * @breif キャッシュを破棄する。
          */
@@ -3441,6 +3446,8 @@ namespace shogipp
 
     /**
      * @breif USIプロトコルでクライアントからサーバーに送信される情報を表現する。
+     * @details このクラスのメンバ関数はスレッドセーフに実行される。
+     *          このクラスのメンバ関数を参照する場合、 mutex メンバ変数を利用して排他制御すること。
      */
     class usi_info_t
     {
@@ -3466,8 +3473,14 @@ namespace shogipp
         search_count_t cache_hit_count{};
         state_t state = state_t::not_ready;
         milli_second_time_t limit_time;
+        std::map<std::string, std::string> options;
+
         mutable std::recursive_mutex mutex;
 
+        /**
+         * @breif begin と現在時間の差分をミリ秒単位で返す。
+         * @return begin と現在時間の差分
+         */
         inline milli_second_time_t time() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
@@ -3475,18 +3488,29 @@ namespace shogipp
             return static_cast<milli_second_time_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
         }
 
+        /**
+         * @breif 探索局面数全体のうちキャッシュを適用した探索局面数の占める割合を千分率で返す。
+         * @return 探索局面数全体のうちキャッシュを適用した探索局面数の占める割合
+         */
         inline search_count_t hashfull() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
             return nodes * 1000 / cache_hit_count;
         }
 
+        /**
+         * @breif 1秒あたりの探索局面数を返す。
+         * @return 1秒あたりの探索局面数
+         */
         inline search_count_t nps() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
             return nodes * 1000 / time();
         }
 
+        /**
+         * @breif 即時的な出力を行う。
+         */
         inline void ondemand_print() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
@@ -3503,6 +3527,9 @@ namespace shogipp
             std::cout << std::endl;
         }
 
+        /**
+         * @breif 定期的な出力を行う。
+         */
         inline void periodic_print() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
@@ -3516,11 +3543,76 @@ namespace shogipp
                 << std::endl;
         }
 
+        /**
+         * @breif 名前に関連付けられオプションの値を文字列として取得する。
+         * @param name オプションの名前
+         * @return std::optional<std::string>
+         */
+        inline std::optional<std::string> get_option(const std::string & name) const
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            auto iter = options.find(name);
+            if (iter != options.end())
+                return iter->second;
+            return std::nullopt;
+        }
+
+        /**
+         * @breif 名前に関連付けられオプションの値を Result 型に変換して取得する。
+         * @tparam Result 変換先の型
+         * @param name オプションの名前
+         * @return std::optional<Result>
+         */
+        template<typename Result>
+        inline std::optional<Result> get_option_as(const std::string & name) const
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            std::optional<std::string> opt_value = get_option(name);
+            if (opt_value)
+            {
+                try
+                {
+                    std::istringstream stream{ *opt_value };
+                    Result result;
+                    stream >> std::boolalpha >> result;
+                    return result;
+                }
+                catch (const std::exception &)
+                {
+                    ;
+                }
+            }
+            return std::nullopt;
+        }
+
+        /**
+         * @breif USI_Hash オプションの値に準拠した最大サイズを持つ cache_t を構築する。
+         * @param usi_info usi_info_t のポインタ
+         * @return USI_Hash オプションの値に準拠した最大サイズを持つ cache_t
+         * @details usi_info が nullptr である場合、あるいは USI_Hash オプション が指定されていない場合、
+         *          この関数は無制限の最大サイズを持つ cache_t を構築する。
+         */
+        inline static cache_t make_cache(usi_info_t * usi_info)
+        {
+            std::size_t cache_size = std::numeric_limits<std::size_t>::max();
+            if (usi_info)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                const std::optional<std::size_t> cache_mb_size = usi_info->get_option_as<std::size_t>("USI_Hash");
+                if (cache_mb_size)
+                    cache_size = *cache_mb_size * 1000 * 1000 / sizeof(hash_t);
+            }
+            return cache_t{ cache_size };
+        }
+
+        /**
+         * @breif state に state_t::terminated を設定し、 bestmove コマンドを出力する。
+         */
         inline void terminate()
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
             if (best_move)
-                std::cout << best_move->sfen_string() << std::endl;
+                std::cout << "bestmove " << best_move->sfen_string() << std::endl;
             state = state_t::terminated;
         }
     };
@@ -3649,7 +3741,7 @@ namespace shogipp
             usi_info->state = usi_info_t::state_t::searching;
         }
 
-        cache_t cache{ std::numeric_limits<std::size_t>::max() };
+        cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
         evaluation_value_t evaluation_value;
         try
@@ -3787,7 +3879,7 @@ namespace shogipp
             usi_info->state = usi_info_t::state_t::searching;
         }
 
-        cache_t cache{ std::numeric_limits<std::size_t>::max() };
+        cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
         evaluation_value_t evaluation_value;
         try
@@ -3962,7 +4054,7 @@ namespace shogipp
             usi_info->state = usi_info_t::state_t::searching;
         }
 
-        cache_t cache{ std::numeric_limits<std::size_t>::max() };
+        cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
         evaluation_value_t evaluation_value;
         try
@@ -4589,7 +4681,7 @@ namespace shogipp
     /**
      * @breif USIプロトコルで通信する機能を提供する。
      */
-    class usi_engine_t
+    class abstract_usi_engine_t
     {
     public:
         /**
@@ -4617,7 +4709,52 @@ namespace shogipp
                 {
                     std::cout << "id name " << name() << std::endl;
                     std::cout << "id author " << author() << std::endl;
+                    std::cout << options() << std::flush;
                     std::cout << "usiok" << std::endl;
+                }
+                else if (tokens[current] == "setoption")
+                {
+                    std::optional<std::string> name;
+                    std::optional<std::string> value;
+
+                    ++current;
+                    while (current < tokens.size())
+                    {
+                        if (tokens[current] == "name")
+                        {
+                            ++current;
+                            if (current < tokens.size())
+                            {
+                                throw invalid_usi_input{ "unexpected end of command" };
+                            }
+                            name = tokens[current];
+                            ++current;
+                        }
+                        else if (tokens[current] == "value")
+                        {
+                            ++current;
+                            if (current < tokens.size())
+                            {
+                                throw invalid_usi_input{ "unexpected end of command" };
+                            }
+                            value = tokens[current];
+                            ++current;
+                        }
+                    }
+
+                    if (!name)
+                    {
+                        throw invalid_usi_input{ "name parameter not specified" };
+                    }
+                    else if (!value)
+                    {
+                        throw invalid_usi_input{ "value parameter not specified" };
+                    }
+
+                    {
+                        std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                        usi_info->options[*name] = *value;
+                    }
                 }
                 else if (tokens[current] == "isready")
                 {
@@ -4726,7 +4863,7 @@ namespace shogipp
                         auto evaluator = std::make_shared<hiyoko_evaluator_t>();
                         usi_info = std::make_shared<usi_info_t>();
                         evaluator->usi_info = usi_info;
-                        std::thread search_thread([=]() mutable -> move_t { evaluator->best_move(kyokumen); });
+                        std::thread search_thread([=]() mutable { evaluator->best_move(kyokumen); });
                         std::thread notify_thread([=]()
                             {
                                 while (true)
@@ -4781,13 +4918,20 @@ namespace shogipp
          * @breif プログラムの名前を返す。
          * @return プログラムの名前
          */
-        virtual const char * name() = 0;
+        virtual std::string name() = 0;
 
         /**
          * @breif プログラムの開発者名を返す。
          * @return プログラムの開発者名
          */
-        virtual const char * author() = 0;
+        virtual std::string author() = 0;
+
+        /**
+         * @breif プログラムの固有の設定値を返す。
+         * @return プログラムの固有の設定値
+         * @details この関数が返した文字列は、サーバーから usi コマンドが送信された後、 usiok を送信する前に送信される。
+         */
+        virtual std::string options() = 0;
 
         /**
          * @breif isready コマンドを受信した場合に呼び出される。
@@ -4796,6 +4940,33 @@ namespace shogipp
 
     private:
         usi_info_t m_usi_info;
+    };
+
+    class usi_engine_t
+        : public abstract_usi_engine_t
+    {
+    public:
+
+
+        std::string name() override
+        {
+            return "shogipp";
+        }
+
+        std::string author() override
+        {
+            return "Noz";
+        }
+
+        std::string options() override
+        {
+            return "option name routine type combo default hiyoko var hiyoko var niwatori var fukayomi\n";
+        }
+
+        void ready() override
+        {
+            ;
+        }
     };
 
     static const std::map<std::string, std::shared_ptr<abstract_kishi_t>> kishi_map
@@ -4837,8 +5008,8 @@ namespace shogipp
 
             if (!sente_name || !gote_name)
             {
-                //usi_engine_t usi_engine;
-                //usi_engine.run();
+                usi_engine_t usi_engine;
+                usi_engine.run();
             }
             else
             {

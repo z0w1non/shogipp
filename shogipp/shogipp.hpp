@@ -2280,7 +2280,7 @@ namespace shogipp
             pos_t dan = 0, suji = 0;
 
             const std::string_view sfen_string = *current_token;
-            for (const char c : sfen_string)
+            for (const char c : *current_token)
             {
                 if (c == '+')
                 {
@@ -2301,7 +2301,7 @@ namespace shogipp
                 {
                     const std::optional<piece_t> optional_piece = char_to_piece(c);
                     if (!optional_piece)
-                        throw invalid_usi_input{ "unexpected character" };
+                        throw invalid_usi_input{ "unexpected character 1" };
                     piece_t piece = *optional_piece;
                     if (promoted)
                         piece = to_promoted(piece);
@@ -2329,50 +2329,9 @@ namespace shogipp
             }
         }
 
-        if (current_token != tokens.end())
+        while (current_token != tokens.end())
         {
-            if (*current_token == "-")
-            {
-                ++current_token;
-                /* unused */;
-            }
-            else
-            {
-                captured_pieces_t::size_type count = 1;
-                for (auto iter = current_token->begin(); iter != current_token->end(); ++iter)
-                {
-                    if (*iter >= '0' && *iter <= '9')
-                    {
-                        count = 0;
-                        for (; iter != current_token->end() && *iter >= '0' && *iter <= '9'; ++iter)
-                            count = static_cast<captured_pieces_t::size_type>(count * 10 + *iter - '0');
-                    }
-                    else
-                    {
-                        std::optional<piece_t> optional_piece = char_to_piece(*iter);
-                        if (!optional_piece)
-                            throw invalid_usi_input{ "unexpected character" };
-                        temp.captured_pieces_list[to_color(*optional_piece)][trim_color(*optional_piece)] = count;
-                        count = 1;
-                    }
-                }
-                ++current_token;
-            }
-        }
-
-        if (current_token != tokens.end())
-        {
-            if (std::all_of(current_token->begin(), current_token->end(), [](char c) -> bool { return std::isdigit(c); }))
-            {
-                /* unused */;
-                ++current_token;
-            }
-        }
-
-        if (current_token != tokens.end())
-        {
-            bool found_moves = *current_token == "moves";
-            if (found_moves)
+            if (*current_token == "moves")
             {
                 ++current_token;
                 while (current_token != tokens.end())
@@ -2382,6 +2341,41 @@ namespace shogipp
                     if (to_color(source_piece) != temp.color())
                         throw invalid_usi_input{ "invalid source color" };
                     temp.do_move(move);
+                    ++current_token;
+                }
+            }
+            else if (std::all_of(current_token->begin(), current_token->end(), [](char c) -> bool { return std::isdigit(c); }))
+            {
+                /* unused */;
+                ++current_token;
+            }
+            else
+            {
+                if (*current_token == "-")
+                {
+                    ++current_token;
+                    /* unused */;
+                }
+                else
+                {
+                    captured_pieces_t::size_type count = 1;
+                    for (auto iter = current_token->begin(); iter != current_token->end(); ++iter)
+                    {
+                        if (*iter >= '0' && *iter <= '9')
+                        {
+                            count = 0;
+                            for (; iter != current_token->end() && *iter >= '0' && *iter <= '9'; ++iter)
+                                count = static_cast<captured_pieces_t::size_type>(count * 10 + *iter - '0');
+                        }
+                        else
+                        {
+                            std::optional<piece_t> optional_piece = char_to_piece(*iter);
+                            if (!optional_piece)
+                                throw invalid_usi_input{ "unexpected character 2" };
+                            temp.captured_pieces_list[to_color(*optional_piece)][trim_color(*optional_piece)] = count;
+                            count = 1;
+                        }
+                    }
                     ++current_token;
                 }
             }

@@ -2317,6 +2317,11 @@ namespace shogipp
 
         if (current_token != tokens.end())
         {
+
+        }
+
+        while (current_token != tokens.end())
+        {
             if (*current_token == "w")
             {
                 ++current_token;
@@ -2327,18 +2332,13 @@ namespace shogipp
                 ++current_token;
                 /* unused */;
             }
-        }
-
-        while (current_token != tokens.end())
-        {
-            if (*current_token == "moves")
+            else if (*current_token == "moves")
             {
                 ++current_token;
                 while (current_token != tokens.end())
                 {
                     const move_t move{ *current_token, temp.board };
-                    piece_t source_piece = temp.board[move.source()];
-                    if (to_color(source_piece) != temp.color())
+                    if (!move.put() && to_color(move.source_piece()) != temp.color())
                         throw invalid_usi_input{ "invalid source color" };
                     temp.do_move(move);
                     ++current_token;

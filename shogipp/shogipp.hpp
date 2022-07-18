@@ -1179,8 +1179,8 @@ namespace shogipp
     inline std::string pos_to_sfen_string(pos_t pos)
     {
         std::string sfen_string;
-        const char suji = static_cast<char>(pos_to_suji(pos) + 'a');
-        const char dan = static_cast<char>(dan_size - pos_to_dan(pos) + '0');
+        const char suji = static_cast<char>(suji_size - 1 - pos_to_suji(pos) + '1');
+        const char dan = static_cast<char>(pos_to_dan(pos) + 'a');
         sfen_string += suji;
         sfen_string += dan;
         return sfen_string;
@@ -1391,8 +1391,8 @@ namespace shogipp
         }
         else
         {
-            result += pos_to_sfen_string(destination());
             result += pos_to_sfen_string(source());
+            result += pos_to_sfen_string(destination());
             if (promote())
                 result += '+';
         }

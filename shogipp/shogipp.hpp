@@ -4329,6 +4329,13 @@ namespace shogipp
         std::optional<move_count_t> opt_depth;
     };
 
+    /**
+     * @breif 文字列を空白で区切る。
+     * @tparam OutputIterator 区切られた文字列の出力イテレータ型
+     * @tparam CharT 文字型
+     * @param result 区切られた文字列の出力イテレータ
+     * @param s 区切られる文字列
+     */
     template<typename OutputIterator, typename CharT>
     inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> s)
     {

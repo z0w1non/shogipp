@@ -95,17 +95,35 @@ namespace shogipp
 
     namespace details
     {
-        SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)")
+        SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)");
 
-            /**
-             * @breif SHOGIPP_ASSERT マクロの実装
-             * @param assertion 式を評価した bool 値
-             * @param expr 式を表現する文字列
-             * @param file __FILE__
-             * @param func __func__
-             * @param line __LINE__
-             */
-            inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
+        /**
+         * @breif 文字列を空白で区切る。
+         * @tparam OutputIterator 区切られた文字列の出力イテレータ型
+         * @tparam CharT 文字型
+         * @param result 区切られた文字列の出力イテレータ
+         * @param s 区切られる文字列
+         */
+        template<typename OutputIterator, typename CharT>
+        inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> s)
+        {
+            std::basic_regex<CharT> separator{ details::split_tokens_literal<CharT>() };
+            using regex_token_iterator = std::regex_token_iterator<typename std::basic_string_view<CharT>::const_iterator>;
+            auto iter = regex_token_iterator{ s.begin(), s.end(), separator, -1 };
+            auto end = regex_token_iterator{};
+            while (iter != end)
+                *result++ = *iter++;
+        }
+
+        /**
+        * @breif SHOGIPP_ASSERT マクロの実装
+        * @param assertion 式を評価した bool 値
+        * @param expr 式を表現する文字列
+        * @param file __FILE__
+        * @param func __func__
+        * @param line __LINE__
+        */
+        inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
         {
             if (!assertion)
             {
@@ -1194,16 +1212,16 @@ namespace shogipp
     {
         if (sfen_pos.size() != 2)
             throw invalid_usi_input{ "sfen_pos.size() != 2" };
-        if (sfen_pos[0] < '0')
-            throw invalid_usi_input{ "sfen_pos[0] < '0'" };
+        if (sfen_pos[0] < '1')
+            throw invalid_usi_input{ "sfen_pos[0] < '1'" };
         if (sfen_pos[0] > '9')
             throw invalid_usi_input{ "sfen_pos[0] > '9'" };
         if (sfen_pos[1] < 'a')
             throw invalid_usi_input{ "sfen_pos[1] < 'a'" };
         if (sfen_pos[1] > 'i')
             throw invalid_usi_input{ "sfen_pos[1] > 'i'" };
-        const pos_t suji = static_cast<pos_t>(sfen_pos[0] - '0');
-        const pos_t dan = dan_size - static_cast<pos_t>(sfen_pos[1] - 'a');
+        const pos_t suji = static_cast<pos_t>(suji_size - 1 - (sfen_pos[0] - '1'));
+        const pos_t dan = static_cast<pos_t>(sfen_pos[1] - 'a');
         return suji_dan_to_pos(suji, dan);
     }
 
@@ -1521,6 +1539,40 @@ namespace shogipp
 
     class kyokumen_rollback_validator_t;
 
+#define _ empty
+#define x out_of_range
+    constexpr piece_t clear_board[]
+    {
+        x, x, x, x, x, x, x, x, x, x, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, x, x, x, x, x, x, x, x, x, x,
+    };
+
+    constexpr piece_t initial_board[]
+    {
+        x, x, x, x, x, x, x, x, x, x, x,
+        x, gote_kyo, gote_kei, gote_gin, gote_kin, gote_ou, gote_kin, gote_gin, gote_kei, gote_kyo, x,
+        x, _, gote_hi, _, _, _, _, _, gote_kaku, _, x,
+        x, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, _, _, _, _, _, _, _, _, _, x,
+        x, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, x,
+        x, _, sente_kaku, _, _, _, _, _, sente_hi, _, x,
+        x, sente_kyo, sente_kei, sente_gin, sente_kin, sente_ou, sente_kin, sente_gin, sente_kei, sente_kyo, x,
+        x, x, x, x, x, x, x, x, x, x, x,
+    };
+#undef _
+#undef x
+
     /**
      * @breif 盤
      */
@@ -1562,47 +1614,16 @@ namespace shogipp
         piece_t data[pos_size];
     };
 
-#define _ empty
-#define x out_of_range
     inline board_t::board_t()
     {
-        static const piece_t temp[]
-        {
-            x, x, x, x, x, x, x, x, x, x, x,
-            x, gote_kyo, gote_kei, gote_gin, gote_kin, gote_ou, gote_kin, gote_gin, gote_kei, gote_kyo, x,
-            x, _, gote_hi, _, _, _, _, _, gote_kaku, _, x,
-            x, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, gote_fu, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, sente_fu, x,
-            x, _, sente_kaku, _, _, _, _, _, sente_hi, _, x,
-            x, sente_kyo, sente_kei, sente_gin, sente_kin, sente_ou, sente_kin, sente_gin, sente_kei, sente_kyo, x,
-            x, x, x, x, x, x, x, x, x, x, x,
-        };
-        std::copy(std::begin(temp), std::end(temp), std::begin(data));
+
+        std::copy(std::begin(initial_board), std::end(initial_board), std::begin(data));
     }
 
     inline bool board_t::out(pos_t pos)
     {
-        static const piece_t table[]
-        {
-            x, x, x, x, x, x, x, x, x, x, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, _, _, _, _, _, _, _, _, _, x,
-            x, x, x, x, x, x, x, x, x, x, x,
-        };
-        return pos < 0 || pos >= pos_size || table[pos] == out_of_range;
+        return pos < 0 || pos >= pos_size || clear_board[pos] == out_of_range;
     }
-#undef _
-#undef x
 
     inline void board_t::print() const
     {
@@ -1623,7 +1644,7 @@ namespace shogipp
 
     inline void board_t::clear()
     {
-        std::fill(std::begin(data), std::end(data), empty);
+        std::copy(std::begin(clear_board), std::end(clear_board), std::begin(data));
     }
 
     inline std::string board_t::sfen_string() const
@@ -1682,14 +1703,20 @@ namespace shogipp
         else
         {
             const pos_t source = sfen_pos_to_pos(sfen_move.substr(0, 2));
+            if (board[source] == empty)
+                throw invalid_usi_input{ "invalid sfen move 1" };
+            if (board_t::out(source))
+                throw invalid_usi_input{ "invalid sfen move 2" };
             const pos_t destination = sfen_pos_to_pos(sfen_move.substr(2, 2));
+            if (board_t::out(destination))
+                throw invalid_usi_input{ "invalid sfen move 3" };
             bool promote;
             if (sfen_move.size() == 5 && sfen_move[4] == '+')
                 promote = true;
-            else if (sfen_move.size() > 5)
-                throw invalid_usi_input{ "invalid sfen move" };
-            else
+            else if (sfen_move.size() == 4)
                 promote = false;
+            else
+                throw invalid_usi_input{ "invalid sfen move" };
 
             m_source = source;
             m_destination = destination;
@@ -2223,42 +2250,56 @@ namespace shogipp
     inline kyokumen_t::kyokumen_t(std::string_view position)
     {
         kyokumen_t temp;
-        bool promoted = false;        
-        std::string_view rest = position;
+        bool promoted = false;
 
-        details::trim_front_space(rest);
+        std::vector<std::string> tokens;
+        details::split_tokens(std::back_inserter(tokens), position);
+
+        auto current_token = tokens.begin();
+
         constexpr std::string_view startpos = "startpos";
-        bool is_startpos = details::try_parse(rest, startpos);
-        if (!is_startpos)
+        if (current_token == tokens.end())
+            throw invalid_usi_input{ "unexpected sfen end 1" };
+
+        bool is_startpos = *current_token == startpos;
+        if (is_startpos)
         {
-            details::trim_front_space(rest);
+            ++current_token;
+        }
+        else
+        {
             constexpr std::string_view sfen = "sfen";
-            if (!details::try_parse(rest, sfen))
+            if (*current_token != sfen)
                 throw invalid_usi_input{ "sfen not found" };
+
+            ++current_token;
+            if (current_token == tokens.end())
+                throw invalid_usi_input{ "unexpected sfen end 2" };
 
             temp.board.clear();
             pos_t dan = 0, suji = 0;
 
-            for (; !rest.empty() && !std::isspace(rest[0]); rest.remove_prefix(1))
+            const std::string_view sfen_string = *current_token;
+            for (const char c : sfen_string)
             {
-                if (rest[0] == '+')
+                if (c == '+')
                 {
                     promoted = true;
                 }
-                else if (rest[0] == '/')
+                else if (c == '/')
                 {
                     if (suji != suji_size)
                         throw invalid_usi_input{ "unexpected '/'" };
                     ++dan;
                     suji = 0;
                 }
-                else if (rest[0] >= '1' && rest[0] <= '9')
+                else if (c >= '1' && c <= '9')
                 {
-                    suji += static_cast<pos_t>(rest[0] - '0');
+                    suji += static_cast<pos_t>(c - '0');
                 }
                 else
                 {
-                    const std::optional<piece_t> optional_piece = char_to_piece(rest[0]);
+                    const std::optional<piece_t> optional_piece = char_to_piece(c);
                     if (!optional_piece)
                         throw invalid_usi_input{ "unexpected character" };
                     piece_t piece = *optional_piece;
@@ -2268,81 +2309,80 @@ namespace shogipp
                     ++suji;
                 }
             }
+            temp.clear_additional_info();
+            temp.push_additional_info();
+
+            ++current_token;
         }
 
-        details::trim_front_space(rest);
-        if (rest.empty())
-            throw invalid_usi_input{ "unexpected sfen end 1"};
-        color_t color;
-        if (rest[0] == 'b')
-            color = black;
-        if (rest[0] == 'w')
-            color = white;
-        else
-            throw invalid_usi_input{ "invalid color" };
-        rest.remove_prefix(1);
-        temp.m_color = color;
-
-        temp.clear_additional_info();
-        temp.push_additional_info();
-
-        details::trim_front_space(rest);
-        if (rest.empty())
-            throw invalid_usi_input{ "unexpected sfen end 2" };
-        if (rest[0] == '-')
+        if (current_token != tokens.end())
         {
-            rest.remove_prefix(1);
-        }
-        else
-        {
-            captured_pieces_t::size_type count = 1;
-            while (!rest.empty() && rest[0] != ' ')
+            if (*current_token == "w")
             {
-                if (rest[0] >= '0' && rest[0] <= '9')
-                {
-                    count = static_cast<captured_pieces_t::size_type>(rest[0] - '0');
-                    while (!rest.empty() && rest[0] >= '0' && rest[0] <= '9')
-                        count = static_cast<captured_pieces_t::size_type>(count * 10 + rest[0] - '0');
-                }
-                else
-                {
-                    std::optional<piece_t> optional_piece = char_to_piece(rest[0]);
-                    if (!optional_piece)
-                        throw invalid_usi_input{ "unexpected character" };
-                    temp.captured_pieces_list[to_color(*optional_piece)][trim_color(*optional_piece)] = count;
-                    count = 1;
-                }
-                rest.remove_prefix(1);
+                ++current_token;
+                /* unused */;
+            }
+            else if (*current_token == "b")
+            {
+                ++current_token;
+                /* unused */;
             }
         }
 
-        details::trim_front_space(rest);
-        move_count_t move_count = 0;
-        while (!rest.empty() && rest[0] >= '0' && rest[0] <= '9')
+        if (current_token != tokens.end())
         {
-            move_count = static_cast<move_count_t>(move_count * 10 + rest[0] - '0');
-            rest.remove_prefix(1);
-        }
-        --move_count;
-        /* unused move_count */
-
-        details::trim_front_space(rest);
-        constexpr std::string_view moves = "moves";
-        bool found_moves = details::try_parse(rest, moves);
-        if (found_moves)
-        {
-            if (!rest.empty() && rest.substr(0, moves.size()) == moves)
+            if (*current_token == "-")
             {
-                rest.remove_prefix(moves.size());
-                details::trim_front_space(rest);
-                while (!rest.empty())
+                ++current_token;
+                /* unused */;
+            }
+            else
+            {
+                captured_pieces_t::size_type count = 1;
+                for (auto iter = current_token->begin(); iter != current_token->end(); ++iter)
                 {
-                    auto iter = std::find_if(rest.begin(), rest.end(), [](char c) -> bool { return std::isspace(c); });
-                    const std::string_view::size_type length = static_cast<std::string_view::size_type>(std::distance(rest.begin(), rest.end()));
-                    const std::string_view token = std::string_view{ rest.data(), length };
-                    const move_t move{ token, temp.board };
+                    if (*iter >= '0' && *iter <= '9')
+                    {
+                        count = 0;
+                        for (; iter != current_token->end() && *iter >= '0' && *iter <= '9'; ++iter)
+                            count = static_cast<captured_pieces_t::size_type>(count * 10 + *iter - '0');
+                    }
+                    else
+                    {
+                        std::optional<piece_t> optional_piece = char_to_piece(*iter);
+                        if (!optional_piece)
+                            throw invalid_usi_input{ "unexpected character" };
+                        temp.captured_pieces_list[to_color(*optional_piece)][trim_color(*optional_piece)] = count;
+                        count = 1;
+                    }
+                }
+                ++current_token;
+            }
+        }
+
+        if (current_token != tokens.end())
+        {
+            if (std::all_of(current_token->begin(), current_token->end(), [](char c) -> bool { return std::isdigit(c); }))
+            {
+                /* unused */;
+                ++current_token;
+            }
+        }
+
+        if (current_token != tokens.end())
+        {
+            bool found_moves = *current_token == "moves";
+            if (found_moves)
+            {
+                ++current_token;
+                while (current_token != tokens.end())
+                {
+                    const move_t move{ *current_token, temp.board };
+                    piece_t source_piece = temp.board[move.source()];
+                    if (to_color(source_piece) != temp.color())
+                        throw invalid_usi_input{ "invalid source color" };
                     temp.do_move(move);
-                    details::trim_front_space(rest);
+                    ++current_token;
                 }
             }
         }
@@ -3510,7 +3550,9 @@ namespace shogipp
         inline search_count_t hashfull() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
-            return nodes * 1000 / cache_hit_count;
+            if (nodes == 0)
+                return 0;
+            return cache_hit_count * 1000 / nodes;
         }
 
         /**
@@ -3520,7 +3562,10 @@ namespace shogipp
         inline search_count_t nps() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
-            return nodes * 1000 / time();
+            milli_second_time_t milli_second_time = time();
+            if (milli_second_time == 0)
+                return 0;
+            return nodes * 1000 / milli_second_time;
         }
 
         /**
@@ -4345,24 +4390,6 @@ namespace shogipp
     };
 
     /**
-     * @breif 文字列を空白で区切る。
-     * @tparam OutputIterator 区切られた文字列の出力イテレータ型
-     * @tparam CharT 文字型
-     * @param result 区切られた文字列の出力イテレータ
-     * @param s 区切られる文字列
-     */
-    template<typename OutputIterator, typename CharT>
-    inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> s)
-    {
-        std::basic_regex<CharT> separator{ details::split_tokens_literal<CharT>() };
-        using regex_token_iterator = std::regex_token_iterator<typename std::basic_string_view<CharT>::const_iterator>;
-        auto iter = regex_token_iterator{ s.begin(), s.end(), separator, -1 };
-        auto end = regex_token_iterator{};
-        while (iter != end)
-            *result++ = *iter++;
-    }
-
-    /**
      * @breif 標準入力からコマンドを読み込む。
      * @param moves 合法手
      * @return 読み込まれたコマンド
@@ -4377,7 +4404,7 @@ namespace shogipp
                 std::getline(std::cin, command_line);
 
                 std::vector<std::string> tokens;
-                split_tokens(std::back_inserter(tokens), std::string_view{ command_line });
+                details::split_tokens(std::back_inserter(tokens), std::string_view{ command_line });
 
                 if (!tokens.empty())
                 {
@@ -4720,7 +4747,7 @@ namespace shogipp
             while (std::getline(std::cin, line))
             {
                 std::vector<std::string> tokens;
-                split_tokens(std::back_inserter(tokens), std::string_view{ line });
+                details::split_tokens(std::back_inserter(tokens), std::string_view{ line });
 
                 std::size_t current = 0;
 
@@ -4798,6 +4825,8 @@ namespace shogipp
                 }
                 else if (tokens[current] == "go")
                 {
+                    ++current;
+                 
                     std::optional<unsigned long> opt_time[color_size];
                     std::optional<unsigned long> opt_byoyomi;
                     std::optional<unsigned long> opt_inc[color_size];
@@ -4805,7 +4834,6 @@ namespace shogipp
                     bool infinite = false;
                     bool mate = false;
 
-                    ++current;
                     while (current < tokens.size())
                     {
                         if (tokens[current] == "ponder")
@@ -4903,21 +4931,29 @@ namespace shogipp
                         }
 
                         evaluator->usi_info = usi_info;
-                        std::thread search_thread([=]() mutable { evaluator->best_move(kyokumen); });
-                        std::thread notify_thread([=]()
+
+                        auto search_thread_impl = [evaluator, kyokumen]() mutable
+                        {
+                            evaluator->best_move(kyokumen);
+                        };
+                        std::thread search_thread{ search_thread_impl };
+                        search_thread.detach();
+
+                        auto notify_thread_impl = [usi_info]()
+                        {
+                            while (true)
                             {
-                                while (true)
                                 {
-                                    {
-                                        std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                                        if (usi_info->state == usi_info_t::state_t::terminated)
-                                            return;
-                                        usi_info->periodic_print();
-                                    }
-                                    std::this_thread::sleep_for(std::chrono::milliseconds{ 1000 });
+                                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                                    if (usi_info->state == usi_info_t::state_t::terminated)
+                                        break;
+                                    usi_info->periodic_print();
                                 }
+                                std::this_thread::sleep_for(std::chrono::milliseconds{ 1000 });
                             }
-                        );
+                        };
+                        std::thread notify_thread{ notify_thread_impl };
+                        notify_thread.detach();
                     }
                 }
                 else if (tokens[current] == "stop")

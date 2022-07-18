@@ -1225,16 +1225,6 @@ namespace shogipp
         return suji_dan_to_pos(suji, dan);
     }
 
-    /**
-     * @breif 座標を標準出力に出力する。
-     * @param pos 座標
-     */
-    inline void print_pos(pos_t pos)
-    {
-        std::cout << suji_to_string(pos_to_suji(pos)) << dan_to_string(pos_to_dan(pos));
-        std::cout.flush();
-    }
-
     class board_t;
 
     /**
@@ -2031,6 +2021,11 @@ namespace shogipp
         inline void clear_additional_info();
 
         /**
+         * @breif 王の座標を更新する。
+         */
+        inline void update_king_pos_list();
+
+        /**
          * @breif 合駒を検索する。
          * @param aigoma_info 合駒の出力先
          * @param color 先後いずれの視点か
@@ -2244,6 +2239,7 @@ namespace shogipp
 
     inline kyokumen_t::kyokumen_t()
     {
+        update_king_pos_list();
         push_additional_info();
     }
 
@@ -2341,6 +2337,7 @@ namespace shogipp
                     if (!move.put() && to_color(move.source_piece()) != temp.color())
                         throw invalid_usi_input{ "invalid source color" };
                     temp.do_move(move);
+                    /*DEBUG*/temp.print_check();
                     ++current_token;
                 }
             }
@@ -2583,12 +2580,6 @@ namespace shogipp
     {
         additional_info.check_list_stack.push_back(search_check(color()));
         additional_info.hash_stack.push_back(hash);
-        if (kifu.empty())
-        {
-            for (pos_t pos = 0; pos < pos_size; ++pos)
-                if (!board_t::out(board[pos]) && board[pos] != empty && trim_color(board[pos]) == ou)
-                    additional_info.king_pos_list[to_color(board[pos])] = pos;
-        }
     }
 
     inline void kyokumen_t::pop_additional_info()
@@ -2603,6 +2594,14 @@ namespace shogipp
     {
         additional_info.check_list_stack.clear();
         additional_info.hash_stack.clear();
+        update_king_pos_list();
+    }
+
+    inline void kyokumen_t::update_king_pos_list()
+    {
+        for (pos_t pos = 0; pos < pos_size; ++pos)
+            if (!board_t::out(pos) && board[pos] != empty && trim_color(board[pos]) == ou)
+                additional_info.king_pos_list[to_color(board[pos])] = pos;
     }
 
     inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, color_t color) const
@@ -2950,8 +2949,7 @@ namespace shogipp
                 const kiki_t & kiki = check_list[i];
                 if (i > 0)
                     std::cout << "　";
-                print_pos(kiki.pos);
-                std::cout << piece_to_string(trim_color(board[kiki.pos])) << std::endl;
+                std::cout << pos_to_string(kiki.pos) << piece_to_string(trim_color(board[kiki.pos])) << std::endl;
             }
         }
     }
@@ -3008,7 +3006,6 @@ namespace shogipp
                 additional_info.king_pos_list[color()] = move.destination();
         }
         ++move_count;
-        m_color = !m_color;
         kifu.push_back(move);
         push_additional_info(hash);
         validate_board_out();
@@ -3018,7 +3015,6 @@ namespace shogipp
     {
         SHOGIPP_ASSERT(move_count > 0);
         --move_count;
-        m_color = !m_color;
         if (move.put())
         {
             ++captured_pieces_list[color()][move.source_piece()];
@@ -3039,7 +3035,7 @@ namespace shogipp
 
     inline color_t kyokumen_t::color() const
     {
-        return m_color;
+        return static_cast<color_t>(move_count % 2);
     }
 
     inline search_count_t kyokumen_t::count_node(move_count_t depth) const

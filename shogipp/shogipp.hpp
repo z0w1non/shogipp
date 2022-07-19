@@ -668,7 +668,7 @@ namespace shogipp
             return !std::equal(std::begin(data), std::end(data), std::begin(hash.data));
         }
 
-        inline operator std::size_t() const
+        inline explicit operator std::size_t() const
         {
             std::size_t hash = 0;
             for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
@@ -676,7 +676,7 @@ namespace shogipp
             return hash;
         }
 
-        inline operator std::string() const
+        inline explicit operator std::string() const
         {
             std::ostringstream stream;
             stream << "0x";

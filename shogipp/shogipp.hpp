@@ -2337,7 +2337,6 @@ namespace shogipp
                     if (!move.put() && to_color(move.source_piece()) != temp.color())
                         throw invalid_usi_input{ "invalid source color" };
                     temp.do_move(move);
-                    /*DEBUG*/temp.print_check();
                     ++current_token;
                 }
             }

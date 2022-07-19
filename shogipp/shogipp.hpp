@@ -605,7 +605,7 @@ namespace shogipp
      * @breif 重複しないハッシュ値を返す。
      * @return 重複しないハッシュ値
      */
-    inline std::size_t unique_hash()
+    inline std::size_t unique_size_t_hash()
     {
         static std::minstd_rand rand{ SHOGIPP_SEED };
         static std::uniform_int_distribution<std::size_t> uid{ std::numeric_limits<std::size_t>::min(), std::numeric_limits<std::size_t>::max() };
@@ -633,10 +633,8 @@ namespace shogipp
         constexpr static std::size_t hash_size = HashSize;
 
         inline basic_hash_t()
+            : data{}
         {
-            static_assert(hash_size % sizeof(std::size_t) == 0);
-            for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
-                *reinterpret_cast<std::size_t *>(data + i * sizeof(std::size_t)) = unique_hash();
         }
 
         inline basic_hash_t(const basic_hash_t & hash)
@@ -673,14 +671,23 @@ namespace shogipp
             std::ostringstream stream;
             stream << "0x";
             for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
-                stream << std::hex << std::setfill('0') << *reinterpret_cast<const std::size_t *>(data + i * sizeof(std::size_t));
+                stream << std::hex << std::setfill('0') << std::setw(sizeof(size_t) * 2) << *reinterpret_cast<const std::size_t *>(data + i * sizeof(std::size_t));
             stream << std::flush;
             return stream.str();
         }
 
+        static inline basic_hash_t make_unique()
+        {
+            static_assert(hash_size % sizeof(std::size_t) == 0);
+            basic_hash_t unique;
+            for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
+                *reinterpret_cast<std::size_t *>(unique.data + i * sizeof(std::size_t)) = unique_size_t_hash();
+            return unique;
+        }
+
     private:
         using byte_type = unsigned char;
-        byte_type data[hash_size];
+        byte_type data[hash_size]{};
     };
 
     template<typename CharT, typename Traits, std::size_t HashSize>
@@ -957,13 +964,17 @@ namespace shogipp
 
     inline hash_table_t::hash_table_t()
     {
-#ifndef SIZE_OF_HASH
-        std::generate(std::begin(board_table         ), std::end(board_table         ), unique_hash);
-        std::generate(std::begin(captured_piece_table), std::end(captured_piece_table), unique_hash);
-        std::generate(std::begin(color_table         ), std::end(color_table         ), unique_hash);
-        std::generate(std::begin(move_table          ), std::end(move_table          ), unique_hash);
-        std::generate(std::begin(put_table           ), std::end(put_table           ), unique_hash);
+#ifdef SIZE_OF_HASH
+        auto generator = hash_t::make_unique;
+#else
+        auto generator = unique_size_t_hash;
 #endif
+
+        std::generate(std::begin(board_table         ), std::end(board_table         ), generator);
+        std::generate(std::begin(captured_piece_table), std::end(captured_piece_table), generator);
+        std::generate(std::begin(color_table         ), std::end(color_table         ), generator);
+        std::generate(std::begin(move_table          ), std::end(move_table          ), generator);
+        std::generate(std::begin(put_table           ), std::end(put_table           ), generator);
     }
 
     inline hash_t hash_table_t::piece_hash(piece_t piece, pos_t pos) const
@@ -3268,7 +3279,7 @@ namespace shogipp
 #ifdef SIZE_OF_HASH
     using cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hash_t<SIZE_OF_HASH>>;
 #else
-    using evaluation_value_cache_t = lru_cache_t<hash_t, evaluation_value_t>;
+    using cache_t = lru_cache_t<hash_t, evaluation_value_t>;
 #endif
 
     /**

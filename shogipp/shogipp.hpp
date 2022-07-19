@@ -4928,22 +4928,36 @@ namespace shogipp
 
                         auto search_thread_impl = [evaluator, kyokumen]() mutable
                         {
-                            evaluator->best_move(kyokumen);
+                            try
+                            {
+                                evaluator->best_move(kyokumen);
+                            }
+                            catch (...)
+                            {
+                                ;
+                            }
                         };
                         std::thread search_thread{ search_thread_impl };
                         search_thread.detach();
 
                         auto notify_thread_impl = [usi_info]()
                         {
-                            while (true)
+                            try
                             {
+                                while (true)
                                 {
-                                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                                    if (usi_info->state == usi_info_t::state_t::terminated)
-                                        break;
-                                    usi_info->periodic_print();
+                                    {
+                                        std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                                        if (usi_info->state == usi_info_t::state_t::terminated)
+                                            break;
+                                        usi_info->periodic_print();
+                                    }
+                                    std::this_thread::sleep_for(std::chrono::milliseconds{ 1000 });
                                 }
-                                std::this_thread::sleep_for(std::chrono::milliseconds{ 1000 });
+                            }
+                            catch (...)
+                            {
+                                ;
                             }
                         };
                         std::thread notify_thread{ notify_thread_impl };

@@ -658,6 +658,16 @@ namespace shogipp
             return *this;
         }
 
+        inline bool operator ==(const basic_hash_t & hash) const
+        {
+            return std::equal(std::begin(data), std::end(data), std::begin(hash.data));
+        }
+
+        inline bool operator !=(const basic_hash_t & hash) const
+        {
+            return !std::equal(std::begin(data), std::end(data), std::begin(hash.data));
+        }
+
         inline operator std::size_t() const
         {
             std::size_t hash = 0;
@@ -802,7 +812,7 @@ namespace shogipp
      * @param piece 駒
      * @return 持ち駒として適格の駒
      */
-    inline piece_t to_mochigoma(piece_t piece)
+    inline piece_t to_captured(piece_t piece)
     {
         SHOGIPP_ASSERT(piece != empty);
         constexpr static piece_t map[]
@@ -872,7 +882,7 @@ namespace shogipp
      * @return 後手の駒
      * @details fu -> gote_fu
      */
-    inline piece_t to_gote(piece_t piece)
+    inline piece_t to_white(piece_t piece)
     {
         SHOGIPP_ASSERT(piece != empty);
         constexpr static piece_t map[]
@@ -953,8 +963,20 @@ namespace shogipp
         inline hash_t move_hash(const move_t & move, color_t color) const;
 
     private:
-        hash_t board_table[piece_enum_number * suji_size * dan_size];        // 盤のハッシュテーブル
-        hash_t captured_piece_table[(18 + 4 + 4 + 4 + 4 + 2 + 2) * 2 * 2];  // 持ち駒のハッシュテーブル
+        enum : std::size_t
+        {
+            captured_fu_offset   = 0                                         , captured_fu_size    = 18 + 1,
+            captured_kyo_offset  = captured_fu_offset   + captured_fu_size   , captured_kyo_size   =  4 + 1,
+            captured_kei_offset  = captured_kyo_offset  + captured_kyo_size  , captured_kei_size   =  4 + 1,
+            captured_gin_offset  = captured_kei_offset  + captured_kei_size  , captured_gin_size   =  4 + 1,
+            captured_kin_offset  = captured_gin_offset  + captured_gin_size  , captured_kin_size   =  4 + 1,
+            captured_kaku_offset = captured_kin_offset  + captured_kin_size  , captured_kaku_size  =  2 + 1,
+            captured_hi_offset   = captured_kaku_offset + captured_kaku_size , captured_hi_size    =  2 + 1,
+            captured_size        = captured_hi_offset   + captured_hi_size 
+        };
+
+        hash_t board_table[piece_enum_number * suji_size * dan_size];       // 盤のハッシュテーブル
+        hash_t captured_piece_table[captured_size * color_size];            // 持ち駒のハッシュテーブル
         hash_t color_table[color_size];                                     // 手番のハッシュテーブル
         hash_t move_table[(pos_size + 1) * pos_size * color_size];          // 移動する手のハッシュテーブル
         hash_t put_table[pos_size * (hi - fu + 1) * color_size];            // 打つ手のハッシュテーブル
@@ -979,6 +1001,7 @@ namespace shogipp
 
     inline hash_t hash_table_t::piece_hash(piece_t piece, pos_t pos) const
     {
+        SHOGIPP_ASSERT(piece != empty);
         std::size_t index = static_cast<std::size_t>(piece);
         index *= suji_size;
         index += pos_to_suji(pos);
@@ -990,39 +1013,28 @@ namespace shogipp
 
     inline hash_t hash_table_t::captured_piece_hash(piece_t piece, std::size_t count, color_t color) const
     {
-        enum
-        {
-            mochigoma_fu_offset   = 0                                           , mochigoma_fu_size    = 18 + 1,
-            mochigoma_kyo_offset  = mochigoma_fu_offset   + mochigoma_fu_size   , mochigoma_kyo_size   =  4 + 1,
-            mochigoma_kei_offset  = mochigoma_kyo_offset  + mochigoma_kyo_size  , mochigoma_kei_size   =  4 + 1,
-            mochigoma_gin_offset  = mochigoma_kei_offset  + mochigoma_kei_size  , mochigoma_gin_size   =  4 + 1,
-            mochigoma_kin_offset  = mochigoma_gin_offset  + mochigoma_gin_size  , mochigoma_kin_size   =  4 + 1,
-            mochigoma_kaku_offset = mochigoma_kin_offset  + mochigoma_kin_size  , mochigoma_kaku_size  =  2 + 1,
-            mochigoma_hi_offset   = mochigoma_kaku_offset + mochigoma_kaku_size , mochigoma_hi_size    =  2 + 1,
-            mochigoma_size        = mochigoma_hi_offset   + mochigoma_hi_size 
-        };
 
         SHOGIPP_ASSERT(piece != empty);
         SHOGIPP_ASSERT(piece >= fu);
         SHOGIPP_ASSERT(piece <= hi);
-        SHOGIPP_ASSERT(!(piece == fu   && count >= mochigoma_fu_size ));
-        SHOGIPP_ASSERT(!(piece == kyo  && count >= mochigoma_kyo_size ));
-        SHOGIPP_ASSERT(!(piece == kei  && count >= mochigoma_kei_size ));
-        SHOGIPP_ASSERT(!(piece == gin  && count >= mochigoma_gin_size ));
-        SHOGIPP_ASSERT(!(piece == kin  && count >= mochigoma_kin_size ));
-        SHOGIPP_ASSERT(!(piece == kaku && count >= mochigoma_kaku_size ));
-        SHOGIPP_ASSERT(!(piece == hi   && count >= mochigoma_hi_size ));
+        SHOGIPP_ASSERT(!(piece == fu   && count >= captured_fu_size  ));
+        SHOGIPP_ASSERT(!(piece == kyo  && count >= captured_kyo_size ));
+        SHOGIPP_ASSERT(!(piece == kei  && count >= captured_kei_size ));
+        SHOGIPP_ASSERT(!(piece == gin  && count >= captured_gin_size ));
+        SHOGIPP_ASSERT(!(piece == kin  && count >= captured_kin_size ));
+        SHOGIPP_ASSERT(!(piece == kaku && count >= captured_kaku_size));
+        SHOGIPP_ASSERT(!(piece == hi   && count >= captured_hi_size  ));
 
         static const std::size_t map[]
         {
-            0,
-            mochigoma_fu_offset,
-            mochigoma_kyo_offset,
-            mochigoma_kei_offset,
-            mochigoma_gin_offset,
-            mochigoma_kin_offset,
-            mochigoma_kaku_offset,
-            mochigoma_hi_offset,
+            0, /* dummy */
+            captured_fu_offset,
+            captured_kyo_offset,
+            captured_kei_offset,
+            captured_gin_offset,
+            captured_kin_offset,
+            captured_kaku_offset,
+            captured_hi_offset,
         };
 
         std::size_t index = map[piece];
@@ -1529,8 +1541,8 @@ namespace shogipp
     inline captured_pieces_t::size_type & captured_pieces_t::operator [](piece_t piece)
     {
         SHOGIPP_ASSERT(piece != empty);
-        SHOGIPP_ASSERT(to_mochigoma(piece) != ou);
-        return count[to_mochigoma(piece) - fu];
+        SHOGIPP_ASSERT(to_captured(piece) != ou);
+        return count[to_captured(piece) - fu];
     }
 
     inline const captured_pieces_t::size_type & captured_pieces_t::operator [](piece_t piece) const
@@ -2879,9 +2891,10 @@ namespace shogipp
     {
         if (move.put())
         {
-            std::size_t count = captured_pieces_list[color()][move.source_piece()];
+            const captured_pieces_t::size_type count = captured_pieces_list[color()][move.source_piece()];
             SHOGIPP_ASSERT(count > 0);
-            hash ^= hash_table.piece_hash(move.source_piece(), move.destination());
+            const piece_t piece = (color() == white) ? to_white(move.source_piece()) : move.source_piece();
+            hash ^= hash_table.piece_hash(piece, move.destination());
             hash ^= hash_table.captured_piece_hash(move.source_piece(), count, color());
             hash ^= hash_table.captured_piece_hash(move.source_piece(), count - 1, color());
         }
@@ -2891,12 +2904,14 @@ namespace shogipp
             hash ^= hash_table.piece_hash(move.source_piece(), move.source());
             if (move.captured_piece() != empty)
             {
-                std::size_t mochigoma_count = captured_pieces_list[color()][move.captured_piece()];
-                hash ^= hash_table.captured_piece_hash(to_mochigoma(move.captured_piece()), mochigoma_count, color());
-                hash ^= hash_table.captured_piece_hash(to_mochigoma(move.captured_piece()), mochigoma_count + 1, color());
+                const piece_t new_captured_piece = to_captured(move.captured_piece());
+                const captured_pieces_t::size_type count = captured_pieces_list[color()][new_captured_piece];
+                hash ^= hash_table.captured_piece_hash(new_captured_piece, count, color());
+                hash ^= hash_table.captured_piece_hash(new_captured_piece, count + 1, color());
                 hash ^= hash_table.piece_hash(move.captured_piece(), move.destination());
             }
-            hash ^= hash_table.piece_hash(move.promote() ? to_unpromoted(move.source_piece()) : move.source_piece(), move.destination());
+            const piece_t new_destination_piece = move.promote() ? to_promoted(move.source_piece()) : move.source_piece();
+            hash ^= hash_table.piece_hash(new_destination_piece, move.destination());
         }
         hash ^= hash_table.color_hash(!color());
         hash ^= hash_table.color_hash(color());
@@ -3002,7 +3017,7 @@ namespace shogipp
         if (move.put())
         {
             SHOGIPP_ASSERT(captured_pieces_list[color()][move.source_piece()] > 0);
-            board[move.destination()] = color() == white ? to_gote(move.source_piece()) : move.source_piece();
+            board[move.destination()] = color() == white ? to_white(move.source_piece()) : move.source_piece();
             --captured_pieces_list[color()][move.source_piece()];
         }
         else

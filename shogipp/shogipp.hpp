@@ -3565,10 +3565,10 @@ namespace shogipp
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
             std::cout << "info"
-                //<< "pv " << pv
-                //<< "multipv " << multipv
-                << "score cp " << cp
-                //<< "score mate " << mate
+                //<< " pv " << pv
+                //<< " multipv " << multipv
+                << " score cp " << cp
+                //<< " score mate " << mate
                 ;
 
             if (currmove)

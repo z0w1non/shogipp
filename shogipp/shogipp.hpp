@@ -3529,7 +3529,7 @@ namespace shogipp
         inline milli_second_time_t time() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
-            std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             return static_cast<milli_second_time_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
         }
 
@@ -3552,7 +3552,7 @@ namespace shogipp
         inline search_count_t nps() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
-            milli_second_time_t milli_second_time = time();
+            const milli_second_time_t milli_second_time = time();
             if (milli_second_time == 0)
                 return 0;
             return nodes * 1000 / milli_second_time;

@@ -3433,7 +3433,7 @@ namespace shogipp
 
         for (pos_t pos = 0; pos < pos_size; ++pos)
         {
-            piece_t piece = kyokumen.board[pos];
+            const piece_t piece = kyokumen.board[pos];
             if (!board_t::out(pos) && piece != empty)
                 evaluation_value += map[trim_color(piece)] * reverse(to_color(piece));
         }
@@ -3567,7 +3567,7 @@ namespace shogipp
             std::cout << "info"
                 //<< "pv " << pv
                 //<< "multipv " << multipv
-                //<< "score cp " << cp
+                << "score cp " << cp
                 //<< "score mate " << mate
                 ;
 
@@ -3772,6 +3772,7 @@ namespace shogipp
             {
                 std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
                 usi_info->best_move = move;
+                usi_info->cp = evaluation_value;
             }
             max_evaluation_value = evaluation_value;
         }
@@ -3906,6 +3907,7 @@ namespace shogipp
             {
                 std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
                 usi_info->best_move = move;
+                usi_info->cp = evaluation_value;
             }
             max_evaluation_value = evaluation_value;
 
@@ -4081,6 +4083,7 @@ namespace shogipp
             {
                 std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
                 usi_info->best_move = move;
+                usi_info->cp = evaluation_value;
             }
             max_evaluation_value = evaluation_value;
 
@@ -4231,6 +4234,7 @@ namespace shogipp
 
             evaluation_value_t evaluation_value = 0;
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
+            evaluation_value *= 100;
             return evaluation_value;
         }
 
@@ -4267,6 +4271,7 @@ namespace shogipp
 
             evaluation_value_t evaluation_value = 0;
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
+            evaluation_value *= 100;
 
             return evaluation_value;
         }
@@ -4308,7 +4313,6 @@ namespace shogipp
 
             evaluation_value_t evaluation_value = 0;
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
-
             evaluation_value *= 100;
 
             for (pos_t pos = 0; pos < pos_size; ++pos)

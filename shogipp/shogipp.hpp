@@ -708,8 +708,9 @@ namespace shogipp
     }
 
     template<std::size_t HashSize>
-    struct basic_hash_hash_t
+    class basic_hash_hasher_t
     {
+    public:
         inline std::size_t operator()(basic_hash_t<HashSize> key) const
         {
             return static_cast<std::size_t>(key);
@@ -2223,7 +2224,6 @@ namespace shogipp
         board_t board;                                          // ”Õ
         captured_pieces_t captured_pieces_list[color_size];     // ‚¿‹î
         move_count_t move_count = 0;                            // è”
-        color_t m_color = black;                                // è”Ô
         std::vector<move_t> kifu;                               // Šû•ˆ
         additional_info_t additional_info;                      // ’Ç‰Áî•ñ
     };
@@ -3292,7 +3292,7 @@ namespace shogipp
     };
 
 #ifdef SIZE_OF_HASH
-    using cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hash_t<SIZE_OF_HASH>>;
+    using cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hasher_t<SIZE_OF_HASH>>;
 #else
     using cache_t = lru_cache_t<hash_t, evaluation_value_t>;
 #endif

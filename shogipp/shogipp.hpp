@@ -2868,11 +2868,11 @@ namespace shogipp
     {
         if (move.put())
         {
-            std::size_t mochigoma_count = captured_pieces_list[color()][move.source_piece()];
-            SHOGIPP_ASSERT(mochigoma_count > 0);
+            std::size_t count = captured_pieces_list[color()][move.source_piece()];
+            SHOGIPP_ASSERT(count > 0);
             hash ^= hash_table.piece_hash(move.source_piece(), move.destination());
-            hash ^= hash_table.captured_piece_hash(move.source_piece(), mochigoma_count, color());
-            hash ^= hash_table.captured_piece_hash(move.source_piece(), mochigoma_count - 1, color());
+            hash ^= hash_table.captured_piece_hash(move.source_piece(), count, color());
+            hash ^= hash_table.captured_piece_hash(move.source_piece(), count - 1, color());
         }
         else
         {

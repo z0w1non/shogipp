@@ -2176,6 +2176,8 @@ namespace shogipp
 
         inline void print_kifu() const;
 
+        inline void print_recent_kifu(std::size_t size) const;
+
         /**
          * @breif 局面のハッシュ値を返す。
          * @return 局面のハッシュ値
@@ -2996,6 +2998,20 @@ namespace shogipp
             print_move(kifu[i], diff % color_size == 0 ? color() : !color());
             std::cout << std::endl;
         }
+    }
+
+    inline void kyokumen_t::print_recent_kifu(std::size_t size) const
+    {
+        size = std::min(size, kifu.size());
+        for (move_count_t i = 0; i < size; ++i)
+        {
+            if (i > 0)
+                std::cout << "　";
+            std::size_t index = kifu.size() - size + i;
+            const move_count_t diff = static_cast<move_count_t>(kifu.size() - index);
+            print_move(kifu[index], diff % color_size == 0 ? color() : !color());
+        }
+        std::cout << std::flush;
     }
 
     inline hash_t kyokumen_t::hash() const

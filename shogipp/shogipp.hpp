@@ -105,6 +105,9 @@ namespace shogipp
          * @param s ‹æØ‚ç‚ê‚é•¶š—ñ
          */
         template<typename OutputIterator, typename CharT>
+        inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> s);
+
+        template<typename OutputIterator, typename CharT>
         inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> s)
         {
             std::basic_regex<CharT> separator{ details::split_tokens_literal<CharT>() };
@@ -123,6 +126,8 @@ namespace shogipp
         * @param func __func__
         * @param line __LINE__
         */
+        inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line);
+
         inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
         {
             if (!assertion)
@@ -206,12 +211,22 @@ namespace shogipp
 
         thread_local timer_t timer;
 
+        /**
+         * @breif std::string_view ‚Ìæ“ª‚©‚ç‘±‚­‹ó”’‚ğíœ‚·‚éB
+         */
         inline void trim_front_space(std::string_view & sv)
         {
             while (!sv.empty() && sv.front() == ' ')
                 sv.remove_prefix(1);
         }
 
+        /**
+         * @breif std::string_view ‚Ìæ“ª‚©‚ç—\‘ª‚³‚ê‚½•¶š—ñ‚ğíœ‚·‚é‚±‚Æ‚ğ‚İ‚éB
+         * @param sv •¶š—ñ
+         * @param token —\‘ª‚³‚ê‚½•¶š—ñ
+         * @retval true —\‘ª‚³‚ê‚½•¶š—ñ‚Ìíœ‚É¬Œ÷‚µ‚½ê‡
+         * @retval false —\‘ª‚³‚ê‚½•¶š—ñ‚Ìíœ‚É¬Œ÷‚µ‚È‚©‚Á‚½ê‡
+         */
         inline bool try_parse(std::string_view & sv, std::string_view token)
         {
             if (sv.size() >= token.size())
@@ -4417,6 +4432,7 @@ namespace shogipp
             perft,
             hash,
             sfen,
+            eval,
         };
 
         id_t id{ id_t::error };
@@ -4485,6 +4501,11 @@ namespace shogipp
                     if (tokens[0] == "sfen")
                     {
                         return command_t{ command_t::id_t::sfen };
+                    }
+
+                    if (tokens[0] == "eval")
+                    {
+                        return command_t{ command_t::id_t::eval };
                     }
 
                     std::size_t move_index;
@@ -4682,6 +4703,8 @@ namespace shogipp
                 break;
             case command_t::id_t::sfen:
                 std::cout << kyokumen.sfen_string() << std::endl;
+                break;
+            case command_t::id_t::eval:
                 break;
             }
         }
@@ -5193,14 +5216,6 @@ namespace shogipp
         }
 
         return 0;
-    }
-
-    inline void usi_connect()
-    {
-        std::string line;
-        while (std::getline(std::cin, line))
-        {
-        }
     }
 
 } // namespace shogipp

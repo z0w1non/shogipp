@@ -1957,7 +1957,7 @@ namespace shogipp
     public:
         std::vector<std::vector<kiki_t>> check_list_stack;  // 手番にかかっている王手
         std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
-        position_t king_pos_list[color_t::size()];                    // 王の座標
+        position_t king_pos_list[color_t::size()]{};        // 王の座標
     };
 
     /**
@@ -2318,11 +2318,11 @@ namespace shogipp
          */
         inline std::string sfen_string() const;
 
-        board_t board;                                          // 盤
-        captured_pieces_t captured_pieces_list[color_t::size()];     // 持ち駒
-        move_count_t move_count = 0;                            // 手数
-        std::vector<move_t> kifu;                               // 棋譜
-        additional_info_t additional_info;                      // 追加情報
+        board_t board;                                              // 盤
+        captured_pieces_t captured_pieces_list[color_t::size()];    // 持ち駒
+        move_count_t move_count = 0;                                // 手数
+        std::vector<move_t> kifu;                                   // 棋譜
+        additional_info_t additional_info;                          // 追加情報
     };
 
     /**

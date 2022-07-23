@@ -185,13 +185,13 @@ namespace shogipp
         {
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
-            const search_count_t sps = m_search_count * 1000 / duration;
+            const search_count_t nps = m_search_count * 1000 / duration;
 
             std::cout
                 << std::endl
                 << "‘“Ç‚ÝŽè”: " << m_search_count << std::endl
                 << "ŽÀsŽžŠÔ[ms]: " << duration << std::endl
-                << "“Ç‚ÝŽè‘¬“x[Žè/s]: " << sps << std::endl << std::endl;
+                << "“Ç‚ÝŽè‘¬“x[n/s]: " << nps << std::endl << std::endl;
         }
 
         inline search_count_t & timer_t::search_count() noexcept
@@ -249,6 +249,16 @@ namespace shogipp
         constexpr inline bool bitmask_has(std::int32_t bitmask, unsigned int index) noexcept
         {
             return ((bitmask >> index) & 1) != 0;
+        }
+
+        template<typename Function>
+        inline milli_second_time_t test_time_performance(Function && func, std::size_t n)
+        {
+            const std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();
+            for (std::size_t i = 0; i < n; ++i)
+                func();
+            const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
         }
     } // namespace details
 
@@ -4677,8 +4687,14 @@ namespace shogipp
                 kyokumen.print_kifu();
                 break;
             case command_t::id_t::perft:
-                std::cout << kyokumen.count_node(*cmd.opt_depth) << std::endl;
+            {
+                search_count_t count;
+                const milli_second_time_t time = details::test_time_performance([&] { count = kyokumen.count_node(*cmd.opt_depth); }, 1);
+                std::cout << "count: " << count << std::endl;
+                std::cout << "time[ms]: " << time << std::endl;
+                std::cout << "nps[n/s]: " << (count * 1000 / time) << std::endl;
                 break;
+            }
             case command_t::id_t::hash:
                 std::cout << hash_to_string(kyokumen.hash()) << std::endl;
                 break;

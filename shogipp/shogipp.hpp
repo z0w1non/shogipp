@@ -749,13 +749,13 @@ namespace shogipp
     constexpr position_t npos = -1; // 無効な座標を表現する定数
     constexpr position_t width = 11;
     constexpr position_t height = 11;
-    constexpr position_t pos_size = width * height;
+    constexpr position_t position_size = width * height;
     constexpr position_t padding_width = 1;
     constexpr position_t padding_height = 1;
     constexpr position_t suji_size = 9;
     constexpr position_t dan_size = 9;
 
-    enum pos_alias
+    enum position_alias
     {
         X00, P10, P20, P30, P40, P50, P60, P70, P80, P90, XA0,
         X01, P11, P21, P31, P41, P51, P61, P71, P81, P91, XA1,
@@ -775,7 +775,7 @@ namespace shogipp
      * @param position 座標
      * @return 段
      */
-    inline constexpr position_t pos_to_dan(position_t position) noexcept
+    inline constexpr position_t position_to_dan(position_t position) noexcept
     {
         return position / width - padding_height;
     }
@@ -785,7 +785,7 @@ namespace shogipp
      * @param position 座標
      * @return 筋
      */
-    inline constexpr position_t pos_to_suji(position_t position) noexcept
+    inline constexpr position_t position_to_suji(position_t position) noexcept
     {
         return position % width - padding_width;
     }
@@ -798,10 +798,10 @@ namespace shogipp
      */
     inline position_t distance(position_t a, position_t b) noexcept
     {
-        const position_t suji_a = pos_to_suji(a);
-        const position_t dan_a = pos_to_dan(a);
-        const position_t suji_b = pos_to_suji(b);
-        const position_t  dan_b = pos_to_dan(b);
+        const position_t suji_a = position_to_suji(a);
+        const position_t dan_a = position_to_dan(a);
+        const position_t suji_b = position_to_suji(b);
+        const position_t  dan_b = position_to_dan(b);
         return static_cast<position_t>(std::abs(suji_a - suji_b) + std::abs(dan_a - dan_b));
     }
 
@@ -816,9 +816,9 @@ namespace shogipp
     constexpr position_t back_left = back + left;
     constexpr position_t back_right = back + right;
 
-    using pos_to_noncolored_piece_pair = std::pair<position_t, std::vector<noncolored_piece_t>>;
+    using position_to_noncolored_piece_pair = std::pair<position_t, std::vector<noncolored_piece_t>>;
 
-    const pos_to_noncolored_piece_pair near_kiki_list[]
+    const position_to_noncolored_piece_pair near_kiki_list[]
     {
         { knight_left   , { knight } },
         { knight_right  , { knight } },
@@ -832,7 +832,7 @@ namespace shogipp
         { back_right    , { silver, king, bishop, promoted_bishop, promoted_rook } },
     };
 
-    const pos_to_noncolored_piece_pair far_kiki_list[]
+    const position_to_noncolored_piece_pair far_kiki_list[]
     {
         { front_left , { bishop, promoted_bishop } },
         { front      , { lance, rook, promoted_rook } },
@@ -844,12 +844,12 @@ namespace shogipp
         { back_right , { bishop, promoted_bishop } }
     };
 
-    const pos_to_noncolored_piece_pair far_kiki_list_asynmmetric[]
+    const position_to_noncolored_piece_pair far_kiki_list_asynmmetric[]
     {
         { front      , { lance } },
     };
 
-    const pos_to_noncolored_piece_pair far_kiki_list_synmmetric[]
+    const position_to_noncolored_piece_pair far_kiki_list_synmmetric[]
     {
         { front_left , { bishop, promoted_bishop } },
         { front      , { rook, promoted_rook } },
@@ -1093,8 +1093,8 @@ namespace shogipp
         hash_t board_table[piece_size * suji_size * dan_size];              // 盤のハッシュテーブル
         hash_t captured_piece_table[captured_size * color_t::size()];            // 持ち駒のハッシュテーブル
         hash_t color_table[color_t::size()];                                     // 手番のハッシュテーブル
-        hash_t move_table[(pos_size + 1) * pos_size * color_t::size()];          // 移動する手のハッシュテーブル
-        hash_t put_table[pos_size * captured_piece_size * color_t::size()];      // 打つ手のハッシュテーブル
+        hash_t move_table[(position_size + 1) * position_size * color_t::size()];          // 移動する手のハッシュテーブル
+        hash_t put_table[position_size * captured_piece_size * color_t::size()];      // 打つ手のハッシュテーブル
     };
 
     static const hash_table_t hash_table;
@@ -1119,9 +1119,9 @@ namespace shogipp
         SHOGIPP_ASSERT(!piece.empty());
         std::size_t index = static_cast<std::size_t>(piece.value());
         index *= suji_size;
-        index += pos_to_suji(position);
+        index += position_to_suji(position);
         index *= dan_size;
-        index += pos_to_dan(position);
+        index += position_to_dan(position);
         SHOGIPP_ASSERT(index < std::size(board_table));
         return board_table[index];
     }
@@ -1284,9 +1284,9 @@ namespace shogipp
      * @param position 座標
      * @return 文字列
      */
-    inline std::string pos_to_string(position_t position)
+    inline std::string position_to_string(position_t position)
     {
-        return std::string{}.append(suji_to_string(pos_to_suji(position))).append(dan_to_string(pos_to_dan(position)));
+        return std::string{}.append(suji_to_string(position_to_suji(position))).append(dan_to_string(position_to_dan(position)));
     }
 
     /**
@@ -1294,11 +1294,11 @@ namespace shogipp
      * @param position 座標
      * @return SFEN表記法に準拠した文字列
      */
-    inline std::string pos_to_sfen_string(position_t position)
+    inline std::string position_to_sfen_string(position_t position)
     {
         std::string sfen_string;
-        const char suji = static_cast<char>(suji_size - 1 - pos_to_suji(position) + '1');
-        const char dan = static_cast<char>(pos_to_dan(position) + 'a');
+        const char suji = static_cast<char>(suji_size - 1 - position_to_suji(position) + '1');
+        const char dan = static_cast<char>(position_to_dan(position) + 'a');
         sfen_string += suji;
         sfen_string += dan;
         return sfen_string;
@@ -1310,37 +1310,37 @@ namespace shogipp
      * @param dan 段
      * @return 座標
      */
-    inline position_t suji_dan_to_pos(position_t suji, position_t dan)
+    inline position_t suji_dan_to_position(position_t suji, position_t dan)
     {
         return width * (dan + padding_height) + padding_width + suji;
     }
 
     static const position_t default_king_pos_list[]
     {
-        suji_dan_to_pos(4, 8),
-        suji_dan_to_pos(4, 0)
+        suji_dan_to_position(4, 8),
+        suji_dan_to_position(4, 0)
     };
 
     /**
      * @breif SFEN表記法に準拠した座標の文字列から座標を取得する。
-     * @param sfen_pos SFEN表記法に準拠した座標の文字列
+     * @param sfen_position SFEN表記法に準拠した座標の文字列
      * @return 座標
      */
-    inline position_t sfen_pos_to_pos(std::string_view sfen_pos)
+    inline position_t sfen_pos_to_pos(std::string_view sfen_position)
     {
-        if (sfen_pos.size() != 2)
+        if (sfen_position.size() != 2)
             throw invalid_usi_input{ "sfen_pos.size() != 2" };
-        if (sfen_pos[0] < '1')
+        if (sfen_position[0] < '1')
             throw invalid_usi_input{ "sfen_pos[0] < '1'" };
-        if (sfen_pos[0] > '9')
+        if (sfen_position[0] > '9')
             throw invalid_usi_input{ "sfen_pos[0] > '9'" };
-        if (sfen_pos[1] < 'a')
+        if (sfen_position[1] < 'a')
             throw invalid_usi_input{ "sfen_pos[1] < 'a'" };
-        if (sfen_pos[1] > 'i')
+        if (sfen_position[1] > 'i')
             throw invalid_usi_input{ "sfen_pos[1] > 'i'" };
-        const position_t suji = static_cast<position_t>(suji_size - 1 - (sfen_pos[0] - '1'));
-        const position_t dan = static_cast<position_t>(sfen_pos[1] - 'a');
-        return suji_dan_to_pos(suji, dan);
+        const position_t suji = static_cast<position_t>(suji_size - 1 - (sfen_position[0] - '1'));
+        const position_t dan = static_cast<position_t>(sfen_position[1] - 'a');
+        return suji_dan_to_position(suji, dan);
     }
 
     class board_t;
@@ -1510,12 +1510,12 @@ namespace shogipp
             SHOGIPP_ASSERT(optional_piece->size() == 1);
             result += *optional_piece;
             result += '*';
-            result += pos_to_sfen_string(destination());
+            result += position_to_sfen_string(destination());
         }
         else
         {
-            result += pos_to_sfen_string(source());
-            result += pos_to_sfen_string(destination());
+            result += position_to_sfen_string(source());
+            result += position_to_sfen_string(destination());
             if (promote())
                 result += '+';
         }
@@ -1561,7 +1561,7 @@ namespace shogipp
             return put_table[index];
         }
         index = static_cast<std::size_t>(move.source() - npos);
-        index *= pos_size;
+        index *= position_size;
         index += static_cast<std::size_t>(move.destination());
         index *= color_t::size();
         index += color.value();
@@ -1716,7 +1716,7 @@ namespace shogipp
 
     private:
         friend class kyokumen_rollback_validator_t;
-        colored_piece_t data[pos_size];
+        colored_piece_t data[position_size];
     };
 
     inline board_t::board_t()
@@ -1737,7 +1737,7 @@ namespace shogipp
 
     inline bool board_t::out(position_t position)
     {
-        return position < 0 || position >= pos_size || clear_board[position].value() == out_of_range.value();
+        return position < 0 || position >= position_size || clear_board[position].value() == out_of_range.value();
     }
 
     inline void board_t::print() const
@@ -1749,7 +1749,7 @@ namespace shogipp
             std::cout << "|";
             for (position_t suji = 0; suji < suji_size; ++suji)
             {
-                const colored_piece_t piece = data[suji_dan_to_pos(suji, dan)];
+                const colored_piece_t piece = data[suji_dan_to_position(suji, dan)];
                 std::cout << ((!piece.empty() && piece.to_color() == white) ? "v" : " ") << piece.to_string();
             }
             std::cout << "| " << dan_to_string(dan) << std::endl;
@@ -1770,7 +1770,7 @@ namespace shogipp
             position_t empty_count = 0;
             for (position_t suji = 0; suji < suji_size; ++suji)
             {
-                const colored_piece_t piece = data[suji_dan_to_pos(suji, dan)];
+                const colored_piece_t piece = data[suji_dan_to_position(suji, dan)];
                 if (piece.empty())
                     empty_count += 1;
                 else
@@ -1860,7 +1860,7 @@ namespace shogipp
         inline void print() const
         {
             for (const auto & [position, candidates] : *this)
-                std::cout << "合駒：" << pos_to_string(position) << std::endl;
+                std::cout << "合駒：" << position_to_string(position) << std::endl;
         }
     };
 
@@ -1957,7 +1957,7 @@ namespace shogipp
     public:
         std::vector<std::vector<kiki_t>> check_list_stack;  // 手番にかかっている王手
         std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
-        position_t king_pos_list[color_t::size()]{};        // 王の座標
+        position_t king_position_list[color_t::size()]{};        // 王の座標
     };
 
     /**
@@ -2148,7 +2148,7 @@ namespace shogipp
         /**
          * @breif 王の座標を更新する。
          */
-        inline void update_king_pos_list();
+        inline void update_king_position_list();
 
         /**
          * @breif 合駒を検索する。
@@ -2336,7 +2336,7 @@ namespace shogipp
 
     private:
         const kyokumen_t & kyokumen;
-        colored_piece_t data[pos_size];
+        colored_piece_t data[position_size];
         captured_pieces_t captured_pieces_list[color_t::size()];
     };
 
@@ -2359,7 +2359,7 @@ namespace shogipp
 
     inline kyokumen_t::kyokumen_t()
     {
-        update_king_pos_list();
+        update_king_position_list();
         push_additional_info();
     }
 
@@ -2421,7 +2421,7 @@ namespace shogipp
                     colored_piece_t piece = *optional_piece;
                     if (promoted)
                         piece = piece.to_promoted();
-                    temp.board[suji_dan_to_pos(suji, dan)] = piece;
+                    temp.board[suji_dan_to_position(suji, dan)] = piece;
                     ++suji;
                 }
             }
@@ -2582,12 +2582,12 @@ namespace shogipp
         }
         if (piece == captured_pawn)
         {
-            const position_t suji = pos_to_suji(destination);
+            const position_t suji = position_to_suji(destination);
 
             // 二歩
             for (position_t dan = 0; dan < dan_size; ++dan)
             {
-                const colored_piece_t current = board[suji_dan_to_pos(suji, dan)];
+                const colored_piece_t current = board[suji_dan_to_position(suji, dan)];
                 if (!current.empty() && noncolored_piece_t{ current } == pawn && color() == current.to_color())
                     return false;
             }
@@ -2614,7 +2614,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_source(OutputIterator result, color_t color) const
     {
-        for (position_t position = 0; position < pos_size; ++position)
+        for (position_t position = 0; position < position_size; ++position)
             if (!board_t::out(position) && !board[position].empty() && board[position].to_color() == color)
                 *result++ = position;
     }
@@ -2682,7 +2682,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_check(OutputIterator result, color_t color) const
     {
-        search_kiki(result, additional_info.king_pos_list[color.value()], color);
+        search_kiki(result, additional_info.king_position_list[color.value()], color);
     }
 
     std::vector<kiki_t> kyokumen_t::search_check(color_t color) const
@@ -2715,14 +2715,14 @@ namespace shogipp
     {
         additional_info.check_list_stack.clear();
         additional_info.hash_stack.clear();
-        update_king_pos_list();
+        update_king_position_list();
     }
 
-    inline void kyokumen_t::update_king_pos_list()
+    inline void kyokumen_t::update_king_position_list()
     {
-        for (position_t position = 0; position < pos_size; ++position)
+        for (position_t position = 0; position < position_size; ++position)
             if (!board_t::out(position) && !board[position].empty() && noncolored_piece_t{ board[position] } == king)
-                additional_info.king_pos_list[board[position].to_color().value()] = position;
+                additional_info.king_position_list[board[position].to_color().value()] = position;
     }
 
     inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, color_t color) const
@@ -2740,11 +2740,11 @@ namespace shogipp
             { back_right , { bishop, promoted_bishop } },
         };
 
-        const position_t king_pos = additional_info.king_pos_list[color.value()];
+        const position_t king_position = additional_info.king_position_list[color.value()];
         for (const auto & [offset, hashirigoma_list] : table)
         {
             const position_t reversed_offset = offset * reverse(color);
-            const position_t first = search(king_pos, reversed_offset);
+            const position_t first = search(king_position, reversed_offset);
             if (first != npos && board[first].to_color() == color)
             {
                 const position_t second = search(first, reversed_offset);
@@ -2755,7 +2755,7 @@ namespace shogipp
                     if (match)
                     {
                         std::vector<position_t> candidates;
-                        for (position_t candidate = second; candidate != king_pos; candidate -= reversed_offset)
+                        for (position_t candidate = second; candidate != king_position; candidate -= reversed_offset)
                             candidates.push_back(candidate);
                         aigoma_info[first] = std::move(candidates);
                     }
@@ -2790,7 +2790,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_moves_evasions_king_move(OutputIterator result) const
     {
-        const position_t source = additional_info.king_pos_list[color().value()];
+        const position_t source = additional_info.king_position_list[color().value()];
         for (const position_t * ptr = near_move_offsets(king); *ptr; ++ptr)
         {
             const position_t destination = source + *ptr * reverse(color());
@@ -2819,7 +2819,7 @@ namespace shogipp
     inline void kyokumen_t::search_moves_evasions_aigoma(OutputIterator result) const
     {
         const aigoma_info_t aigoma_info = search_aigoma(color());
-        const position_t king_pos = additional_info.king_pos_list[color().value()];
+        const position_t king_pos = additional_info.king_position_list[color().value()];
         
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         const auto & check_list = additional_info.check_list_stack[move_count];
@@ -2889,12 +2889,12 @@ namespace shogipp
     {
         const aigoma_info_t aigoma_info = search_aigoma(color());
         std::vector<position_t> source_list;
-        source_list.reserve(pos_size);
+        source_list.reserve(position_size);
         search_source(std::back_inserter(source_list), color());
         for (const position_t source : source_list)
         {
             std::vector<position_t> destination_list;
-            destination_list.reserve(pos_size);
+            destination_list.reserve(position_size);
             search_destination(std::back_inserter(destination_list), source, color());
             const auto aigoma_iter = aigoma_info.find(source);
             const bool is_aigoma = aigoma_iter != aigoma_info.end();
@@ -2905,7 +2905,7 @@ namespace shogipp
                 if (!board[destination].empty() && noncolored_piece_t { board[destination] } == king)
                 {
                     board.print();
-                    std::cout << pos_to_string(source) << std::endl;
+                    std::cout << position_to_string(source) << std::endl;
                     const move_t move{ source, destination, board[source], board[destination], false };
                     print_move(move, color());
                     std::cout << std::endl;
@@ -2941,7 +2941,7 @@ namespace shogipp
     {
         for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
             if (captured_pieces_list[color().value()][piece])
-                for (position_t destination = 0; destination < pos_size; ++destination)
+                for (position_t destination = 0; destination < position_size; ++destination)
                     if (puttable(piece, destination))
                         *result++ = { destination, piece };
     }
@@ -2969,7 +2969,7 @@ namespace shogipp
         hash_t hash{};
 
         // 盤上の駒のハッシュ値をXOR演算
-        for (position_t position = 0; position < pos_size; ++position)
+        for (position_t position = 0; position < position_size; ++position)
             if (!board_t::out(position))
                 if (const colored_piece_t piece = board[position]; !piece.empty())
                     hash ^= hash_table.piece_hash(piece, position);
@@ -3022,7 +3022,7 @@ namespace shogipp
         std::cout << (color == black ? "▲" : "△");
         if (move.put())
         {
-            std::cout << pos_to_string(move.destination()) << move.captured_piece().to_string() << "打";
+            std::cout << position_to_string(move.destination()) << move.captured_piece().to_string() << "打";
         }
         else
         {
@@ -3037,8 +3037,8 @@ namespace shogipp
             else
                 promotion_string = "";
             std::cout
-                << pos_to_string(move.destination()) << noncolored_piece_t{ move.source_piece() }.to_string() << promotion_string
-                << "（" << pos_to_string(move.source()) << "）";
+                << position_to_string(move.destination()) << noncolored_piece_t{ move.source_piece() }.to_string() << promotion_string
+                << "（" << position_to_string(move.source()) << "）";
         }
     }
 
@@ -3073,7 +3073,7 @@ namespace shogipp
                 const kiki_t & kiki = check_list[i];
                 if (i > 0)
                     std::cout << "　";
-                std::cout << pos_to_string(kiki.position) << noncolored_piece_t{ board[kiki.position] }.to_string() << std::endl;
+                std::cout << position_to_string(kiki.position) << noncolored_piece_t{ board[kiki.position] }.to_string() << std::endl;
             }
         }
     }
@@ -3119,7 +3119,7 @@ namespace shogipp
 
     inline void kyokumen_t::validate_board_kingt()
     {
-        for (position_t position = 0; position < pos_size; ++position)
+        for (position_t position = 0; position < position_size; ++position)
             if (board_t::out(position))
                 SHOGIPP_ASSERT(board[position].value() == out_of_range.value());
     }
@@ -3141,7 +3141,7 @@ namespace shogipp
             board[move.destination()] = move.promote() ? board[move.source()].to_promoted() : board[move.source()];
             board[move.source()] = colored_piece_t{};
             if (noncolored_piece_t{ move.source_piece() } == king)
-                additional_info.king_pos_list[color().value()] = move.destination();
+                additional_info.king_position_list[color().value()] = move.destination();
         }
         ++move_count;
         kifu.push_back(move);
@@ -3161,7 +3161,7 @@ namespace shogipp
         else
         {
             if (noncolored_piece_t{ move.source_piece() } == king)
-                additional_info.king_pos_list[color().value()] = move.source();
+                additional_info.king_position_list[color().value()] = move.source();
             board[move.source()] = move.source_piece();
             board[move.destination()] = move.destination_piece();
             if (!move.destination_piece().empty())
@@ -3456,7 +3456,7 @@ namespace shogipp
     {
         evaluation_value_t evaluation_value = 0;
 
-        for (position_t position = 0; position < pos_size; ++position)
+        for (position_t position = 0; position < position_size; ++position)
         {
             const colored_piece_t piece = kyokumen.board[position];
             if (!board_t::out(position) && !piece.empty())
@@ -4343,7 +4343,7 @@ namespace shogipp
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
             evaluation_value *= 100;
 
-            for (position_t position = 0; position < pos_size; ++position)
+            for (position_t position = 0; position < position_size; ++position)
             {
                 if (!board_t::out(position) && !kyokumen.board[position].empty())
                 {

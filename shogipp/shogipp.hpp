@@ -813,16 +813,16 @@ namespace shogipp
         return static_cast<position_t>(std::abs(suji_a - suji_b) + std::abs(dan_a - dan_b));
     }
 
-    constexpr position_t front = -width;
-    constexpr position_t left = -1;
-    constexpr position_t right = 1;
-    constexpr position_t back = width;
-    constexpr position_t knight_left = front * 2 + left;
+    constexpr position_t front        = -width;
+    constexpr position_t left         = -1;
+    constexpr position_t right        = +1;
+    constexpr position_t back         = +width;
+    constexpr position_t knight_left  = front * 2 + left;
     constexpr position_t knight_right = front * 2 + right;
-    constexpr position_t front_left = front + left;
-    constexpr position_t front_right = front + right;
-    constexpr position_t back_left = back + left;
-    constexpr position_t back_right = back + right;
+    constexpr position_t front_left   = front + left;
+    constexpr position_t front_right  = front + right;
+    constexpr position_t back_left    = back + left;
+    constexpr position_t back_right   = back + right;
 
     using position_to_noncolored_piece_pair = std::pair<position_t, std::vector<noncolored_piece_t>>;
 

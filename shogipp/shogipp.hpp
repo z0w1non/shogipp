@@ -466,7 +466,7 @@ namespace shogipp
                 impl_t()
                 {
                     for (piece_value_t piece = empty_value; piece < piece_size; ++piece)
-                        map[piece] = colored_piece_t{ piece }.to_noncolored() == target_piece;
+                        map[piece] = piece == target_piece;
                 }
                 bool map[piece_size]{};
             } impl;

@@ -356,7 +356,7 @@ namespace shogipp
 
     template<typename Tag>
     constexpr inline basic_piece_t<Tag>::basic_piece_t() noexcept
-        : m_value{ 0 }
+        : m_value{ empty_value }
     {
     }
 
@@ -375,7 +375,7 @@ namespace shogipp
     template<typename Tag>
     constexpr inline bool basic_piece_t<Tag>::empty() const noexcept
     {
-        return m_value == 0;
+        return m_value == empty_value;
     }
 
     template<typename Tag>

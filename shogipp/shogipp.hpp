@@ -1094,14 +1094,14 @@ namespace shogipp
     private:
         enum : std::size_t
         {
-            captured_pawn_offset   = 0                                         , captured_pawn_size    = 18 + 1,
-            captured_lance_offset  = captured_pawn_offset   + captured_pawn_size   , captured_lance_size   =  4 + 1,
-            captured_knight_offset  = captured_lance_offset  + captured_lance_size  , captured_knight_size   =  4 + 1,
-            captured_silver_offset  = captured_knight_offset  + captured_knight_size  , captured_silver_size   =  4 + 1,
-            captured_gold_offset  = captured_silver_offset  + captured_silver_size  , captured_gold_size   =  4 + 1,
-            captured_bishop_offset = captured_gold_offset  + captured_gold_size  , captured_bishop_size  =  2 + 1,
-            captured_rook_offset   = captured_bishop_offset + captured_bishop_size , captured_rook_size    =  2 + 1,
-            captured_size        = captured_rook_offset   + captured_rook_size 
+            captured_pawn_offset    = 0                                            , captured_pawn_size   = 18 + 1,
+            captured_lance_offset   = captured_pawn_offset   + captured_pawn_size  , captured_lance_size  =  4 + 1,
+            captured_knight_offset  = captured_lance_offset  + captured_lance_size , captured_knight_size =  4 + 1,
+            captured_silver_offset  = captured_knight_offset + captured_knight_size, captured_silver_size =  4 + 1,
+            captured_gold_offset    = captured_silver_offset + captured_silver_size, captured_gold_size   =  4 + 1,
+            captured_bishop_offset  = captured_gold_offset   + captured_gold_size  , captured_bishop_size =  2 + 1,
+            captured_rook_offset    = captured_bishop_offset + captured_bishop_size, captured_rook_size   =  2 + 1,
+            captured_size           = captured_rook_offset   + captured_rook_size
         };
 
         hash_t board_table[piece_size * suji_size * dan_size];              // 盤のハッシュテーブル

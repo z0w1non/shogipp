@@ -1693,7 +1693,7 @@ namespace shogipp
         inline const colored_piece_t & operator [](size_t i) const noexcept;
 
         /**
-         * @breif 座標positionが盤外か判定する。
+         * @breif 座標が盤外か判定する。
          * @param position 座標
          * @return 盤外の場合true
          */

@@ -266,12 +266,31 @@ namespace shogipp
         using std::runtime_error::runtime_error;
     };
 
-    enum color_t : unsigned char
+    class color_t
     {
-        black = 0,
-        white = 1,
-        color_size = 2
+    public:
+        using value_type = unsigned char;
+        
+        constexpr inline color_t(value_type value) noexcept;
+        constexpr inline color_t operator !() const noexcept { return m_value != 0 ? 0 : 1; }
+        constexpr inline bool operator ==(const color_t & color) const noexcept { return m_value == color.m_value; }
+        constexpr inline bool operator !=(const color_t & color) const noexcept { return m_value != color.m_value; }
+        constexpr inline value_type value() const noexcept { return m_value; }
+        constexpr inline static std::size_t min() noexcept { return 0; }
+        constexpr inline static std::size_t max() noexcept { return 1; }
+        constexpr inline static std::size_t size() noexcept { return 2; }
+
+    private:
+        value_type m_value;
     };
+
+    constexpr inline color_t::color_t(value_type value) noexcept
+        : m_value{ value }
+    {
+    }
+
+    constexpr color_t black{ 0 };
+    constexpr color_t white{ 1 };
 
     constexpr color_t colors[]
     {
@@ -721,22 +740,9 @@ namespace shogipp
     inline char color_to_color_char(color_t color) noexcept
     {
         static constexpr char map[] { 'b', 'w' };
-        SHOGIPP_ASSERT(color >= black);
-        SHOGIPP_ASSERT(color <= white);
-        return map[color];
-    }
-
-    /**
-     * @breif 逆の手番を取得する。
-     * @param color 先手か後手か
-     * @retval sente color == gote の場合
-     * @retval gote color == sente の場合
-     */
-    inline color_t operator !(color_t color) noexcept
-    {
-        SHOGIPP_ASSERT(color >= black);
-        SHOGIPP_ASSERT(color <= white);
-        return static_cast<color_t>((color + 1) % color_size);
+        SHOGIPP_ASSERT(color.value() >= black.value());
+        SHOGIPP_ASSERT(color.value() <= white.value());
+        return map[color.value()];
     }
 
     using pos_t = signed char;
@@ -886,7 +892,7 @@ namespace shogipp
      */
     inline constexpr pos_t reverse(color_t color)
     {
-        return color ? -1 : 1;
+        return color == white ? -1 : 1;
     }
 
     /**
@@ -1085,10 +1091,10 @@ namespace shogipp
         };
 
         hash_t board_table[piece_size * suji_size * dan_size];              // 盤のハッシュテーブル
-        hash_t captured_piece_table[captured_size * color_size];            // 持ち駒のハッシュテーブル
-        hash_t color_table[color_size];                                     // 手番のハッシュテーブル
-        hash_t move_table[(pos_size + 1) * pos_size * color_size];          // 移動する手のハッシュテーブル
-        hash_t put_table[pos_size * captured_piece_size * color_size];      // 打つ手のハッシュテーブル
+        hash_t captured_piece_table[captured_size * color_t::size()];            // 持ち駒のハッシュテーブル
+        hash_t color_table[color_t::size()];                                     // 手番のハッシュテーブル
+        hash_t move_table[(pos_size + 1) * pos_size * color_t::size()];          // 移動する手のハッシュテーブル
+        hash_t put_table[pos_size * captured_piece_size * color_t::size()];      // 打つ手のハッシュテーブル
     };
 
     static const hash_table_t hash_table;
@@ -1146,17 +1152,15 @@ namespace shogipp
 
         std::size_t index = map[piece.value()];
         index += count;
-        index *= color_size;
-        index += static_cast<std::size_t>(color);
+        index *= color_t::size();
+        index += color.value();
         SHOGIPP_ASSERT(index < std::size(captured_piece_table));
         return captured_piece_table[index];
     }
 
     inline hash_t hash_table_t::color_hash(color_t color) const
     {
-        SHOGIPP_ASSERT(color >= black);
-        SHOGIPP_ASSERT(color <= white);
-        return color_table[color];
+        return color_table[color.value()];
     }
 
     /**
@@ -1167,7 +1171,7 @@ namespace shogipp
     inline const char * color_to_string(color_t color)
     {
         const char * map[]{ "先手", "後手" };
-        return map[color];
+        return map[color.value()];
     }
 
     /**
@@ -1551,16 +1555,16 @@ namespace shogipp
             index = static_cast<std::size_t>(move.destination());
             index *= piece_size;
             index += move.source_piece().value();
-            index *= color_size;
-            index += color;
+            index *= color_t::size();
+            index += color.value();
             SHOGIPP_ASSERT(index < std::size(put_table));
             return put_table[index];
         }
         index = static_cast<std::size_t>(move.source() - npos);
         index *= pos_size;
         index += static_cast<std::size_t>(move.destination());
-        index *= color_size;
-        index += color;
+        index *= color_t::size();
+        index += color.value();
         SHOGIPP_ASSERT(index < std::size(move_table));
         return move_table[index];
     }
@@ -1746,7 +1750,7 @@ namespace shogipp
             for (pos_t suji = 0; suji < suji_size; ++suji)
             {
                 const colored_piece_t piece = data[suji_dan_to_pos(suji, dan)];
-                std::cout << ((!piece.empty() && piece.to_color()) ? "v" : " ") << piece.to_string();
+                std::cout << ((!piece.empty() && piece.to_color() == white) ? "v" : " ") << piece.to_string();
             }
             std::cout << "| " << dan_to_string(dan) << std::endl;
         }
@@ -1953,7 +1957,7 @@ namespace shogipp
     public:
         std::vector<std::vector<kiki_t>> check_list_stack;  // 手番にかかっている王手
         std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
-        pos_t king_pos_list[color_size];                    // 王の座標
+        pos_t king_pos_list[color_t::size()];                    // 王の座標
     };
 
     /**
@@ -2315,7 +2319,7 @@ namespace shogipp
         inline std::string sfen_string() const;
 
         board_t board;                                          // 盤
-        captured_pieces_t captured_pieces_list[color_size];     // 持ち駒
+        captured_pieces_t captured_pieces_list[color_t::size()];     // 持ち駒
         move_count_t move_count = 0;                            // 手数
         std::vector<move_t> kifu;                               // 棋譜
         additional_info_t additional_info;                      // 追加情報
@@ -2333,7 +2337,7 @@ namespace shogipp
     private:
         const kyokumen_t & kyokumen;
         colored_piece_t data[pos_size];
-        captured_pieces_t captured_pieces_list[color_size];
+        captured_pieces_t captured_pieces_list[color_t::size()];
     };
 
     inline kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen)
@@ -2341,7 +2345,7 @@ namespace shogipp
     {
         std::copy(std::begin(kyokumen.board.data), std::end(kyokumen.board.data), std::begin(data));
         for (const color_t color : colors)
-            captured_pieces_list[color] = kyokumen.captured_pieces_list[color];
+            captured_pieces_list[color.value()] = kyokumen.captured_pieces_list[color.value()];
     }
 
     inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t()
@@ -2350,7 +2354,7 @@ namespace shogipp
             SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
         for (const color_t color : colors)
             for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                SHOGIPP_ASSERT(captured_pieces_list[color][captured_piece_t{ piece }] == kyokumen.captured_pieces_list[color][captured_piece_t{ piece }]);
+                SHOGIPP_ASSERT(captured_pieces_list[color.value()][captured_piece_t{ piece }] == kyokumen.captured_pieces_list[color.value()][captured_piece_t{ piece }]);
     }
 
     inline kyokumen_t::kyokumen_t()
@@ -2486,7 +2490,7 @@ namespace shogipp
                                 throw invalid_usi_input{ "unexpected character 2" };
                             if (!optional_piece->is_captured())
                                 throw invalid_usi_input{ "unexpected character 3" };
-                            temp.captured_pieces_list[optional_piece->to_color()][captured_piece_t{ *optional_piece }] = count;
+                            temp.captured_pieces_list[optional_piece->to_color().value()][captured_piece_t{ *optional_piece }] = count;
                             count = 1;
                         }
                     }
@@ -2678,7 +2682,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_check(OutputIterator result, color_t color) const
     {
-        search_kiki(result, additional_info.king_pos_list[color], color);
+        search_kiki(result, additional_info.king_pos_list[color.value()], color);
     }
 
     std::vector<kiki_t> kyokumen_t::search_check(color_t color) const
@@ -2718,7 +2722,7 @@ namespace shogipp
     {
         for (pos_t pos = 0; pos < pos_size; ++pos)
             if (!board_t::out(pos) && !board[pos].empty() && noncolored_piece_t{ board[pos] } == king)
-                additional_info.king_pos_list[board[pos].to_color()] = pos;
+                additional_info.king_pos_list[board[pos].to_color().value()] = pos;
     }
 
     inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, color_t color) const
@@ -2736,7 +2740,7 @@ namespace shogipp
             { back_right , { bishop, promoted_bishop } },
         };
 
-        const pos_t king_pos = additional_info.king_pos_list[color];
+        const pos_t king_pos = additional_info.king_pos_list[color.value()];
         for (const auto & [offset, hashirigoma_list] : table)
         {
             const pos_t reversed_offset = offset * reverse(color);
@@ -2786,7 +2790,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_moves_evasions_king_move(OutputIterator result) const
     {
-        const pos_t source = additional_info.king_pos_list[color()];
+        const pos_t source = additional_info.king_pos_list[color().value()];
         for (const pos_t * p = near_move_offsets(king); *p; ++p)
         {
             const pos_t destination = source + *p * reverse(color());
@@ -2815,7 +2819,7 @@ namespace shogipp
     inline void kyokumen_t::search_moves_evasions_aigoma(OutputIterator result) const
     {
         const aigoma_info_t aigoma_info = search_aigoma(color());
-        const pos_t ou_pos = additional_info.king_pos_list[color()];
+        const pos_t ou_pos = additional_info.king_pos_list[color().value()];
         
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         const auto & check_list = additional_info.check_list_stack[move_count];
@@ -2844,7 +2848,7 @@ namespace shogipp
 
                     // 駒を打つ合駒
                     for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                        if (captured_pieces_list[color()][piece])
+                        if (captured_pieces_list[color().value()][piece])
                             if (puttable(piece, destination))
                                 *result++ = { destination, piece };
                 }
@@ -2936,7 +2940,7 @@ namespace shogipp
     inline void kyokumen_t::search_moves_puts(OutputIterator result) const
     {
         for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-            if (captured_pieces_list[color()][piece])
+            if (captured_pieces_list[color().value()][piece])
                 for (pos_t destination = 0; destination < pos_size; ++destination)
                     if (puttable(piece, destination))
                         *result++ = { destination, piece };
@@ -2973,7 +2977,7 @@ namespace shogipp
         // 持ち駒のハッシュ値をXOR演算
         for (const color_t color : colors)
             for (piece_value_t piece = pawn.value(); piece <= rook.value(); ++piece)
-                hash ^= hash_table.captured_piece_hash(captured_piece_t{ piece }, captured_pieces_list[color][captured_piece_t{ piece }], color);
+                hash ^= hash_table.captured_piece_hash(captured_piece_t{ piece }, captured_pieces_list[color.value()][captured_piece_t{ piece }], color);
 
         // 手番のハッシュ値をXOR演算
         hash ^= hash_table.color_hash(color());
@@ -2986,7 +2990,7 @@ namespace shogipp
     {
         if (move.put())
         {
-            const captured_pieces_t::size_type count = captured_pieces_list[color()][move.captured_piece()];
+            const captured_pieces_t::size_type count = captured_pieces_list[color().value()][move.captured_piece()];
             SHOGIPP_ASSERT(count > 0);
             const colored_piece_t piece{ move.captured_piece(), color() };
             hash ^= hash_table.piece_hash(piece, move.destination());
@@ -3000,7 +3004,7 @@ namespace shogipp
             if (!move.destination_piece().empty())
             {
                 const captured_piece_t new_captured_piece{ move.destination_piece() };
-                const captured_pieces_t::size_type count = captured_pieces_list[color()][new_captured_piece];
+                const captured_pieces_t::size_type count = captured_pieces_list[color().value()][new_captured_piece];
                 hash ^= hash_table.captured_piece_hash(new_captured_piece, count, color());
                 hash ^= hash_table.captured_piece_hash(new_captured_piece, count + 1, color());
                 hash ^= hash_table.piece_hash(move.destination_piece(), move.destination());
@@ -3077,10 +3081,10 @@ namespace shogipp
     inline void kyokumen_t::print() const
     {
         std::cout << "後手持ち駒：";
-        captured_pieces_list[white].print();
+        captured_pieces_list[white.value()].print();
         board.print();
         std::cout << "先手持ち駒：";
-        captured_pieces_list[black].print();
+        captured_pieces_list[black.value()].print();
     }
 
     inline void kyokumen_t::print_kifu() const
@@ -3088,7 +3092,7 @@ namespace shogipp
         for (move_count_t i = 0; i < static_cast<move_count_t>(kifu.size()); ++i)
         {
             const move_count_t diff = static_cast<move_count_t>(kifu.size() - i);
-            print_move(kifu[i], diff % color_size == 0 ? color() : !color());
+            print_move(kifu[i], diff % color_t::size() == 0 ? color() : !color());
             std::cout << std::endl;
         }
     }
@@ -3102,7 +3106,7 @@ namespace shogipp
                 std::cout << "　";
             std::size_t index = kifu.size() - size + i;
             const move_count_t diff = static_cast<move_count_t>(kifu.size() - index);
-            print_move(kifu[index], diff % color_size == 0 ? color() : !color());
+            print_move(kifu[index], diff % color_t::size() == 0 ? color() : !color());
         }
         std::cout << std::flush;
     }
@@ -3125,19 +3129,19 @@ namespace shogipp
         hash_t hash = make_hash(this->hash(), move);
         if (move.put())
         {
-            SHOGIPP_ASSERT(captured_pieces_list[color()][move.captured_piece()] > 0);
+            SHOGIPP_ASSERT(captured_pieces_list[color().value()][move.captured_piece()] > 0);
             board[move.destination()] = colored_piece_t{ move.captured_piece(), color() };
-            --captured_pieces_list[color()][move.captured_piece()];
+            --captured_pieces_list[color().value()][move.captured_piece()];
         }
         else
         {
             SHOGIPP_ASSERT(!(!move.source_piece().is_promotable() && move.promote()));
             if (!board[move.destination()].empty())
-                ++captured_pieces_list[color()][captured_piece_t{ board[move.destination()] }];
+                ++captured_pieces_list[color().value()][captured_piece_t{ board[move.destination()] }];
             board[move.destination()] = move.promote() ? board[move.source()].to_promoted() : board[move.source()];
             board[move.source()] = colored_piece_t{};
             if (noncolored_piece_t{ move.source_piece() } == king)
-                additional_info.king_pos_list[color()] = move.destination();
+                additional_info.king_pos_list[color().value()] = move.destination();
         }
         ++move_count;
         kifu.push_back(move);
@@ -3151,17 +3155,17 @@ namespace shogipp
         --move_count;
         if (move.put())
         {
-            ++captured_pieces_list[color()][move.captured_piece()];
+            ++captured_pieces_list[color().value()][move.captured_piece()];
             board[move.destination()] = colored_piece_t{};
         }
         else
         {
             if (noncolored_piece_t{ move.source_piece() } == king)
-                additional_info.king_pos_list[color()] = move.source();
+                additional_info.king_pos_list[color().value()] = move.source();
             board[move.source()] = move.source_piece();
             board[move.destination()] = move.destination_piece();
             if (!move.destination_piece().empty())
-                --captured_pieces_list[color()][captured_piece_t{ move.destination_piece() }];
+                --captured_pieces_list[color().value()][captured_piece_t{ move.destination_piece() }];
         }
         kifu.pop_back();
         pop_additional_info();
@@ -3461,7 +3465,7 @@ namespace shogipp
 
         for (const color_t color : colors)
             for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                evaluation_value += map[piece] * kyokumen.captured_pieces_list[color][piece] * reverse(color);
+                evaluation_value += map[piece] * kyokumen.captured_pieces_list[color.value()][piece] * reverse(color);
 
         return evaluation_value;
     }
@@ -4546,7 +4550,7 @@ namespace shogipp
          */
         inline void update_moves() const;
 
-        std::shared_ptr<abstract_kishi_t> kishi_list[color_size];
+        std::shared_ptr<abstract_kishi_t> kishi_list[color_t::size()];
         mutable moves_t moves;
         kyokumen_t kyokumen;
         bool black_win;
@@ -4632,7 +4636,7 @@ namespace shogipp
 
     inline bool taikyoku_t::procedure()
     {
-        auto & kishi = kishi_list[kyokumen.color()];
+        auto & kishi = kishi_list[kyokumen.color().value()];
 
         kyokumen_t temp_kyokumen = kyokumen;
 
@@ -4683,13 +4687,13 @@ namespace shogipp
         if (kyokumen.move_count == 0)
         {
             for (const color_t color : colors)
-                std::cout << color_to_string(static_cast<color_t>(color)) << "：" << kishi_list[color]->name() << std::endl;
+                std::cout << color_to_string(static_cast<color_t>(color)) << "：" << kishi_list[color.value()]->name() << std::endl;
             std::cout << std::endl;
         }
 
         if (moves.empty())
         {
-            auto & winner_evaluator = kishi_list[!kyokumen.color()];
+            auto & winner_evaluator = kishi_list[!kyokumen.color().value()];
             std::cout << kyokumen.move_count << "手詰み" << std::endl;
             kyokumen.print();
             std::cout << color_to_string(!kyokumen.color()) << "勝利（" << winner_evaluator->name() << "）" << std::flush;
@@ -4853,9 +4857,9 @@ namespace shogipp
                 {
                     ++current;
                  
-                    std::optional<unsigned long> opt_time[color_size];
+                    std::optional<unsigned long> opt_time[color_t::size()];
                     std::optional<unsigned long> opt_byoyomi;
-                    std::optional<unsigned long> opt_inc[color_size];
+                    std::optional<unsigned long> opt_inc[color_t::size()];
                     bool ponder = false;
                     bool infinite = false;
                     bool mate = false;
@@ -4874,7 +4878,7 @@ namespace shogipp
                             {
                                 throw invalid_usi_input{ "btime value not found" };
                             }
-                            opt_time[black] = std::stoul(tokens[current]);
+                            opt_time[black.value()] = std::stoul(tokens[current]);
                             ++current;
                         }
                         else if (tokens[current] == "wtime")
@@ -4884,7 +4888,7 @@ namespace shogipp
                             {
                                 throw invalid_usi_input{ "wtime value not found" };
                             }
-                            opt_time[white] = std::stoul(tokens[current]);
+                            opt_time[white.value()] = std::stoul(tokens[current]);
                             ++current;
                         }
                         else if (tokens[current] == "byoyomi")
@@ -4904,7 +4908,7 @@ namespace shogipp
                             {
                                 throw invalid_usi_input{ "binc value not found" };
                             }
-                            opt_inc[black] = std::stoul(tokens[current]);
+                            opt_inc[black.value()] = std::stoul(tokens[current]);
                             ++current;
                         }
                         else if (tokens[current] == "winc")
@@ -4914,7 +4918,7 @@ namespace shogipp
                             {
                                 throw invalid_usi_input{ "winc value not found" };
                             }
-                            opt_inc[white] = std::stoul(tokens[current]);
+                            opt_inc[white.value()] = std::stoul(tokens[current]);
                             ++current;
                         }
                         else if (tokens[current] == "infinite")
@@ -4945,9 +4949,9 @@ namespace shogipp
                                 usi_info->limit_time = std::numeric_limits<decltype(usi_info->limit_time)>::max();
                             else
                             {
-                                if (!opt_time[kyokumen.color()])
+                                if (!opt_time[kyokumen.color().value()])
                                     throw invalid_usi_input{ "limit time not specified" };
-                                milli_second_time_t limit_time = *opt_time[kyokumen.color()];
+                                milli_second_time_t limit_time = *opt_time[kyokumen.color().value()];
                                 if (opt_byoyomi)
                                     limit_time += *opt_byoyomi;
                                 usi_info->limit_time = limit_time;

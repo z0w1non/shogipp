@@ -123,7 +123,7 @@ namespace shogipp
         * @param func __pawnnc__
         * @param line __LINE__
         */
-        inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line)
+        inline constexpr void assert_impl(bool assertion, const char * expr, const char * file, const char * func, unsigned int line) noexcept
         {
             if (!assertion)
             {
@@ -141,47 +141,47 @@ namespace shogipp
             /**
              * @breif 時間計測を開始する。
              */
-            inline timer_t();
+            inline timer_t() noexcept;
 
             /**
              * @breif 時間計測を再開始する。
              */
-            inline void clear();
+            inline void clear() noexcept;
 
             /**
              * @breif 経過時間を標準出力に出力する。
              */
-            inline void print_elapsed_time();
+            inline void print_elapsed_time() noexcept;
 
             /**
              * @breif 読み手数の参照を返す。
              * @return 読み手数の参照
              */
-            inline search_count_t & search_count();
+            inline search_count_t & search_count() noexcept;
 
             /**
              * @breif 読み手数の参照を返す。
              * @return 読み手数の参照
              */
-            inline const search_count_t & search_count() const;
+            inline const search_count_t & search_count() const noexcept;
 
         private:
             std::chrono::system_clock::time_point m_begin;
             search_count_t m_search_count;
         };
 
-        inline timer_t::timer_t()
+        inline timer_t::timer_t() noexcept
         {
             clear();
         }
 
-        inline void timer_t::clear()
+        inline void timer_t::clear() noexcept
         {
             m_begin = std::chrono::system_clock::now();
             m_search_count = 0;
         }
 
-        inline void timer_t::print_elapsed_time()
+        inline void timer_t::print_elapsed_time() noexcept
         {
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
@@ -194,12 +194,12 @@ namespace shogipp
                 << "読み手速度[手/s]: " << sps << std::endl << std::endl;
         }
 
-        inline search_count_t & timer_t::search_count()
+        inline search_count_t & timer_t::search_count() noexcept
         {
             return m_search_count;
         }
 
-        inline const search_count_t & timer_t::search_count() const
+        inline const search_count_t & timer_t::search_count() const noexcept
         {
             return m_search_count;
         }
@@ -209,7 +209,7 @@ namespace shogipp
         /**
          * @breif std::string_view の先頭から続く空白を削除する。
          */
-        inline void trim_front_space(std::string_view & sv)
+        inline void trim_front_space(std::string_view & sv) noexcept
         {
             while (!sv.empty() && sv.front() == ' ')
                 sv.remove_prefix(1);
@@ -222,7 +222,7 @@ namespace shogipp
          * @retval true 予測された文字列の削除に成功した場合
          * @retval false 予測された文字列の削除に成功しなかった場合
          */
-        inline bool try_parse(std::string_view & sv, std::string_view token)
+        inline bool try_parse(std::string_view & sv, std::string_view token) noexcept
         {
             if (sv.size() >= token.size())
             {
@@ -339,7 +339,7 @@ namespace shogipp
      * @param piece 駒
      * @return 文字列
      */
-    inline const char * to_string_impl(piece_value_t piece)
+    inline const char * to_string_impl(piece_value_t piece) noexcept
     {
         static const char * map[]{
             "・",
@@ -870,7 +870,7 @@ namespace shogipp
     };
 
     template<typename Map>
-    inline std::optional<typename std::decay_t<Map>::mapped_type> parse(std::string_view & rest, Map && map, std::size_t size)
+    inline std::optional<typename std::decay_t<Map>::mapped_type> parse(std::string_view & rest, Map && map, std::size_t size) noexcept
     {
         if (rest.size() < size)
             return std::nullopt;
@@ -898,7 +898,7 @@ namespace shogipp
      * @param color 先手か後手か
      * @return 符号反転用の数値
      */
-    inline constexpr position_t reverse(color_t color)
+    inline constexpr position_t reverse(color_t color) noexcept
     {
         return color == white ? -1 : 1;
     }
@@ -934,23 +934,23 @@ namespace shogipp
 
         constexpr static std::size_t hash_size = HashSize;
 
-        inline basic_hash_t()
+        inline basic_hash_t() noexcept
             : data{}
         {
         }
 
-        inline basic_hash_t(const basic_hash_t & hash)
+        inline basic_hash_t(const basic_hash_t & hash) noexcept
         {
             std::copy(std::begin(hash.data), std::end(hash.data), std::begin(data));
         }
 
-        inline basic_hash_t & operator =(const basic_hash_t & hash)
+        inline basic_hash_t & operator =(const basic_hash_t & hash) noexcept
         {
             std::copy(std::begin(hash.data), std::end(hash.data), std::begin(data));
             return *this;
         }
 
-        inline basic_hash_t & operator ^=(const basic_hash_t & hash)
+        inline basic_hash_t & operator ^=(const basic_hash_t & hash) noexcept
         {
             std::size_t * first = reinterpret_cast<std::size_t *>(data);
             std::size_t * end = reinterpret_cast<std::size_t *>(data + hash_size);
@@ -960,17 +960,17 @@ namespace shogipp
             return *this;
         }
 
-        inline bool operator ==(const basic_hash_t & hash) const
+        inline bool operator ==(const basic_hash_t & hash) const noexcept
         {
             return std::equal(std::begin(data), std::end(data), std::begin(hash.data));
         }
 
-        inline bool operator !=(const basic_hash_t & hash) const
+        inline bool operator !=(const basic_hash_t & hash) const noexcept
         {
             return !std::equal(std::begin(data), std::end(data), std::begin(hash.data));
         }
 
-        inline explicit operator std::size_t() const
+        inline explicit operator std::size_t() const noexcept
         {
             std::size_t hash = 0;
             for (std::size_t i = 0; i < hash_size / sizeof(std::size_t); ++i)
@@ -978,7 +978,7 @@ namespace shogipp
             return hash;
         }
 
-        inline explicit operator std::string() const
+        inline explicit operator std::string() const noexcept
         {
             std::ostringstream stream;
             stream << "0x";
@@ -1013,7 +1013,7 @@ namespace shogipp
     class basic_hash_hasher_t
     {
     public:
-        inline std::size_t operator()(basic_hash_t<HashSize> key) const
+        inline std::size_t operator()(basic_hash_t<HashSize> key) const noexcept
         {
             return static_cast<std::size_t>(key);
         }
@@ -1059,7 +1059,7 @@ namespace shogipp
          * @param position 駒の座標
          * @return ハッシュ値
          */
-        inline hash_t piece_hash(colored_piece_t piece, position_t position) const;
+        inline hash_t piece_hash(colored_piece_t piece, position_t position) const noexcept;
 
         /**
          * @breif 持ち駒のハッシュ値を計算する。
@@ -1068,14 +1068,14 @@ namespace shogipp
          * @param is_gote 後手の持ち駒か
          * @return ハッシュ値
          */
-        inline hash_t captured_piece_hash(captured_piece_t piece, std::size_t count, color_t color) const;
+        inline hash_t captured_piece_hash(captured_piece_t piece, std::size_t count, color_t color) const noexcept;
 
         /**
          * @breif 手番のハッシュ値を計算する。
          * @param color 先手か後手か
          * @return ハッシュ値
          */
-        inline hash_t color_hash(color_t color) const;
+        inline hash_t color_hash(color_t color) const noexcept;
 
         /**
          * @breif 合法手のハッシュ値を計算する。
@@ -1083,7 +1083,7 @@ namespace shogipp
          * @param color 先手か後手か
          * @return ハッシュ値
          */
-        inline hash_t move_hash(const move_t & move, color_t color) const;
+        inline hash_t move_hash(const move_t & move, color_t color) const noexcept;
 
     private:
         enum : std::size_t
@@ -1122,7 +1122,7 @@ namespace shogipp
         std::generate(std::begin(put_table           ), std::end(put_table           ), generator);
     }
 
-    inline hash_t hash_table_t::piece_hash(colored_piece_t piece, position_t position) const
+    inline hash_t hash_table_t::piece_hash(colored_piece_t piece, position_t position) const noexcept
     {
         SHOGIPP_ASSERT(!piece.empty());
         std::size_t index = static_cast<std::size_t>(piece.value());
@@ -1134,7 +1134,7 @@ namespace shogipp
         return board_table[index];
     }
 
-    inline hash_t hash_table_t::captured_piece_hash(captured_piece_t piece, std::size_t count, color_t color) const
+    inline hash_t hash_table_t::captured_piece_hash(captured_piece_t piece, std::size_t count, color_t color) const noexcept
     {
         SHOGIPP_ASSERT(piece.value() >= pawn.value());
         SHOGIPP_ASSERT(piece.value() <= rook.value());
@@ -1166,7 +1166,7 @@ namespace shogipp
         return captured_piece_table[index];
     }
 
-    inline hash_t hash_table_t::color_hash(color_t color) const
+    inline hash_t hash_table_t::color_hash(color_t color) const noexcept
     {
         return color_table[color.value()];
     }
@@ -1176,7 +1176,7 @@ namespace shogipp
      * @param color 先後
      * @return 先後を表現する文字列
      */
-    inline const char * color_to_string(color_t color)
+    inline const char * color_to_string(color_t color) noexcept
     {
         const char * map[]{ "先手", "後手" };
         return map[color.value()];
@@ -1188,7 +1188,7 @@ namespace shogipp
      * @return 全角文字列
      * @details 持ち駒の最大枚数18を超える値を指定してこの関数を呼び出してはならない。
      */
-    inline const char * to_zenkaku_digit(unsigned int value)
+    inline const char * to_zenkaku_digit(unsigned int value) noexcept
     {
         const char * map[]
         {
@@ -1205,7 +1205,7 @@ namespace shogipp
      * @return 駒の移動先の相対座標の配列の先頭を指すポインタ
      * @details この関数が返すポインタの指す座標は 0 で終端化されている。
      */
-    inline const position_t * near_move_offsets(noncolored_piece_t piece)
+    inline const position_t * near_move_offsets(noncolored_piece_t piece) noexcept
     {
         static const std::vector<position_t> map[]
         {
@@ -1236,7 +1236,7 @@ namespace shogipp
      * @return 駒の移動先の相対座標の配列の先頭を指すポインタ
      * @details この関数が返すポインタの指す座標は 0 で終端化されている。
      */
-    inline const position_t * far_move_offsets(noncolored_piece_t piece)
+    inline const position_t * far_move_offsets(noncolored_piece_t piece) noexcept
     {
         static const std::vector<position_t> map[]
         {
@@ -1266,7 +1266,7 @@ namespace shogipp
      * @param dan 段
      * @return 文字列
      */
-    inline const char * dan_to_string(position_t dan)
+    inline const char * dan_to_string(position_t dan) noexcept
     {
         static const char * map[]{ "一", "二", "三", "四", "五", "六", "七", "八", "九" };
         SHOGIPP_ASSERT(dan >= 0);
@@ -1279,7 +1279,7 @@ namespace shogipp
      * @param dan 筋
      * @return 文字列
      */
-    inline const char * suji_to_string(position_t suji)
+    inline const char * suji_to_string(position_t suji) noexcept
     {
         static const char * map[]{ "９", "８", "７", "６", "５", "４", "３", "２", "１" };
         SHOGIPP_ASSERT(suji >= 0);
@@ -1318,7 +1318,7 @@ namespace shogipp
      * @param dan 段
      * @return 座標
      */
-    inline position_t suji_dan_to_position(position_t suji, position_t dan)
+    inline position_t suji_dan_to_position(position_t suji, position_t dan) noexcept
     {
         return width * (dan + padding_height) + padding_width + suji;
     }
@@ -1546,7 +1546,7 @@ namespace shogipp
         }
     };
 
-    inline int to_category(const move_t & move)
+    inline int to_category(const move_t & move) noexcept
     {
         if (move.put())
             return 0;
@@ -1555,7 +1555,7 @@ namespace shogipp
         return 2;
     };
 
-    inline hash_t hash_table_t::move_hash(const move_t & move, color_t color) const
+    inline hash_t hash_table_t::move_hash(const move_t & move, color_t color) const noexcept
     {
         std::size_t index;
         if (move.put())
@@ -1590,8 +1590,8 @@ namespace shogipp
          */
         inline captured_pieces_t() noexcept;
 
-        inline captured_pieces_t(const captured_pieces_t &) = default;
-        inline captured_pieces_t & operator =(const captured_pieces_t &) = default;
+        constexpr inline captured_pieces_t(const captured_pieces_t &) noexcept = default;
+        constexpr inline captured_pieces_t & operator =(const captured_pieces_t &) noexcept = default;
 
         /**
          * @breif 持ち駒を標準出力に出力する。
@@ -1603,14 +1603,14 @@ namespace shogipp
          * @param 駒
          * @return 駒と対応する持ち駒の数の参照
          */
-        inline size_type & operator [](captured_piece_t piece);
+        inline size_type & operator [](captured_piece_t piece) noexcept;
 
         /**
          * @breif 駒と対応する持ち駒の数の参照を返す。
          * @param 駒
          * @return 駒と対応する持ち駒の数の参照
          */
-        inline const size_type & operator [](captured_piece_t piece) const;
+        inline const size_type & operator [](captured_piece_t piece) const noexcept;
 
     private:
         size_type count[captured_piece_size];
@@ -1639,13 +1639,13 @@ namespace shogipp
         std::cout << std::endl;
     }
 
-    inline captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece)
+    inline captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece) noexcept
     {
         SHOGIPP_ASSERT(!piece.empty());
         return count[piece.value() - pawn_value];
     }
 
-    inline const captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece) const
+    inline const captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece) const noexcept
     {
         return (*const_cast<captured_pieces_t *>(this))[piece];
     }
@@ -1705,7 +1705,7 @@ namespace shogipp
          * @param position 座標
          * @return 盤外の場合true
          */
-        inline static bool out(position_t position);
+        inline static bool out(position_t position) noexcept;
 
         /**
          * @breif 盤を標準出力に出力する。
@@ -1743,7 +1743,7 @@ namespace shogipp
         return data[i];
     }
 
-    inline bool board_t::out(position_t position)
+    inline bool board_t::out(position_t position) noexcept
     {
         return position < 0 || position >= position_size || clear_board[position].value() == out_of_range.value();
     }
@@ -1860,7 +1860,8 @@ namespace shogipp
         bool aigoma;    // 合駒が可能か
     };
 
-    class aigoma_info_t : public std::unordered_map<position_t, std::vector<position_t>>
+    class aigoma_info_t
+        : public std::unordered_map<position_t, std::vector<position_t>>
     {
     public:
         using std::unordered_map<position_t, std::vector<position_t>>::unordered_map;
@@ -2339,8 +2340,8 @@ namespace shogipp
     class kyokumen_rollback_validator_t
     {
     public:
-        inline kyokumen_rollback_validator_t(const kyokumen_t & kyokumen);
-        inline ~kyokumen_rollback_validator_t();
+        inline kyokumen_rollback_validator_t(const kyokumen_t & kyokumen) noexcept;
+        inline ~kyokumen_rollback_validator_t() noexcept;
 
     private:
         const kyokumen_t & kyokumen;
@@ -2348,7 +2349,7 @@ namespace shogipp
         captured_pieces_t captured_pieces_list[color_t::size()];
     };
 
-    inline kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen)
+    inline kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen) noexcept
         : kyokumen{ kyokumen }
     {
         std::copy(std::begin(kyokumen.board.data), std::end(kyokumen.board.data), std::begin(data));
@@ -2356,7 +2357,7 @@ namespace shogipp
             captured_pieces_list[color.value()] = kyokumen.captured_pieces_list[color.value()];
     }
 
-    inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t()
+    inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t() noexcept
     {
         for (std::size_t i = 0; i < std::size(data); ++i)
             SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
@@ -2604,7 +2605,7 @@ namespace shogipp
             const position_t position = destination + front * (reverse(color()));
             if (!board_t::out(position) && !board[position].empty() && noncolored_piece_t{ board[position] } == king && board[position].to_color() != color())
             {
-                move_t move{ destination, piece };
+                const move_t move{ destination, piece };
                 moves_t moves;
                 {
                     VALIDATE_kyokumen_ROLLBACK(*this);

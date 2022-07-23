@@ -2098,7 +2098,7 @@ namespace shogipp
          * @param color 先後いずれの視点か
          */
         template<typename OutputIterator>
-        inline void search_rookmo(OutputIterator result, position_t position, color_t color) const;
+        inline void search_himo(OutputIterator result, position_t position, color_t color) const;
 
         /**
          * @breif 座標positionに利いている駒を検索する。
@@ -2116,7 +2116,7 @@ namespace shogipp
          * @param color 先後いずれの視点か
          */
         template<typename OutputIterator>
-        inline void search_kiki_or_rookmo(OutputIterator result, position_t position, color_t color) const;
+        inline void search_kiki_or_himo(OutputIterator result, position_t position, color_t color) const;
 
         /**
          * @breif 王手を検索する。
@@ -2665,7 +2665,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_rookmo(OutputIterator result, position_t position, color_t color) const
+    inline void kyokumen_t::search_himo(OutputIterator result, position_t position, color_t color) const
     {
         search_piece(result, position, color,
             [color](color_t g) { return g == color; },
@@ -2681,7 +2681,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_kiki_or_rookmo(OutputIterator result, position_t position, color_t color) const
+    inline void kyokumen_t::search_kiki_or_himo(OutputIterator result, position_t position, color_t color) const
     {
         search_piece(result, position, color,
             [](color_t) { return true; },
@@ -4361,7 +4361,7 @@ namespace shogipp
                     kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
                     evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
                     std::vector<position_t> himo_list;
-                    kyokumen.search_rookmo(std::back_inserter(himo_list), position, color);
+                    kyokumen.search_himo(std::back_inserter(himo_list), position, color);
                     evaluation_value += himo_point * static_cast<evaluation_value_t>(himo_list.size()) * reverse(color);
 
                     std::vector<position_t> destination_list;
@@ -5126,7 +5126,7 @@ namespace shogipp
         { "fukayomi", std::make_shared<fukayomi_evaluator_t>() },
     };
 
-    inline int parse_command_line(int argc, const char ** argv)
+    inline int parse_command_line(int argc, const char ** argv) noexcept
     {
         try
         {

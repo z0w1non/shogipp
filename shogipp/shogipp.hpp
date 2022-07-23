@@ -275,7 +275,7 @@ namespace shogipp
         color_size = 2
     };
 
-    static constexpr color_t colors[]
+    constexpr color_t colors[]
     {
         black,
         white
@@ -832,7 +832,7 @@ namespace shogipp
 
     using pos_to_noncolored_piece_pair = std::pair<pos_t, std::vector<noncolored_piece_t>>;
 
-    static const pos_to_noncolored_piece_pair near_kiki_list[]
+    const pos_to_noncolored_piece_pair near_kiki_list[]
     {
         { knight_left   , { knight } },
         { knight_right  , { knight } },
@@ -846,7 +846,7 @@ namespace shogipp
         { back_right    , { silver, king, bishop, promoted_bishop, promoted_rook } },
     };
 
-    static const pos_to_noncolored_piece_pair far_kiki_list[]
+    const pos_to_noncolored_piece_pair far_kiki_list[]
     {
         { front_left , { bishop, promoted_bishop } },
         { front      , { lance, rook, promoted_rook } },
@@ -858,12 +858,12 @@ namespace shogipp
         { back_right , { bishop, promoted_bishop } }
     };
 
-    static const pos_to_noncolored_piece_pair far_kiki_list_asynmmetric[]
+    const pos_to_noncolored_piece_pair far_kiki_list_asynmmetric[]
     {
         { front      , { lance } },
     };
 
-    static const pos_to_noncolored_piece_pair far_kiki_list_synmmetric[]
+    const pos_to_noncolored_piece_pair far_kiki_list_synmmetric[]
     {
         { front_left , { bishop, promoted_bishop } },
         { front      , { rook, promoted_rook } },

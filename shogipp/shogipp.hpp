@@ -620,8 +620,8 @@ namespace shogipp
         constexpr static colored_piece_t map[]
         {
             0,
-            black_pawn, black_promoted_lance, black_promoted_knight, black_promoted_silver, 0, black_bishop, black_rook, 0, 0, 0, 0, 0, 0, 0,
-            white_pawn, white_promoted_lance, white_promoted_knight, white_promoted_silver, 0, white_bishop, white_rook, 0, 0, 0, 0, 0, 0, 0,
+            black_pawn, black_promoted_lance, black_promoted_knight, black_promoted_silver, 0, black_promoted_bishop, black_promoted_rook, 0, 0, 0, 0, 0, 0, 0,
+            white_pawn, white_promoted_lance, white_promoted_knight, white_promoted_silver, 0, white_promoted_bishop, white_promoted_rook, 0, 0, 0, 0, 0, 0, 0,
         };
         return map[value()];
     }

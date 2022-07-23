@@ -1326,7 +1326,7 @@ namespace shogipp
      * @param sfen_position SFEN表記法に準拠した座標の文字列
      * @return 座標
      */
-    inline position_t sfen_pos_to_pos(std::string_view sfen_position)
+    inline position_t sfen_position_to_position(std::string_view sfen_position)
     {
         if (sfen_position.size() != 2)
             throw invalid_usi_input{ "sfen_pos.size() != 2" };
@@ -1807,7 +1807,7 @@ namespace shogipp
                 throw invalid_usi_input{ "invalid sfen move" };
             if (optional_piece->to_color() == white)
                 throw invalid_usi_input{ "invalid sfen move" };
-            const position_t destination = sfen_pos_to_pos(sfen_move.substr(2, 2));
+            const position_t destination = sfen_position_to_position(sfen_move.substr(2, 2));
 
             m_source = npos;
             m_destination = destination;
@@ -1817,12 +1817,12 @@ namespace shogipp
         }
         else
         {
-            const position_t source = sfen_pos_to_pos(sfen_move.substr(0, 2));
+            const position_t source = sfen_position_to_position(sfen_move.substr(0, 2));
             if (board[source].empty())
                 throw invalid_usi_input{ "invalid sfen move 1" };
             if (board_t::out(source))
                 throw invalid_usi_input{ "invalid sfen move 2" };
-            const position_t destination = sfen_pos_to_pos(sfen_move.substr(2, 2));
+            const position_t destination = sfen_position_to_position(sfen_move.substr(2, 2));
             if (board_t::out(destination))
                 throw invalid_usi_input{ "invalid sfen move 3" };
             bool promote;

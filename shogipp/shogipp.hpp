@@ -760,8 +760,8 @@ namespace shogipp
     constexpr position_t position_size = width * height;
     constexpr position_t padding_width = 1;
     constexpr position_t padding_height = 1;
-    constexpr position_t suji_size = 9;
-    constexpr position_t dan_size = 9;
+    constexpr position_t file_size = 9;
+    constexpr position_t rank_size = 9;
 
     enum position_alias
     {
@@ -783,7 +783,7 @@ namespace shogipp
      * @param position 座標
      * @return 段
      */
-    inline constexpr position_t position_to_dan(position_t position) noexcept
+    inline constexpr position_t position_to_rank(position_t position) noexcept
     {
         return position / width - padding_height;
     }
@@ -793,7 +793,7 @@ namespace shogipp
      * @param position 座標
      * @return 筋
      */
-    inline constexpr position_t position_to_suji(position_t position) noexcept
+    inline constexpr position_t position_to_file(position_t position) noexcept
     {
         return position % width - padding_width;
     }
@@ -806,11 +806,11 @@ namespace shogipp
      */
     inline position_t distance(position_t a, position_t b) noexcept
     {
-        const position_t suji_a = position_to_suji(a);
-        const position_t dan_a = position_to_dan(a);
-        const position_t suji_b = position_to_suji(b);
-        const position_t  dan_b = position_to_dan(b);
-        return static_cast<position_t>(std::abs(suji_a - suji_b) + std::abs(dan_a - dan_b));
+        const position_t file_a = position_to_file(a);
+        const position_t rank_a = position_to_rank(a);
+        const position_t file_b = position_to_file(b);
+        const position_t  rank_b = position_to_rank(b);
+        return static_cast<position_t>(std::abs(file_a - file_b) + std::abs(rank_a - rank_b));
     }
 
     constexpr position_t front        = -width;
@@ -1098,7 +1098,7 @@ namespace shogipp
             captured_size           = captured_rook_offset   + captured_rook_size
         };
 
-        hash_t board_table[piece_size * suji_size * dan_size];              // 盤のハッシュテーブル
+        hash_t board_table[piece_size * file_size * rank_size];              // 盤のハッシュテーブル
         hash_t captured_piece_table[captured_size * color_t::size()];            // 持ち駒のハッシュテーブル
         hash_t color_table[color_t::size()];                                     // 手番のハッシュテーブル
         hash_t move_table[(position_size + 1) * position_size * color_t::size()];          // 移動する手のハッシュテーブル
@@ -1126,10 +1126,10 @@ namespace shogipp
     {
         SHOGIPP_ASSERT(!piece.empty());
         std::size_t index = static_cast<std::size_t>(piece.value());
-        index *= suji_size;
-        index += position_to_suji(position);
-        index *= dan_size;
-        index += position_to_dan(position);
+        index *= file_size;
+        index += position_to_file(position);
+        index *= rank_size;
+        index += position_to_rank(position);
         SHOGIPP_ASSERT(index < std::size(board_table));
         return board_table[index];
     }
@@ -1263,28 +1263,28 @@ namespace shogipp
 
     /**
      * @breif 段を文字列に変換する。
-     * @param dan 段
+     * @param rank 段
      * @return 文字列
      */
-    inline const char * dan_to_string(position_t dan) noexcept
+    inline const char * rank_to_string(position_t rank) noexcept
     {
         static const char * map[]{ "一", "二", "三", "四", "五", "六", "七", "八", "九" };
-        SHOGIPP_ASSERT(dan >= 0);
-        SHOGIPP_ASSERT(dan < static_cast<position_t>(std::size(map)));
-        return map[dan];
+        SHOGIPP_ASSERT(rank >= 0);
+        SHOGIPP_ASSERT(rank < static_cast<position_t>(std::size(map)));
+        return map[rank];
     }
 
     /**
      * @breif 筋を文字列に変換する。
-     * @param dan 筋
+     * @param rank 筋
      * @return 文字列
      */
-    inline const char * suji_to_string(position_t suji) noexcept
+    inline const char * file_to_string(position_t file) noexcept
     {
         static const char * map[]{ "９", "８", "７", "６", "５", "４", "３", "２", "１" };
-        SHOGIPP_ASSERT(suji >= 0);
-        SHOGIPP_ASSERT(suji < static_cast<position_t>(std::size(map)));
-        return map[suji];
+        SHOGIPP_ASSERT(file >= 0);
+        SHOGIPP_ASSERT(file < static_cast<position_t>(std::size(map)));
+        return map[file];
     }
 
     /**
@@ -1294,7 +1294,7 @@ namespace shogipp
      */
     inline std::string position_to_string(position_t position)
     {
-        return std::string{}.append(suji_to_string(position_to_suji(position))).append(dan_to_string(position_to_dan(position)));
+        return std::string{}.append(file_to_string(position_to_file(position))).append(rank_to_string(position_to_rank(position)));
     }
 
     /**
@@ -1305,28 +1305,28 @@ namespace shogipp
     inline std::string position_to_sfen_string(position_t position)
     {
         std::string sfen_string;
-        const char suji = static_cast<char>(suji_size - 1 - position_to_suji(position) + '1');
-        const char dan = static_cast<char>(position_to_dan(position) + 'a');
-        sfen_string += suji;
-        sfen_string += dan;
+        const char file = static_cast<char>(file_size - 1 - position_to_file(position) + '1');
+        const char rank = static_cast<char>(position_to_rank(position) + 'a');
+        sfen_string += file;
+        sfen_string += rank;
         return sfen_string;
     }
 
     /**
      * @breif 筋と段から座標を取得する。
-     * @param suji 筋
-     * @param dan 段
+     * @param file 筋
+     * @param rank 段
      * @return 座標
      */
-    inline position_t suji_dan_to_position(position_t suji, position_t dan) noexcept
+    inline position_t file_rank_to_position(position_t file, position_t rank) noexcept
     {
-        return width * (dan + padding_height) + padding_width + suji;
+        return width * (rank + padding_height) + padding_width + file;
     }
 
     static const position_t default_king_pos_list[]
     {
-        suji_dan_to_position(4, 8),
-        suji_dan_to_position(4, 0)
+        file_rank_to_position(4, 8),
+        file_rank_to_position(4, 0)
     };
 
     /**
@@ -1346,9 +1346,9 @@ namespace shogipp
             throw invalid_usi_input{ "sfen_pos[1] < 'a'" };
         if (sfen_position[1] > 'i')
             throw invalid_usi_input{ "sfen_pos[1] > 'i'" };
-        const position_t suji = static_cast<position_t>(suji_size - 1 - (sfen_position[0] - '1'));
-        const position_t dan = static_cast<position_t>(sfen_position[1] - 'a');
-        return suji_dan_to_position(suji, dan);
+        const position_t file = static_cast<position_t>(file_size - 1 - (sfen_position[0] - '1'));
+        const position_t rank = static_cast<position_t>(sfen_position[1] - 'a');
+        return file_rank_to_position(file, rank);
     }
 
     class board_t;
@@ -1752,15 +1752,15 @@ namespace shogipp
     {
         std::cout << "  ９ ８ ７ ６ ５ ４ ３ ２ １" << std::endl;
         std::cout << "+---------------------------+" << std::endl;
-        for (position_t dan = 0; dan < dan_size; ++dan)
+        for (position_t rank = 0; rank < rank_size; ++rank)
         {
             std::cout << "|";
-            for (position_t suji = 0; suji < suji_size; ++suji)
+            for (position_t file = 0; file < file_size; ++file)
             {
-                const colored_piece_t piece = data[suji_dan_to_position(suji, dan)];
+                const colored_piece_t piece = data[file_rank_to_position(file, rank)];
                 std::cout << ((!piece.empty() && piece.to_color() == white) ? "v" : " ") << piece.to_string();
             }
-            std::cout << "| " << dan_to_string(dan) << std::endl;
+            std::cout << "| " << rank_to_string(rank) << std::endl;
         }
         std::cout << "+---------------------------+" << std::endl;
     }
@@ -1773,12 +1773,12 @@ namespace shogipp
     inline std::string board_t::sfen_string() const
     {
         std::string result;
-        for (position_t dan = 0; dan < dan_size; ++dan)
+        for (position_t rank = 0; rank < rank_size; ++rank)
         {
             position_t empty_count = 0;
-            for (position_t suji = 0; suji < suji_size; ++suji)
+            for (position_t file = 0; file < file_size; ++file)
             {
-                const colored_piece_t piece = data[suji_dan_to_position(suji, dan)];
+                const colored_piece_t piece = data[file_rank_to_position(file, rank)];
                 if (piece.empty())
                     empty_count += 1;
                 else
@@ -1795,7 +1795,7 @@ namespace shogipp
             }
             if (empty_count > 0)
                 result += static_cast<char>('0' + empty_count);
-            if (dan + 1 < dan_size)
+            if (rank + 1 < rank_size)
                 result += '/';
         }
         return result;
@@ -2402,7 +2402,7 @@ namespace shogipp
                 throw invalid_usi_input{ "unexpected sfen end 2" };
 
             temp.board.clear();
-            position_t dan = 0, suji = 0;
+            position_t rank = 0, file = 0;
 
             const std::string_view sfen_string = *current_token;
             for (const char c : *current_token)
@@ -2413,14 +2413,14 @@ namespace shogipp
                 }
                 else if (c == '/')
                 {
-                    if (suji != suji_size)
+                    if (file != file_size)
                         throw invalid_usi_input{ "unexpected '/'" };
-                    ++dan;
-                    suji = 0;
+                    ++rank;
+                    file = 0;
                 }
                 else if (c >= '1' && c <= '9')
                 {
-                    suji += static_cast<position_t>(c - '0');
+                    file += static_cast<position_t>(c - '0');
                 }
                 else
                 {
@@ -2430,8 +2430,8 @@ namespace shogipp
                     colored_piece_t piece = *optional_piece;
                     if (promoted)
                         piece = piece.to_promoted();
-                    temp.board[suji_dan_to_position(suji, dan)] = piece;
-                    ++suji;
+                    temp.board[file_rank_to_position(file, rank)] = piece;
+                    ++file;
                 }
             }
             temp.clear_additional_info();
@@ -2591,12 +2591,12 @@ namespace shogipp
         }
         if (piece == captured_pawn)
         {
-            const position_t suji = position_to_suji(destination);
+            const position_t file = position_to_file(destination);
 
             // 二歩
-            for (position_t dan = 0; dan < dan_size; ++dan)
+            for (position_t rank = 0; rank < rank_size; ++rank)
             {
-                const colored_piece_t current = board[suji_dan_to_position(suji, dan)];
+                const colored_piece_t current = board[file_rank_to_position(file, rank)];
                 if (!current.empty() && noncolored_piece_t{ current } == pawn && color() == current.to_color())
                     return false;
             }

@@ -436,8 +436,8 @@ namespace shogipp
 
         /**
          * @breif 駒が持ち駒として適格であるか判定する。
-         * @retval true 持ち駒tとして適格である
-         * @retval false 持ち駒tとして適格でない
+         * @retval true 持ち駒として適格である
+         * @retval false 持ち駒として適格でない
          */
         inline bool is_captured() const noexcept;
 
@@ -4213,12 +4213,12 @@ namespace shogipp
 
             std::vector<evaluated_moves> scores;
             auto back_inserter = std::back_inserter(scores);
-            for (const move_t & t : moves)
+            for (const move_t & move : moves)
             {
                 VALIDATE_kyokumen_ROLLBACK(kyokumen);
-                kyokumen.do_move(t);
-                *back_inserter++ = { &t, evaluate(kyokumen) };
-                kyokumen.undo_move(t);
+                kyokumen.do_move(move);
+                *back_inserter++ = { &move, evaluate(kyokumen) };
+                kyokumen.undo_move(move);
             }
 
             std::sort(scores.begin(), scores.end(), [](auto & a, auto & b) { return a.second > b.second; });

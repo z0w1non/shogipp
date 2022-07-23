@@ -234,7 +234,22 @@ namespace shogipp
             }
             return false;
         }
-    }
+
+        template<std::size_t N>
+        constexpr inline std::int32_t bool_array_to_32bitmask(const bool (&bool_array)[N]) noexcept
+        {
+            std::int32_t bitmask = 0;
+            for (std::size_t i = 0; i < N; ++i)
+                if (bool_array[i])
+                    bitmask |= (1 << i);
+            return bitmask;
+        }
+
+        constexpr inline bool bitmask_has(std::int32_t bitmask, unsigned int index) noexcept
+        {
+            return ((bitmask << index) & 1) != 0;
+        }
+    } // namespace details
 
     class file_format_error
         : public std::runtime_error
@@ -542,13 +557,14 @@ namespace shogipp
     inline bool colored_piece_t::is_promotable() const noexcept
     {
         SHOGIPP_ASSERT(!empty());
-        constexpr static bool map[]
+        constexpr bool map[]
         {
             false,
             true, true, true, true, false, true, true, false, false, false, false, false, false, false,
             true, true, true, true, false, true, true, false, false, false, false, false, false, false,
         };
-        return map[value()];
+        constexpr std::int32_t bitmask = details::bool_array_to_32bitmask(map);
+        return details::bitmask_has(bitmask, value());
     }
 
     inline color_t colored_piece_t::to_color() const noexcept
@@ -562,25 +578,27 @@ namespace shogipp
     inline bool colored_piece_t::is_hashirigoma() const noexcept
     {
         SHOGIPP_ASSERT(!empty());
-        constexpr static bool map[]
+        constexpr bool map[]
         {
             false,
             false, true, false, false, false, true, true, false, false, false, false, false, true, true,
             false, true, false, false, false, true, true, false, false, false, false, false, true, true,
         };
-        return map[value()];
+        constexpr std::int32_t bitmask = details::bool_array_to_32bitmask(map);
+        return details::bitmask_has(bitmask, value());
     }
 
     inline bool colored_piece_t::is_captured() const noexcept
     {
         SHOGIPP_ASSERT(!empty());
-        constexpr static bool map[]
+        constexpr bool map[]
         {
             false,
             true, true, true, true, true, true, true, false, false, false, false, false, true, false,
             true, true, true, true, true, true, true, false, false, false, false, false, true, false,
         };
-        return map[value()];
+        constexpr std::int32_t bitmask = details::bool_array_to_32bitmask(map);
+        return details::bitmask_has(bitmask, value());
     }
 
     inline colored_piece_t colored_piece_t::to_unpromoted() const noexcept

@@ -334,11 +334,9 @@ namespace shogipp
         return map[piece];
     }
 
-    template<typename Tag>
     class basic_piece_t
     {
     public:
-        using tag_type = Tag;
         constexpr inline basic_piece_t() noexcept;
         constexpr inline basic_piece_t(piece_value_t value) noexcept;
         constexpr inline piece_value_t value() const noexcept;
@@ -354,46 +352,37 @@ namespace shogipp
         piece_value_t m_value;
     };
 
-    template<typename Tag>
-    constexpr inline basic_piece_t<Tag>::basic_piece_t() noexcept
+    constexpr inline basic_piece_t::basic_piece_t() noexcept
         : m_value{ empty_value }
     {
     }
 
-    template<typename Tag>
-    constexpr inline basic_piece_t<Tag>::basic_piece_t(piece_value_t value) noexcept
+    constexpr inline basic_piece_t::basic_piece_t(piece_value_t value) noexcept
         : m_value{ value }
     {
     }
 
-    template<typename Tag>
-    constexpr inline piece_value_t basic_piece_t<Tag>::value() const noexcept
+    constexpr inline piece_value_t basic_piece_t::value() const noexcept
     {
         return m_value;
     }
 
-    template<typename Tag>
-    constexpr inline bool basic_piece_t<Tag>::empty() const noexcept
+    constexpr inline bool basic_piece_t::empty() const noexcept
     {
         return m_value == empty_value;
     }
 
-    template<typename Tag>
-    inline const char * basic_piece_t<Tag>::to_string() const noexcept
+    inline const char * basic_piece_t::to_string() const noexcept
     {
         return to_string_impl(value());
     }
-
-    class captured_piece_tag   {};
-    class noncolored_piece_tag {};
-    class colored_piece_tag    {};
 
     class captured_piece_t;
     class noncolored_piece_t;
     class colored_piece_t;
 
     class captured_piece_t
-        : public basic_piece_t<captured_piece_tag>
+        : public basic_piece_t
     {
     public:
         using basic_piece_t::basic_piece_t;
@@ -404,7 +393,7 @@ namespace shogipp
     };
 
     class noncolored_piece_t
-        : public basic_piece_t<noncolored_piece_tag>
+        : public basic_piece_t
     {
     public:
         using basic_piece_t::basic_piece_t;
@@ -422,7 +411,7 @@ namespace shogipp
     };
 
     class colored_piece_t
-        : public basic_piece_t<colored_piece_tag>
+        : public basic_piece_t
     {
     public:
         using basic_piece_t::basic_piece_t;

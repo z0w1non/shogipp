@@ -238,6 +238,7 @@ namespace shogipp
         template<std::size_t N>
         constexpr inline std::int32_t bool_array_to_32bitmask(const bool (&bool_array)[N]) noexcept
         {
+            static_assert(N < 32);
             std::int32_t bitmask = 0;
             for (std::size_t i = 0; i < N; ++i)
                 if (bool_array[i])

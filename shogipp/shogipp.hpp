@@ -248,7 +248,7 @@ namespace shogipp
 
         constexpr inline bool bitmask_has(std::int32_t bitmask, unsigned int index) noexcept
         {
-            return ((bitmask << index) & 1) != 0;
+            return ((bitmask >> index) & 1) != 0;
         }
     } // namespace details
 
@@ -1440,8 +1440,8 @@ namespace shogipp
         inline std::string sfen_string() const;
 
     private:
-        position_t           m_source;           // 移動元の座標(source == npos の場合、持ち駒を打つ)
-        position_t           m_destination;      // 移動先の座標(source == npos の場合、 destination は打つ座標)
+        position_t      m_source;           // 移動元の座標(source == npos の場合、持ち駒を打つ)
+        position_t      m_destination;      // 移動先の座標(source == npos の場合、 destination は打つ座標)
         colored_piece_t m_source_piece;     // 移動元の駒(source == npos の場合、 source_piece() は打つ持ち駒)
         colored_piece_t m_destination_piece;   // 移動先の駒(source == npos の場合、 captured_piece は未定義)
         bool            m_promote;          // 成る場合 true

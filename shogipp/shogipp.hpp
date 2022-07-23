@@ -236,10 +236,10 @@ namespace shogipp
         }
 
         template<std::size_t N>
-        constexpr inline std::int32_t bool_array_to_32bitmask(const bool (&bool_array)[N]) noexcept
+        constexpr inline std::uint32_t bool_array_to_32bitmask(const bool (&bool_array)[N]) noexcept
         {
             static_assert(N < 32);
-            std::int32_t bitmask = 0;
+            std::uint32_t bitmask = 0;
             for (std::size_t i = 0; i < N; ++i)
                 if (bool_array[i])
                     bitmask |= (1 << i);
@@ -574,7 +574,7 @@ namespace shogipp
             true, true, true, true, false, true, true, false, false, false, false, false, false, false,
             true, true, true, true, false, true, true, false, false, false, false, false, false, false,
         };
-        constexpr std::int32_t bitmask = details::bool_array_to_32bitmask(map);
+        constexpr std::uint32_t bitmask = details::bool_array_to_32bitmask(map);
         return details::bitmask_has(bitmask, value());
     }
 
@@ -595,7 +595,7 @@ namespace shogipp
             false, true, false, false, false, true, true, false, false, false, false, false, true, true,
             false, true, false, false, false, true, true, false, false, false, false, false, true, true,
         };
-        constexpr std::int32_t bitmask = details::bool_array_to_32bitmask(map);
+        constexpr std::uint32_t bitmask = details::bool_array_to_32bitmask(map);
         return details::bitmask_has(bitmask, value());
     }
 
@@ -608,7 +608,7 @@ namespace shogipp
             true, true, true, true, true, true, true, false, false, false, false, false, true, false,
             true, true, true, true, true, true, true, false, false, false, false, false, true, false,
         };
-        constexpr std::int32_t bitmask = details::bool_array_to_32bitmask(map);
+        constexpr std::uint32_t bitmask = details::bool_array_to_32bitmask(map);
         return details::bitmask_has(bitmask, value());
     }
 
@@ -1739,7 +1739,6 @@ namespace shogipp
 
     inline board_t::board_t()
     {
-
         std::copy(std::begin(initial_board), std::end(initial_board), std::begin(data));
     }
 
@@ -1810,6 +1809,14 @@ namespace shogipp
         }
         return result;
     }
+
+    class pawn_bitboard_t
+    {
+    public:
+
+    private:
+        std::uint32_t value[3];
+    };
 
     inline move_t::move_t(std::string_view sfen_move, const board_t & board)
     {

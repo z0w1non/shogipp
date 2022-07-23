@@ -476,26 +476,6 @@ namespace shogipp
         }
     };
 
-    //template<typename Piece>
-    //class piece_hasher_t
-    //{
-    //public:
-    //    inline std::size_t operator()(Piece & piece) const noexcept
-    //    {
-    //        return piece.value();
-    //    }
-    //};
-
-    //template<typename Piece>
-    //class piece_comparator_t
-    //{
-    //public:
-    //    inline bool operator()(const Piece & a, const Piece & b) const noexcept
-    //    {
-    //        return a.value() < b.value();
-    //    }
-    //};
-
     constexpr noncolored_piece_t empty          { empty_value           };
     constexpr noncolored_piece_t pawn           { pawn_value            };
     constexpr noncolored_piece_t lance          { lance_value           };

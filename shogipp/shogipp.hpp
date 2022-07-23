@@ -56,9 +56,9 @@
 #endif
 
 #ifdef NDEBUG
-#define VALIDATE_lanceKUMEN_ROLLBACK(kyokumen)
+#define VALIDATE_kyokumen_ROLLBACK(kyokumen)
 #else
-#define VALIDATE_lanceKUMEN_ROLLBACK(kyokumen) kyokumen_rollback_validator_t kyokumen_rollback_validator{ kyokumen }
+#define VALIDATE_kyokumen_ROLLBACK(kyokumen) kyokumen_rollback_validator_t kyokumen_rollback_validator{ kyokumen }
 #endif
 
 #if __cplusplus >= 202002L
@@ -267,19 +267,414 @@ namespace shogipp
     };
 
     using piece_t = unsigned char;
-    enum : piece_t
+
+    enum color_t : unsigned char
     {
-        empty,
-        pawn, lance, knight, silver, gold, bishop, rook, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook,
-        black_pawn = pawn, black_lance, black_knight, black_silver, black_gold, black_bishop, black_rook, black_king, black_tokin, black_promoted_lance, black_promoted_knight, black_promoted_silver, black_promoted_bishop, black_promoted_rook,
-        white_pawn, white_lance, white_knight, white_silver, white_gold, white_bishop, white_rook, white_king, white_tokin, white_promoted_lance, white_promoted_knight, white_promoted_silver, white_promoted_bishop, white_promoted_rook,
-        piece_enum_number,
-        out_of_range = std::numeric_limits<unsigned char>::max()
+        black = 0,
+        white = 1,
+        color_size = 2
     };
 
-    inline std::optional<piece_t> char_to_piece(char c)
+    static constexpr color_t colors[]
     {
-        static const std::map<char, piece_t> map
+        black,
+        white
+    };
+
+    using piece_value_t = unsigned char;
+    constexpr piece_value_t color_distance       { 0x0E };
+    constexpr piece_value_t piece_size           { 0x1D };
+    constexpr piece_value_t empty_value          { 0x00 };
+    constexpr piece_value_t pawn_value           { 0x01 };
+    constexpr piece_value_t lance_value          { 0x02 };
+    constexpr piece_value_t knight_value         { 0x03 };
+    constexpr piece_value_t silver_value         { 0x04 };
+    constexpr piece_value_t gold_value           { 0x05 };
+    constexpr piece_value_t bishop_value         { 0x06 };
+    constexpr piece_value_t rook_value           { 0x07 };
+    constexpr piece_value_t king_value           { 0x08 };
+    constexpr piece_value_t promoted_pawn_value  { 0x09 };
+    constexpr piece_value_t promoted_lance_value { 0x0A };
+    constexpr piece_value_t promoted_knight_value{ 0x0B };
+    constexpr piece_value_t promoted_silver_value{ 0x0C };
+    constexpr piece_value_t promoted_bishop_value{ 0x0D };
+    constexpr piece_value_t promoted_rook_value  { 0x0E };
+    constexpr piece_value_t out_of_range_value   { 0xFF };
+
+    /**
+     * @breif 駒を文字列に変換する。
+     * @param piece 駒
+     * @return 文字列
+     */
+    inline const char * to_string_impl(piece_value_t piece)
+    {
+        static const char * map[]{
+            "・",
+            "歩", "香", "桂", "銀", "金", "角", "飛", "王", "と", "杏", "圭", "全", "馬", "竜",
+            "歩", "香", "桂", "銀", "金", "角", "飛", "王", "と", "杏", "圭", "全", "馬", "竜",
+        };
+        SHOGIPP_ASSERT(piece < std::size(map));
+        return map[piece];
+    }
+
+    template<typename Tag>
+    class basic_piece_t
+    {
+    public:
+        using tag_type = Tag;
+        constexpr inline basic_piece_t() noexcept;
+        constexpr inline basic_piece_t(piece_value_t value) noexcept;
+        constexpr inline piece_value_t value() const noexcept;
+        constexpr inline bool empty() const noexcept;
+
+        /**
+         * @breif 駒を文字列に変換する。
+         * @param piece 駒
+         * @return 文字列
+         */
+        inline const char * to_string() const noexcept;
+    private:
+        piece_value_t m_value;
+    };
+
+    template<typename Tag>
+    constexpr inline basic_piece_t<Tag>::basic_piece_t() noexcept
+        : m_value{ 0 }
+    {
+    }
+
+    template<typename Tag>
+    constexpr inline basic_piece_t<Tag>::basic_piece_t(piece_value_t value) noexcept
+        : m_value{ value }
+    {
+    }
+
+    template<typename Tag>
+    constexpr inline piece_value_t basic_piece_t<Tag>::value() const noexcept
+    {
+        return m_value;
+    }
+
+    template<typename Tag>
+    constexpr inline bool basic_piece_t<Tag>::empty() const noexcept
+    {
+        return m_value == 0;
+    }
+
+    template<typename Tag>
+    inline const char * basic_piece_t<Tag>::to_string() const noexcept
+    {
+        return to_string_impl(value());
+    }
+
+    class captured_piece_tag   {};
+    class noncolored_piece_tag {};
+    class colored_piece_tag    {};
+
+    class captured_piece_t;
+    class noncolored_piece_t;
+    class colored_piece_t;
+
+    class captured_piece_t
+        : public basic_piece_t<captured_piece_tag>
+    {
+    public:
+        using basic_piece_t::basic_piece_t;
+        constexpr inline captured_piece_t(const colored_piece_t & piece) noexcept;
+        constexpr inline bool operator ==(const captured_piece_t & piece) const noexcept { return value() == piece.value(); }
+        constexpr inline bool operator !=(const captured_piece_t & piece) const noexcept { return value() != piece.value(); }
+        constexpr inline bool operator <(const captured_piece_t & piece) const noexcept { return value() < piece.value(); }
+    };
+
+    class noncolored_piece_t
+        : public basic_piece_t<noncolored_piece_tag>
+    {
+    public:
+        using basic_piece_t::basic_piece_t;
+        constexpr inline noncolored_piece_t(const colored_piece_t & piece) noexcept;
+        constexpr inline bool operator ==(const noncolored_piece_t & piece) const noexcept { return value() == piece.value(); }
+        constexpr inline bool operator !=(const noncolored_piece_t & piece) const noexcept { return value() != piece.value(); }
+        constexpr inline bool operator <(const noncolored_piece_t & piece) const noexcept { return value() < piece.value(); }
+
+        /**
+         * @breif 駒を後手の駒に変換する。
+         * @return 後手の駒
+         * @details pawn -> black_pawn or white_pawn
+         */
+        inline colored_piece_t to_colored(color_t color) const noexcept;
+    };
+
+    class colored_piece_t
+        : public basic_piece_t<colored_piece_tag>
+    {
+    public:
+        using basic_piece_t::basic_piece_t;
+        constexpr inline colored_piece_t(const captured_piece_t & piece, color_t color) noexcept;
+        constexpr inline colored_piece_t(const noncolored_piece_t & piece, color_t color) noexcept;
+        constexpr inline bool operator ==(const colored_piece_t & piece) const noexcept { return value() == piece.value(); }
+        constexpr inline bool operator !=(const colored_piece_t & piece) const noexcept { return value() != piece.value(); }
+        constexpr inline bool operator <(const colored_piece_t & piece) const noexcept { return value() < piece.value(); }
+
+        /*
+         * @breif 駒が成れるか判定する。
+         * @retval true 成れる
+         * @retval false 成れない
+         */
+        inline bool is_promotable() const noexcept;
+
+        /*
+         * @breif 駒が後手の駒か判定する。
+         * @return 先手の駒である場合 sente
+         */
+        inline color_t to_color() const noexcept;
+
+        /*
+         * @breif 駒が走り駒(香・角・飛・馬・竜)か判定する。
+         * @return 走り駒である場合 true
+         */
+        inline bool is_hashirigoma() const noexcept;
+
+        /**
+         * @breif 駒が持ち駒として適格であるか判定する。
+         * @retval true 持ち駒tとして適格である
+         * @retval false 持ち駒tとして適格でない
+         */
+        inline bool is_captured() const noexcept;
+
+        /*
+         * @breif 駒を成る前の駒に変換する。
+         * @return 成る前の駒
+         */
+        inline colored_piece_t to_unpromoted() const noexcept;
+
+        /*
+         * @breif 駒を成り駒に変換する。
+         * @return 成り駒
+         */
+        inline colored_piece_t to_promoted() const noexcept;
+
+        /**
+         * @breif piece が target_piece に合致するか判定する。
+         * @param piece 駒
+         * @retval true 合致する
+         * @retval false 合致しない
+         */
+        template<piece_value_t target_piece>
+        inline bool match(colored_piece_t piece) const noexcept
+        {
+            SHOGIPP_ASSERT(!empty());
+            static const struct impl_t
+            {
+                impl_t()
+                {
+                    for (piece_t piece = pawn; piece < piece_size; ++piece)
+                        map[piece] = colored_piece_t{ piece }.to_noncolored() == target_piece;
+                }
+                bool map[piece_size]{};
+            } impl;
+            return impl.map[piece.value()];
+        }
+    };
+
+    //template<typename Piece>
+    //class piece_hasher_t
+    //{
+    //public:
+    //    inline std::size_t operator()(Piece & piece) const noexcept
+    //    {
+    //        return piece.value();
+    //    }
+    //};
+
+    //template<typename Piece>
+    //class piece_comparator_t
+    //{
+    //public:
+    //    inline bool operator()(const Piece & a, const Piece & b) const noexcept
+    //    {
+    //        return a.value() < b.value();
+    //    }
+    //};
+
+    constexpr noncolored_piece_t empty          { empty_value           };
+    constexpr noncolored_piece_t pawn           { pawn_value            };
+    constexpr noncolored_piece_t lance          { lance_value           };
+    constexpr noncolored_piece_t knight         { knight_value          };
+    constexpr noncolored_piece_t silver         { silver_value          };
+    constexpr noncolored_piece_t gold           { gold_value            };
+    constexpr noncolored_piece_t bishop         { bishop_value          };
+    constexpr noncolored_piece_t rook           { rook_value            };
+    constexpr noncolored_piece_t king           { king_value            };
+    constexpr noncolored_piece_t promoted_pawn  { promoted_pawn_value   };
+    constexpr noncolored_piece_t promoted_lance { promoted_lance_value  };
+    constexpr noncolored_piece_t promoted_knight{ promoted_knight_value };
+    constexpr noncolored_piece_t promoted_silver{ promoted_silver_value };
+    constexpr noncolored_piece_t promoted_bishop{ promoted_bishop_value };
+    constexpr noncolored_piece_t promoted_rook  { promoted_rook_value   };
+    constexpr noncolored_piece_t out_of_range   { out_of_range_value    };
+
+    constexpr captured_piece_t captured_pawn  { 0x01 };
+    constexpr captured_piece_t captured_lance { 0x02 };
+    constexpr captured_piece_t captured_knight{ 0x03 };
+    constexpr captured_piece_t captured_silver{ 0x04 };
+    constexpr captured_piece_t captured_gold  { 0x05 };
+    constexpr captured_piece_t captured_bishop{ 0x06 };
+    constexpr captured_piece_t captured_rook  { 0x07 };
+
+    constexpr colored_piece_t black_pawn           { pawn_value            };
+    constexpr colored_piece_t black_lance          { lance_value           };
+    constexpr colored_piece_t black_knight         { knight_value          };
+    constexpr colored_piece_t black_silver         { silver_value          };
+    constexpr colored_piece_t black_gold           { gold_value            };
+    constexpr colored_piece_t black_bishop         { bishop_value          };
+    constexpr colored_piece_t black_rook           { rook_value            };
+    constexpr colored_piece_t black_king           { king_value            };
+    constexpr colored_piece_t black_promoted_pawn  { promoted_pawn_value   };
+    constexpr colored_piece_t black_promoted_lance { promoted_lance_value  };
+    constexpr colored_piece_t black_promoted_knight{ promoted_knight_value };
+    constexpr colored_piece_t black_promoted_silver{ promoted_silver_value };
+    constexpr colored_piece_t black_promoted_bishop{ promoted_bishop_value };
+    constexpr colored_piece_t black_promoted_rook  { promoted_rook_value   };
+
+    constexpr colored_piece_t white_pawn           { pawn_value            + color_distance };
+    constexpr colored_piece_t white_lance          { lance_value           + color_distance };
+    constexpr colored_piece_t white_knight         { knight_value          + color_distance };
+    constexpr colored_piece_t white_silver         { silver_value          + color_distance };
+    constexpr colored_piece_t white_gold           { gold_value            + color_distance };
+    constexpr colored_piece_t white_bishop         { bishop_value          + color_distance };
+    constexpr colored_piece_t white_rook           { rook_value            + color_distance };
+    constexpr colored_piece_t white_king           { king_value            + color_distance };
+    constexpr colored_piece_t white_promoted_pawn  { promoted_pawn_value   + color_distance };
+    constexpr colored_piece_t white_promoted_lance { promoted_lance_value  + color_distance };
+    constexpr colored_piece_t white_promoted_knight{ promoted_knight_value + color_distance };
+    constexpr colored_piece_t white_promoted_silver{ promoted_silver_value + color_distance };
+    constexpr colored_piece_t white_promoted_bishop{ promoted_bishop_value + color_distance };
+    constexpr colored_piece_t white_promoted_rook  { promoted_rook_value   + color_distance };
+
+    constexpr piece_value_t captured_piece_size = rook.value() - pawn.value() + 1;
+
+    inline bool colored_piece_t::is_promotable() const noexcept
+    {
+        SHOGIPP_ASSERT(!empty());
+        constexpr static bool map[]
+        {
+            false,
+            true, true, true, true, false, true, true, false, false, false, false, false, false, false,
+            true, true, true, true, false, true, true, false, false, false, false, false, false, false,
+        };
+        return map[value()];
+    }
+
+    inline color_t colored_piece_t::to_color() const noexcept
+    {
+        SHOGIPP_ASSERT(!empty());
+        return value() <= color_distance ? black : white;
+    }
+
+    inline bool colored_piece_t::is_hashirigoma() const noexcept
+    {
+        SHOGIPP_ASSERT(!empty());
+        constexpr static bool map[]
+        {
+            false,
+            false, true, false, false, false, true, true, false, false, false, false, false, true, true,
+            false, true, false, false, false, true, true, false, false, false, false, false, true, true,
+        };
+        return map[value()];
+    }
+
+    inline bool colored_piece_t::is_captured() const noexcept
+    {
+        SHOGIPP_ASSERT(!empty());
+        constexpr static bool map[]
+        {
+            false,
+            true, true, true, true, true, true, true, false, false, false, false, false, true, false,
+            true, true, true, true, true, true, true, false, false, false, false, false, true, false,
+        };
+        return map[value()];
+    }
+
+    inline colored_piece_t colored_piece_t::to_unpromoted() const noexcept
+    {
+        SHOGIPP_ASSERT(!empty());
+        constexpr static colored_piece_t map[]
+        {
+            0,
+            black_pawn, black_lance, black_knight, black_silver, black_gold, black_bishop, black_rook, black_king, black_pawn, black_lance, black_knight, black_silver, black_bishop, black_rook,
+            white_pawn, white_lance, white_knight, white_silver, white_gold, white_bishop, white_rook, white_king, white_pawn, white_lance, white_knight, white_silver, white_bishop, white_rook,
+        };
+        return map[value()];
+    }
+
+    inline colored_piece_t colored_piece_t::to_promoted() const noexcept
+    {
+        SHOGIPP_ASSERT(is_promotable());
+        constexpr static colored_piece_t map[]
+        {
+            0,
+            black_pawn, black_promoted_lance, black_promoted_knight, black_promoted_silver, 0, black_bishop, black_rook, 0, 0, 0, 0, 0, 0, 0,
+            white_pawn, white_promoted_lance, white_promoted_knight, white_promoted_silver, 0, white_bishop, white_rook, 0, 0, 0, 0, 0, 0, 0,
+        };
+        return map[value()];
+    }
+
+    inline piece_value_t to_noncolored_impl(piece_value_t piece) noexcept
+    {
+        SHOGIPP_ASSERT(piece != empty_value);
+        return (piece > color_distance) ? piece - color_distance : piece;
+    }
+
+    /**
+     * @breif 駒を特定の手番の駒に変換する。
+     * @param piece 駒
+     * @param color 手番
+     * @return 特定の手番の駒
+     * @details pawn -> black_pawn or white_pawn
+     */
+    inline piece_value_t to_colored_impl(piece_value_t piece, color_t color)
+    {
+        SHOGIPP_ASSERT(piece != empty_value);
+        return (color == black) ? piece : piece + color_distance;
+    }
+
+    inline piece_value_t to_captured_impl(piece_value_t piece) noexcept
+    {
+        SHOGIPP_ASSERT(piece != empty_value);
+        SHOGIPP_ASSERT(piece != king_value);
+        SHOGIPP_ASSERT(piece != king_value + color_distance);
+        constexpr static piece_value_t map[]
+        {
+            0,
+            pawn_value, lance_value, knight_value, silver_value, gold_value, bishop_value, rook_value, 0, pawn_value, lance_value, knight_value, silver_value, bishop_value, rook_value,
+            pawn_value, lance_value, knight_value, silver_value, gold_value, bishop_value, rook_value, 0, pawn_value, lance_value, knight_value, silver_value, bishop_value, rook_value,
+        };
+        return map[piece];
+    }
+
+    constexpr inline captured_piece_t::captured_piece_t(const colored_piece_t & piece) noexcept
+        : basic_piece_t{ to_captured_impl(piece.value()) }
+    {
+    }
+
+    constexpr inline noncolored_piece_t::noncolored_piece_t(const colored_piece_t & piece) noexcept
+        : basic_piece_t{ to_noncolored_impl(piece.value()) }
+    {
+    }
+
+    constexpr inline colored_piece_t::colored_piece_t(const captured_piece_t & piece, color_t color) noexcept
+        : basic_piece_t{ to_colored_impl(piece.value(), color) }
+    {
+    }
+
+    constexpr inline colored_piece_t::colored_piece_t(const noncolored_piece_t & piece, color_t color) noexcept
+        : basic_piece_t{ to_colored_impl(piece.value(), color) }
+    {
+    }
+
+    inline std::optional<colored_piece_t> char_to_piece(char c)
+    {
+        static const std::map<char, colored_piece_t> map
         {
             { 'P', black_pawn   },
             { 'p', white_pawn   },
@@ -304,9 +699,9 @@ namespace shogipp
         return iter->second;
     }
 
-    inline std::optional<std::string> piece_to_sfen_string(piece_t piece)
+    inline std::optional<std::string> piece_to_sfen_string(colored_piece_t piece)
     {
-        static const std::map<piece_t, std::string> map
+        static const std::map<colored_piece_t, std::string> map
         {
             { black_pawn            , "P"  },
             { white_pawn            , "p"  },
@@ -324,8 +719,8 @@ namespace shogipp
             { white_rook            , "r"  },
             { black_king            , "K"  },
             { white_king            , "k"  },
-            { black_tokin           , "P+" },
-            { white_tokin           , "p+" },
+            { black_pawn            , "P+" },
+            { white_pawn            , "p+" },
             { black_promoted_lance  , "L+" },
             { white_promoted_lance  , "l+" },
             { black_promoted_knight , "N+" },
@@ -342,19 +737,6 @@ namespace shogipp
             return std::nullopt;
         return iter->second;
     }
-
-    enum color_t : unsigned char
-    {
-        black = 0,
-        white = 1,
-        color_size = 2
-    };
-
-    static constexpr color_t colors[]
-    {
-        black,
-        white
-    };
 
     inline char color_to_color_char(color_t color)
     {
@@ -441,30 +823,30 @@ namespace shogipp
     constexpr pos_t left = -1;
     constexpr pos_t right = 1;
     constexpr pos_t back = width;
-    constexpr pos_t kei_left = front * 2 + left;
-    constexpr pos_t kei_right = front * 2 + right;
+    constexpr pos_t knight_left = front * 2 + left;
+    constexpr pos_t knight_right = front * 2 + right;
     constexpr pos_t front_left = front + left;
     constexpr pos_t front_right = front + right;
     constexpr pos_t back_left = back + left;
     constexpr pos_t back_right = back + right;
 
-    using pos_to_piece_pair = std::pair<pos_t, std::vector<piece_t>>;
+    using pos_to_noncolored_piece_pair = std::pair<pos_t, std::vector<noncolored_piece_t>>;
 
-    static const pos_to_piece_pair near_kiki_list[]
+    static const pos_to_noncolored_piece_pair near_kiki_list[]
     {
-        { kei_left   , { knight } },
-        { kei_right  , { knight } },
-        { front_left , { silver, gold, bishop, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
-        { front      , { pawn, lance, silver, gold, rook, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
-        { front_right, { silver, gold, bishop, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
-        { left       , { gold, king, rook, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
-        { right      , { gold, king, rook, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
-        { back_left  , { silver, king, bishop, promoted_bishop, promoted_rook } },
-        { back       , { gold, king, rook, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
-        { back_right , { silver, king, bishop, promoted_bishop, promoted_rook } },
+        { knight_left   , { knight } },
+        { knight_right  , { knight } },
+        { front_left    , { silver, gold, bishop, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
+        { front         , { pawn, lance, silver, gold, rook, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
+        { front_right   , { silver, gold, bishop, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
+        { left          , { gold, king, rook, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
+        { right         , { gold, king, rook, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
+        { back_left     , { silver, king, bishop, promoted_bishop, promoted_rook } },
+        { back          , { gold, king, rook, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook } },
+        { back_right    , { silver, king, bishop, promoted_bishop, promoted_rook } },
     };
 
-    static const pos_to_piece_pair far_kiki_list[]
+    static const pos_to_noncolored_piece_pair far_kiki_list[]
     {
         { front_left , { bishop, promoted_bishop } },
         { front      , { lance, rook, promoted_rook } },
@@ -476,12 +858,12 @@ namespace shogipp
         { back_right , { bishop, promoted_bishop } }
     };
 
-    static const pos_to_piece_pair far_kiki_list_asynmmetric[]
+    static const pos_to_noncolored_piece_pair far_kiki_list_asynmmetric[]
     {
         { front      , { lance } },
     };
 
-    static const pos_to_piece_pair far_kiki_list_synmmetric[]
+    static const pos_to_noncolored_piece_pair far_kiki_list_synmmetric[]
     {
         { front_left , { bishop, promoted_bishop } },
         { front      , { rook, promoted_rook } },
@@ -492,90 +874,6 @@ namespace shogipp
         { back       , { rook, promoted_rook } },
         { back_right , { bishop, promoted_bishop } }
     };
-
-    static const std::map<std::string, color_t> color_string_map
-    {
-        { "先手" , black },
-        { "後手" , white }
-    };
-    static constexpr std::size_t color_string_size = 4;
-
-    static const std::map<std::string, unsigned char> digit_string_map
-    {
-        { "０", 0 },
-        { "１", 1 },
-        { "２", 2 },
-        { "３", 3 },
-        { "４", 4 },
-        { "５", 5 },
-        { "６", 6 },
-        { "７", 7 },
-        { "８", 8 },
-        { "９", 9 }
-    };
-    static constexpr std::size_t digit_string_size = 2;
-
-    static const std::map<std::string, piece_t> piece_string_map
-    {
-        { "・", empty },
-        { "歩", pawn },
-        { "香", lance },
-        { "桂", knight },
-        { "銀", silver },
-        { "金", gold },
-        { "角", bishop },
-        { "飛", rook },
-        { "王", king },
-        { "と", promoted_pawn },
-        { "杏", promoted_lance },
-        { "圭", promoted_knight },
-        { "全", promoted_silver },
-        { "馬", promoted_bishop },
-        { "竜", promoted_rook }
-    };
-    static constexpr std::size_t piece_string_size = 2;
-
-    static const std::map<std::string, color_t> color_prefix_string_map
-    {
-        { " ", black },
-        { "v", white }
-    };
-    static constexpr std::size_t color_prefix_string_size = 1;
-
-    static const std::map<std::string, color_t> color_mark_map
-    {
-        { "▲", black },
-        { "△", white }
-    };
-    static constexpr std::size_t color_mark_size = 2;
-
-    static const std::map<std::string, unsigned char> suji_string_map
-    {
-        { "１", 8 },
-        { "２", 7 },
-        { "３", 6 },
-        { "４", 5 },
-        { "５", 4 },
-        { "６", 3 },
-        { "７", 2 },
-        { "８", 1 },
-        { "９", 0 }
-    };
-    static constexpr std::size_t suji_string_size = 2;
-
-    static const std::map<std::string, unsigned char> dan_string_map
-    {
-        { "一", 0 },
-        { "二", 1 },
-        { "三", 2 },
-        { "四", 3 },
-        { "五", 4 },
-        { "六", 5 },
-        { "七", 6 },
-        { "八", 7 },
-        { "九", 8 }
-    };
-    static constexpr std::size_t dan_string_size = 2;
 
     template<typename Map>
     inline std::optional<typename std::decay_t<Map>::mapped_type> parse(std::string_view & rest, Map && map, std::size_t size)
@@ -696,7 +994,7 @@ namespace shogipp
             return stream.str();
         }
 
-        static inline basic_hash_t make_unique()
+        inline static basic_hash_t make_unique()
         {
             static_assert(hash_size % sizeof(std::size_t) == 0);
             basic_hash_t unique;
@@ -748,186 +1046,6 @@ namespace shogipp
 #endif
     }
 
-    /*
-     * @breif 駒が成駒か判定する。
-     * @param piece 駒
-     * @retval true 成駒である
-     * @retval false 成駒でない
-     */
-    inline bool is_promoted(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        constexpr bool map[]
-        {
-            false,
-            false, false, false, false, false, false, false, false, true, true, true, true, true, true,
-            false, false, false, false, false, false, false, false, true, true, true, true, true, true
-        };
-        return map[piece];
-    }
-
-    /*
-     * @breif 駒が成れるか判定する。
-     * @param piece 駒
-     * @retval true 成れる
-     * @retval false 成れない
-     */
-    inline bool is_promotable(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        constexpr static bool map[]
-        {
-            false,
-            true, true, true, true, false, true, true, false, false, false, false, false, false, false,
-            true, true, true, true, false, true, true, false, false, false, false, false, false, false,
-        };
-        return map[piece];
-    }
-
-    /*
-     * @breif 駒が後手の駒か判定する。
-     * @param piece 駒
-     * @return 先手の駒である場合 sente
-     */
-    inline color_t to_color(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        constexpr static color_t map[]
-        {
-            black, /* dummy */
-            black, black, black, black, black, black, black, black, black, black, black, black, black, black,
-            white, white, white, white, white, white, white, white, white, white, white, white, white, white,
-        };
-        return map[piece];
-    }
-
-    /*
-     * @breif 駒が走り駒(香・角・飛・馬・竜)か判定する。
-     * @param piece 駒
-     * @return 走り駒である場合 true
-     */
-    inline bool is_hashirigoma(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        constexpr static bool map[]
-        {
-            false,
-            false, true, false, false, false, true, true, false, false, false, false, false, true, true,
-            false, true, false, false, false, true, true, false, false, false, false, false, true, true,
-        };
-        return map[piece];
-    }
-
-    /**
-     * @breif 駒を持ち駒として適格の駒に変換する。
-     * @param piece 駒
-     * @return 持ち駒として適格の駒
-     */
-    inline piece_t to_captured(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        constexpr static piece_t map[]
-        {
-            0,
-            pawn, lance, knight, silver, gold, bishop, rook, king, pawn, lance, knight, silver, bishop, rook,
-            pawn, lance, knight, silver, gold, bishop, rook, king, pawn, lance, knight, silver, bishop, rook,
-        };
-        return map[piece];
-    }
-
-    /*
-     * @breif 駒を成る前の駒に変換する。
-     * @param piece 駒
-     * @return 成る前の駒
-     */
-    inline piece_t to_unpromoted(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        constexpr static piece_t map[]
-        {
-            0,
-            black_pawn, black_lance, black_knight, black_silver, black_gold, black_bishop, black_rook, black_king, black_pawn, black_lance, black_knight, black_silver, black_bishop, black_rook,
-            white_pawn, white_lance, white_knight, white_silver, white_gold, white_bishop, white_rook, white_king, white_pawn, white_lance, white_knight, white_silver, white_bishop, white_rook,
-        };
-        return map[piece];
-    }
-
-    /*
-     * @breif 駒を成り駒に変換する。
-     * @param piece 駒
-     * @return 成り駒
-     */
-    inline piece_t to_promoted(piece_t piece)
-    {
-        SHOGIPP_ASSERT(is_promotable(piece));
-        constexpr static piece_t map[]
-        {
-            0,
-            black_tokin, black_promoted_lance, black_promoted_knight, black_promoted_silver, 0, black_bishop, black_rook, 0, 0, 0, 0, 0, 0, 0,
-            white_tokin, white_promoted_lance, white_promoted_knight, white_promoted_silver, 0, white_bishop, white_rook, 0, 0, 0, 0, 0, 0, 0,
-        };
-        return map[piece];
-    }
-
-    /*
-     * @breif 駒から先手後手の情報を取り除く。
-     * @param piece 駒
-     * @return 先手後手の情報を取り除かれた駒
-     * @details black_pawn -> fu, white_pawn -> fu
-     */
-    inline piece_t trim_color(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        constexpr static piece_t map[]
-        {
-            0,
-            pawn, lance, knight, silver, gold, bishop, rook, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook,
-            pawn, lance, knight, silver, gold, bishop, rook, king, promoted_pawn, promoted_lance, promoted_knight, promoted_silver, promoted_bishop, promoted_rook,
-        };
-        return map[piece];
-    }
-
-    /**
-     * @breif 駒を後手の駒に変換する。
-     * @param piece 駒
-     * @return 後手の駒
-     * @details fu -> white_pawn
-     */
-    inline piece_t to_white(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        constexpr static piece_t map[]
-        {
-            0,
-            white_pawn, white_lance, white_knight, white_silver, white_gold, white_bishop, white_rook, white_king, white_tokin, white_promoted_lance, white_promoted_knight, white_promoted_silver, white_bishop, white_rook,
-            white_pawn, white_lance, white_knight, white_silver, white_gold, white_bishop, white_rook, white_king, white_tokin, white_promoted_lance, white_promoted_knight, white_promoted_silver, white_bishop, white_rook,
-        };
-        return map[piece];
-    }
-
-    /**
-     * @breif piece が target_piece に合致するか判定する。
-     * @param piece 駒
-     * @retval true 合致する
-     * @retval false 合致しない
-     */
-    template<piece_t target_piece>
-    inline bool match(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece != empty);
-        static const struct impl_t
-        {
-            impl_t()
-            {
-                for (piece_t piece = pawn; piece < piece_enum_number; ++piece)
-                    map[piece] = trim_color(piece) == target_piece;
-            }
-            bool map[piece_enum_number]{};
-        } impl;
-        return impl.map[piece];
-    }
-    
-
     class move_t;
 
     /**
@@ -947,7 +1065,7 @@ namespace shogipp
          * @param pos 駒の座標
          * @return ハッシュ値
          */
-        inline hash_t piece_hash(piece_t piece, pos_t pos) const;
+        inline hash_t piece_hash(colored_piece_t piece, pos_t pos) const;
 
         /**
          * @breif 持ち駒のハッシュ値を計算する。
@@ -956,7 +1074,7 @@ namespace shogipp
          * @param is_gote 後手の持ち駒か
          * @return ハッシュ値
          */
-        inline hash_t captured_piece_hash(piece_t piece, std::size_t count, color_t color) const;
+        inline hash_t captured_piece_hash(captured_piece_t piece, std::size_t count, color_t color) const;
 
         /**
          * @breif 手番のハッシュ値を計算する。
@@ -986,11 +1104,11 @@ namespace shogipp
             captured_size        = captured_rook_offset   + captured_rook_size 
         };
 
-        hash_t board_table[piece_enum_number * suji_size * dan_size];       // 盤のハッシュテーブル
+        hash_t board_table[piece_size * suji_size * dan_size];              // 盤のハッシュテーブル
         hash_t captured_piece_table[captured_size * color_size];            // 持ち駒のハッシュテーブル
         hash_t color_table[color_size];                                     // 手番のハッシュテーブル
         hash_t move_table[(pos_size + 1) * pos_size * color_size];          // 移動する手のハッシュテーブル
-        hash_t put_table[pos_size * (rook - pawn + 1) * color_size];            // 打つ手のハッシュテーブル
+        hash_t put_table[pos_size * captured_piece_size * color_size];      // 打つ手のハッシュテーブル
     };
 
     static const hash_table_t hash_table;
@@ -1010,10 +1128,10 @@ namespace shogipp
         std::generate(std::begin(put_table           ), std::end(put_table           ), generator);
     }
 
-    inline hash_t hash_table_t::piece_hash(piece_t piece, pos_t pos) const
+    inline hash_t hash_table_t::piece_hash(colored_piece_t piece, pos_t pos) const
     {
-        SHOGIPP_ASSERT(piece != empty);
-        std::size_t index = static_cast<std::size_t>(piece);
+        SHOGIPP_ASSERT(!piece.empty());
+        std::size_t index = static_cast<std::size_t>(piece.value());
         index *= suji_size;
         index += pos_to_suji(pos);
         index *= dan_size;
@@ -1022,19 +1140,17 @@ namespace shogipp
         return board_table[index];
     }
 
-    inline hash_t hash_table_t::captured_piece_hash(piece_t piece, std::size_t count, color_t color) const
+    inline hash_t hash_table_t::captured_piece_hash(captured_piece_t piece, std::size_t count, color_t color) const
     {
-
-        SHOGIPP_ASSERT(piece != empty);
-        SHOGIPP_ASSERT(piece >= pawn);
-        SHOGIPP_ASSERT(piece <= rook);
-        SHOGIPP_ASSERT(!(piece == pawn   && count >= captured_pawn_size  ));
-        SHOGIPP_ASSERT(!(piece == lance  && count >= captured_lance_size ));
-        SHOGIPP_ASSERT(!(piece == knight  && count >= captured_knight_size ));
-        SHOGIPP_ASSERT(!(piece == silver  && count >= captured_silver_size ));
-        SHOGIPP_ASSERT(!(piece == gold  && count >= captured_gold_size ));
-        SHOGIPP_ASSERT(!(piece == bishop && count >= captured_bishop_size));
-        SHOGIPP_ASSERT(!(piece == rook   && count >= captured_rook_size  ));
+        SHOGIPP_ASSERT(piece.value() >= pawn.value());
+        SHOGIPP_ASSERT(piece.value() <= rook.value());
+        SHOGIPP_ASSERT(!(piece == captured_pawn   && count >= captured_pawn_size  ));
+        SHOGIPP_ASSERT(!(piece == captured_lance  && count >= captured_lance_size ));
+        SHOGIPP_ASSERT(!(piece == captured_knight && count >= captured_knight_size ));
+        SHOGIPP_ASSERT(!(piece == captured_silver && count >= captured_silver_size ));
+        SHOGIPP_ASSERT(!(piece == captured_gold   && count >= captured_gold_size ));
+        SHOGIPP_ASSERT(!(piece == captured_bishop && count >= captured_bishop_size));
+        SHOGIPP_ASSERT(!(piece == captured_rook   && count >= captured_rook_size  ));
 
         static const std::size_t map[]
         {
@@ -1048,7 +1164,7 @@ namespace shogipp
             captured_rook_offset,
         };
 
-        std::size_t index = map[piece];
+        std::size_t index = map[piece.value()];
         index += count;
         index *= color_size;
         index += static_cast<std::size_t>(color);
@@ -1097,29 +1213,29 @@ namespace shogipp
      * @return 駒の移動先の相対座標の配列の先頭を指すポインタ
      * @details この関数が返すポインタの指す座標は 0 で終端化されている。
      */
-    inline const pos_t * near_move_offsets(piece_t piece)
+    inline const pos_t * near_move_offsets(noncolored_piece_t piece)
     {
         static const std::vector<pos_t> map[]
         {
-            /* empty    */ { 0 },
-            /* fu       */ { front, 0 },
-            /* kyo      */ { 0 },
-            /* kei      */ { kei_left, kei_right, 0},
-            /* gin      */ { front_left, front, front_right, back_left, back_right, 0 },
-            /* kin      */ { front_left, front, front_right, left, right, back, 0 },
-            /* kaku     */ { 0 },
-            /* hi       */ { 0 },
-            /* ou       */ { front_left, front, front_right, left, right, back_left, back, back_right, 0 },
-            /* tokin    */ { front_left, front, front_right, left, right, back, 0 },
-            /* nari_lance */ { front_left, front, front_right, left, right, back, 0 },
-            /* nari_knight */ { front_left, front, front_right, left, right, back, 0 },
-            /* nari_silver */ { front_left, front, front_right, left, right, back, 0 },
-            /* uma      */ { front, left, right, back, 0 },
-            /* ryu      */ { front_left, front_right, back_left, back_right, 0 },
+            /* empty           */ { 0 },
+            /* pawn            */ { front, 0 },
+            /* lance           */ { 0 },
+            /* knight          */ { knight_left, knight_right, 0 },
+            /* silver          */ { front_left, front, front_right, back_left, back_right, 0 },
+            /* gold            */ { front_left, front, front_right, left, right, back, 0 },
+            /* bishop          */ { 0 },
+            /* rook            */ { 0 },
+            /* king            */ { front_left, front, front_right, left, right, back_left, back, back_right, 0 },
+            /* promoted_pawn   */ { front_left, front, front_right, left, right, back, 0 },
+            /* promoted_lance  */ { front_left, front, front_right, left, right, back, 0 },
+            /* promoted_knight */ { front_left, front, front_right, left, right, back, 0 },
+            /* promoted_silver */ { front_left, front, front_right, left, right, back, 0 },
+            /* promoted_bishop */ { front, left, right, back, 0 },
+            /* promoted_rook   */ { front_left, front_right, back_left, back_right, 0 },
         };
-        SHOGIPP_ASSERT(piece != empty);
-        SHOGIPP_ASSERT(piece <= std::size(map));
-        return map[piece].data();
+        SHOGIPP_ASSERT(!piece.empty());
+        SHOGIPP_ASSERT(piece.value() <= std::size(map));
+        return map[piece.value()].data();
     }
 
     /**
@@ -1128,45 +1244,29 @@ namespace shogipp
      * @return 駒の移動先の相対座標の配列の先頭を指すポインタ
      * @details この関数が返すポインタの指す座標は 0 で終端化されている。
      */
-    inline const pos_t * far_move_offsets(piece_t piece)
+    inline const pos_t * far_move_offsets(noncolored_piece_t piece)
     {
         static const std::vector<pos_t> map[]
         {
-            /* empty    */ { 0 },
-            /* fu       */ { 0 },
-            /* kyo      */ { front, 0 },
-            /* kei      */ { 0 },
-            /* gin      */ { 0 },
-            /* kin      */ { 0 },
-            /* kaku     */ { front_left, front_right, back_left, back_right, 0 },
-            /* hi       */ { front, left, right, back, 0 },
-            /* ou       */ { 0 },
-            /* tokin    */ { 0 },
-            /* nari_lance */ { 0 },
-            /* nari_knight */ { 0 },
-            /* nari_silver */ { 0 },
-            /* uma      */ { front_left, front_right, back_left, back_right, 0 },
-            /* ryu      */ { front, left, right, back, 0 },
+            /* empty           */ { 0 },
+            /* pawn            */ { 0 },
+            /* lance           */ { front, 0 },
+            /* knight          */ { 0 },
+            /* silver          */ { 0 },
+            /* gold            */ { 0 },
+            /* bishop          */ { front_left, front_right, back_left, back_right, 0 },
+            /* rook            */ { front, left, right, back, 0 },
+            /* king            */ { 0 },
+            /* promoted_pawn   */ { 0 },
+            /* promoted_lance  */ { 0 },
+            /* promoted_knight */ { 0 },
+            /* promoted_silver */ { 0 },
+            /* promoted_bishop */ { front_left, front_right, back_left, back_right, 0 },
+            /* promoted_rook   */ { front, left, right, back, 0 },
         };
-        SHOGIPP_ASSERT(piece != empty);
-        SHOGIPP_ASSERT(piece <= std::size(map));
-        return map[piece].data();
-    }
-
-    /**
-     * @breif 駒を文字列に変換する。
-     * @param piece 駒
-     * @return 文字列
-     */
-    inline const char * piece_to_string(piece_t piece)
-    {
-        SHOGIPP_ASSERT(piece < piece_enum_number);
-        static const char * map[]{
-            "・",
-            "歩", "香", "桂", "銀", "金", "角", "飛", "王", "と", "杏", "圭", "全", "馬", "竜",
-            "歩", "香", "桂", "銀", "金", "角", "飛", "王", "と", "杏", "圭", "全", "馬", "竜",
-        };
-        return map[piece];
+        SHOGIPP_ASSERT(!piece.empty());
+        SHOGIPP_ASSERT(piece.value() <= std::size(map));
+        return map[piece.value()].data();
     }
 
     /**
@@ -1272,7 +1372,7 @@ namespace shogipp
          * @param destination 打つ座標
          * @param source_piece 打つ駒
          */
-        inline move_t(pos_t destination, piece_t source_piece) noexcept;
+        inline move_t(pos_t destination, captured_piece_t captured_piece) noexcept;
 
         /**
          * @breif 移動する手を構築する。
@@ -1282,7 +1382,7 @@ namespace shogipp
          * @param captured_piece 移動先の駒
          * @param promote 成か不成か
          */
-        inline move_t(pos_t source, pos_t destination, piece_t source_piece, piece_t captured_piece, bool promote) noexcept;
+        inline move_t(pos_t source, pos_t destination, colored_piece_t source_piece, colored_piece_t captured_piece, bool promote) noexcept;
 
         /**
          * @breif SFEN表記法に準拠した moves の後に続く文字列から手を構築する。
@@ -1301,29 +1401,37 @@ namespace shogipp
         /**
          * @breif 移動元の座標を取得する。
          * @return 移動元の座標
-         * @details put が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
+         * @details put() が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
          */
         inline pos_t source() const noexcept;
 
         /**
          * @breif 移動先の座標を取得する。
          * @return 移動先の座標
-         * @details put が true を返す場合、この関数は打つ先の座標を返す。
+         * @details put() が true を返す場合、この関数は打つ先の座標を返す。
          */
         inline pos_t destination() const noexcept;
 
         /**
          * @breif 移動元の駒を取得する。
          * @return 移動元の駒
+         * @details put() が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
          */
-        inline piece_t source_piece() const noexcept;
+        inline colored_piece_t source_piece() const noexcept;
+
+        /**
+         * @breif 打つ駒を取得する。
+         * @return 打つ駒
+         * @details put() が false を返す場合にこの関数を呼び出した場合、無効な値が返る。
+         */
+        inline captured_piece_t captured_piece() const noexcept;
 
         /**
          * @breif 移動先の駒を取得する。
          * @return 移動先の駒
          * @detalis put が true を返す場合にこの関数を呼び出した場合、無効な値が返る。
          */
-        inline piece_t captured_piece() const noexcept;
+        inline colored_piece_t destination_piece() const noexcept;
 
         /**
          * @breif 成るか否かを取得する。
@@ -1340,29 +1448,29 @@ namespace shogipp
         inline std::string sfen_string() const;
 
     private:
-        pos_t   m_source;           // 移動元の座標(source == npos の場合、持ち駒を打つ)
-        pos_t   m_destination;      // 移動先の座標(source == npos の場合、 destination は打つ座標)
-        piece_t m_source_piece;     // 移動元の駒(source == npos の場合、 source_piece() は打つ持ち駒)
-        piece_t m_captured_piece;   // 移動先の駒(source == npos の場合、 captured_piece は未定義)
-        bool    m_promote;          // 成る場合 true
+        pos_t           m_source;           // 移動元の座標(source == npos の場合、持ち駒を打つ)
+        pos_t           m_destination;      // 移動先の座標(source == npos の場合、 destination は打つ座標)
+        colored_piece_t m_source_piece;     // 移動元の駒(source == npos の場合、 source_piece() は打つ持ち駒)
+        colored_piece_t m_destination_piece;   // 移動先の駒(source == npos の場合、 captured_piece は未定義)
+        bool            m_promote;          // 成る場合 true
     };
 
-    inline move_t::move_t(pos_t destination, piece_t source_piece) noexcept
+    inline move_t::move_t(pos_t destination, captured_piece_t captured_piece) noexcept
         : m_source{ npos }
         , m_destination{ destination }
-        , m_source_piece{ source_piece }
-        , m_captured_piece{ empty }
+        , m_source_piece{ captured_piece.value() }
+        , m_destination_piece{ empty.value() }
         , m_promote{ false }
     {
-        SHOGIPP_ASSERT(source_piece >= pawn);
-        SHOGIPP_ASSERT(source_piece <= rook);
+        SHOGIPP_ASSERT(captured_piece.value() >= captured_pawn.value());
+        SHOGIPP_ASSERT(captured_piece.value() <= captured_rook.value());
     }
 
-    inline move_t::move_t(pos_t source, pos_t destination, piece_t source_piece, piece_t captured_piece, bool promote) noexcept
+    inline move_t::move_t(pos_t source, pos_t destination, colored_piece_t source_piece, colored_piece_t captured_piece, bool promote) noexcept
         : m_source{ source }
         , m_destination{ destination }
         , m_source_piece{ source_piece }
-        , m_captured_piece{ captured_piece }
+        , m_destination_piece{ captured_piece }
         , m_promote{ promote }
     {
     }
@@ -1383,15 +1491,22 @@ namespace shogipp
         return m_destination;
     }
 
-    inline piece_t move_t::source_piece() const noexcept
+    inline colored_piece_t move_t::source_piece() const noexcept
     {
+        SHOGIPP_ASSERT(!put());
         return m_source_piece;
     }
 
-    inline piece_t move_t::captured_piece() const noexcept
+    inline captured_piece_t move_t::captured_piece() const noexcept
+    {
+        SHOGIPP_ASSERT(put());
+        return captured_piece_t{ m_source_piece.value() };
+    }
+
+    inline colored_piece_t move_t::destination_piece() const noexcept
     {
         SHOGIPP_ASSERT(!put());
-        return m_captured_piece;
+        return m_destination_piece;
     }
 
     inline bool move_t::promote() const noexcept
@@ -1405,7 +1520,7 @@ namespace shogipp
         std::string result;
         if (put())
         {
-            SHOGIPP_ASSERT(to_color(source_piece()) == black);
+            SHOGIPP_ASSERT(source_piece().to_color() == black);
             const auto optional_piece = piece_to_sfen_string(source_piece());
             SHOGIPP_ASSERT(optional_piece.has_value());
             SHOGIPP_ASSERT(optional_piece->size() == 1);
@@ -1443,7 +1558,7 @@ namespace shogipp
     {
         if (move.put())
             return 0;
-        if (move.captured_piece() == empty)
+        if (move.destination_piece().empty())
             return 1;
         return 2;
     };
@@ -1474,8 +1589,8 @@ namespace shogipp
         if (move.put())
         {
             index = static_cast<std::size_t>(move.destination());
-            index *= piece_enum_number;
-            index += move.source_piece();
+            index *= piece_size;
+            index += move.source_piece().value();
             index *= color_size;
             index += color;
             SHOGIPP_ASSERT(index < std::size(put_table));
@@ -1501,7 +1616,10 @@ namespace shogipp
         /**
          * @breif 持ち駒を構築する。
          */
-        inline captured_pieces_t();
+        inline captured_pieces_t() noexcept;
+
+        inline captured_pieces_t(const captured_pieces_t &) = default;
+        inline captured_pieces_t & operator =(const captured_pieces_t &) = default;
 
         /**
          * @breif 持ち駒を標準出力に出力する。
@@ -1513,20 +1631,20 @@ namespace shogipp
          * @param 駒
          * @return 駒と対応する持ち駒の数の参照
          */
-        inline size_type & operator [](piece_t piece);
+        inline size_type & operator [](captured_piece_t piece);
 
         /**
          * @breif 駒と対応する持ち駒の数の参照を返す。
          * @param 駒
          * @return 駒と対応する持ち駒の数の参照
          */
-        inline const size_type & operator [](piece_t piece) const;
+        inline const size_type & operator [](captured_piece_t piece) const;
 
     private:
-        size_type count[rook - pawn + 1];
+        size_type count[captured_piece_size];
     };
 
-    inline captured_pieces_t::captured_pieces_t()
+    inline captured_pieces_t::captured_pieces_t() noexcept
     {
         std::fill(std::begin(count), std::end(count), 0);
     }
@@ -1534,13 +1652,13 @@ namespace shogipp
     inline void captured_pieces_t::print() const
     {
         unsigned int kind = 0;
-        for (piece_t piece = rook; piece >= pawn; --piece)
+        for (piece_value_t piece = captured_rook.value(); piece >= captured_pawn.value(); --piece)
         {
-            if ((*this)[piece] > 0)
+            if ((*this)[captured_piece_t{ piece }] > 0)
             {
-                std::cout << piece_to_string(piece);
-                if ((*this)[piece] > 1)
-                    std::cout << to_zenkaku_digit((*this)[piece]);
+                std::cout << captured_piece_t{ piece }.to_string();
+                if ((*this)[captured_piece_t{ piece }] > 1)
+                    std::cout << to_zenkaku_digit((*this)[captured_piece_t{ piece }]);
                 ++kind;
             }
         }
@@ -1549,23 +1667,22 @@ namespace shogipp
         std::cout << std::endl;
     }
 
-    inline captured_pieces_t::size_type & captured_pieces_t::operator [](piece_t piece)
+    inline captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece)
     {
-        SHOGIPP_ASSERT(piece != empty);
-        SHOGIPP_ASSERT(to_captured(piece) != king);
-        return count[to_captured(piece) - pawn];
+        SHOGIPP_ASSERT(!piece.empty());
+        return count[piece.value() - pawn_value];
     }
 
-    inline const captured_pieces_t::size_type & captured_pieces_t::operator [](piece_t piece) const
+    inline const captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece) const
     {
         return (*const_cast<captured_pieces_t *>(this))[piece];
     }
 
     class kyokumen_rollback_validator_t;
 
-#define _ empty
-#define x out_of_range
-    constexpr piece_t clear_board[]
+#define _ { empty.value() }
+#define x { out_of_range.value() }
+    constexpr colored_piece_t clear_board[]
     {
         x, x, x, x, x, x, x, x, x, x, x,
         x, _, _, _, _, _, _, _, _, _, x,
@@ -1580,7 +1697,7 @@ namespace shogipp
         x, x, x, x, x, x, x, x, x, x, x,
     };
 
-    constexpr piece_t initial_board[]
+    constexpr colored_piece_t initial_board[]
     {
         x, x, x, x, x, x, x, x, x, x, x,
         x, white_lance, white_knight, white_silver, white_gold, white_king, white_gold, white_silver, white_knight, white_lance, x,
@@ -1608,8 +1725,8 @@ namespace shogipp
          */
         inline board_t();
 
-        inline piece_t & operator [](size_t i) { return data[i]; }
-        inline const piece_t & operator [](size_t i) const { return data[i]; }
+        inline colored_piece_t & operator [](size_t i) noexcept;
+        inline const colored_piece_t & operator [](size_t i) const noexcept;
 
         /**
          * @breif 座標posが盤外か判定する。
@@ -1635,7 +1752,7 @@ namespace shogipp
 
     private:
         friend class kyokumen_rollback_validator_t;
-        piece_t data[pos_size];
+        colored_piece_t data[pos_size];
     };
 
     inline board_t::board_t()
@@ -1644,9 +1761,19 @@ namespace shogipp
         std::copy(std::begin(initial_board), std::end(initial_board), std::begin(data));
     }
 
+    inline colored_piece_t & board_t::operator [](size_t i) noexcept
+    {
+        return data[i];
+    }
+
+    inline const colored_piece_t & board_t::operator [](size_t i) const noexcept
+    {
+        return data[i];
+    }
+
     inline bool board_t::out(pos_t pos)
     {
-        return pos < 0 || pos >= pos_size || clear_board[pos] == out_of_range;
+        return pos < 0 || pos >= pos_size || clear_board[pos].value() == out_of_range.value();
     }
 
     inline void board_t::print() const
@@ -1658,8 +1785,8 @@ namespace shogipp
             std::cout << "|";
             for (pos_t suji = 0; suji < suji_size; ++suji)
             {
-                piece_t piece = data[suji_dan_to_pos(suji, dan)];
-                std::cout << ((piece != empty && to_color(piece)) ? "v" : " ") << piece_to_string(piece);
+                const colored_piece_t piece = data[suji_dan_to_pos(suji, dan)];
+                std::cout << ((!piece.empty() && piece.to_color()) ? "v" : " ") << piece.to_string();
             }
             std::cout << "| " << dan_to_string(dan) << std::endl;
         }
@@ -1679,8 +1806,8 @@ namespace shogipp
             pos_t empty_count = 0;
             for (pos_t suji = 0; suji < suji_size; ++suji)
             {
-                const piece_t piece = data[suji_dan_to_pos(suji, dan)];
-                if (piece == empty)
+                const colored_piece_t piece = data[suji_dan_to_pos(suji, dan)];
+                if (piece.empty())
                     empty_count += 1;
                 else
                 {
@@ -1711,23 +1838,23 @@ namespace shogipp
         {
             if (sfen_move.size() > 4)
                 throw invalid_usi_input{ "invalid sfen move" };
-            const std::optional<piece_t> optional_piece = char_to_piece(sfen_move[0]);
+            const std::optional<colored_piece_t> optional_piece = char_to_piece(sfen_move[0]);
             if (!optional_piece)
                 throw invalid_usi_input{ "invalid sfen move" };
-            if (to_color(*optional_piece) == white)
+            if (optional_piece->to_color() == white)
                 throw invalid_usi_input{ "invalid sfen move" };
             const pos_t destination = sfen_pos_to_pos(sfen_move.substr(2, 2));
 
             m_source = npos;
             m_destination = destination;
             m_source_piece = *optional_piece;
-            m_captured_piece = empty;
+            m_destination_piece = colored_piece_t{};
             m_promote = false;
         }
         else
         {
             const pos_t source = sfen_pos_to_pos(sfen_move.substr(0, 2));
-            if (board[source] == empty)
+            if (board[source].empty())
                 throw invalid_usi_input{ "invalid sfen move 1" };
             if (board_t::out(source))
                 throw invalid_usi_input{ "invalid sfen move 2" };
@@ -1745,7 +1872,7 @@ namespace shogipp
             m_source = source;
             m_destination = destination;
             m_source_piece = board[source];
-            m_captured_piece = board[destination];
+            m_destination_piece = board[destination];
             m_promote = promote;
         }
     }
@@ -1892,7 +2019,7 @@ namespace shogipp
          * @param destination 移動先の座標
          * @return 成りが可能の場合(駒が既に成っている場合、常にfalse)
          */
-        inline static bool promotable(piece_t piece, pos_t source, pos_t destination);
+        inline static bool promotable(colored_piece_t piece, pos_t source, pos_t destination);
 
         /**
          * @breif 駒が移動する場合に成りが必須か判定する。
@@ -1900,7 +2027,7 @@ namespace shogipp
          * @param destination 移動先の座標
          * @return 成りが必須の場合(駒が既に成っている場合、常にfalse)
          */
-        inline static bool must_promote(piece_t piece, pos_t destination);
+        inline static bool must_promote(colored_piece_t piece, pos_t destination);
 
         /**
          * @breif 移動元の座標から移動可能の移動先を反復的に検索する。
@@ -1935,7 +2062,7 @@ namespace shogipp
          * @param destination 移動先の座標
          * @return 置くことができる場合 true
          */
-        inline bool puttable(piece_t piece, pos_t destination) const;
+        inline bool puttable(captured_piece_t piece, pos_t destination) const;
 
         /**
          * @breif 移動元の座標を検索する。
@@ -2057,7 +2184,7 @@ namespace shogipp
         /**
          * @breif 王の座標を更新する。
          */
-        inline void update_goldg_pos_list();
+        inline void update_king_pos_list();
 
         /**
          * @breif 合駒を検索する。
@@ -2222,12 +2349,6 @@ namespace shogipp
         inline search_count_t count_node(move_count_t depth) const;
 
         /**
-         * @breif 棋譜ファイルから棋譜を読み込む。
-         * @param kifu_file 棋譜ファイル
-         */
-        inline void read_kifu_file(std::filesystem::path kifu_file);
-
-        /**
          * @breif 局面をSFEN表記法に準拠した文字列に変換する。
          * @return SFEN表記法に準拠した文字列
          */
@@ -2251,8 +2372,8 @@ namespace shogipp
 
     private:
         const kyokumen_t & kyokumen;
-        piece_t data[pos_size];
-        captured_pieces_t mochigoma_list[color_size];
+        colored_piece_t data[pos_size];
+        captured_pieces_t captured_pieces_list[color_size];
     };
 
     inline kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen)
@@ -2260,7 +2381,7 @@ namespace shogipp
     {
         std::copy(std::begin(kyokumen.board.data), std::end(kyokumen.board.data), std::begin(data));
         for (const color_t color : colors)
-            std::copy(std::begin(kyokumen.captured_pieces_list), std::end(kyokumen.captured_pieces_list), std::begin(mochigoma_list));
+            captured_pieces_list[color] = kyokumen.captured_pieces_list[color];
     }
 
     inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t()
@@ -2268,13 +2389,13 @@ namespace shogipp
         for (std::size_t i = 0; i < std::size(data); ++i)
             SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
         for (const color_t color : colors)
-            for (piece_t piece = pawn; piece <= rook; ++piece)
-                SHOGIPP_ASSERT(mochigoma_list[color][piece] == kyokumen.captured_pieces_list[color][piece]);
+            for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
+                SHOGIPP_ASSERT(captured_pieces_list[color][captured_piece_t{ piece }] == kyokumen.captured_pieces_list[color][captured_piece_t{ piece }]);
     }
 
     inline kyokumen_t::kyokumen_t()
     {
-        update_goldg_pos_list();
+        update_king_pos_list();
         push_additional_info();
     }
 
@@ -2330,12 +2451,12 @@ namespace shogipp
                 }
                 else
                 {
-                    const std::optional<piece_t> optional_piece = char_to_piece(c);
+                    const std::optional<colored_piece_t> optional_piece = char_to_piece(c);
                     if (!optional_piece)
                         throw invalid_usi_input{ "unexpected character 1" };
-                    piece_t piece = *optional_piece;
+                    colored_piece_t piece = *optional_piece;
                     if (promoted)
-                        piece = to_promoted(piece);
+                        piece = piece.to_promoted();
                     temp.board[suji_dan_to_pos(suji, dan)] = piece;
                     ++suji;
                 }
@@ -2369,7 +2490,7 @@ namespace shogipp
                 while (current_token != tokens.end())
                 {
                     const move_t move{ *current_token, temp.board };
-                    if (!move.put() && to_color(move.source_piece()) != temp.color())
+                    if (!move.put() && move.source_piece().to_color() != temp.color())
                         throw invalid_usi_input{ "invalid source color" };
                     temp.do_move(move);
                     ++current_token;
@@ -2400,10 +2521,12 @@ namespace shogipp
                         }
                         else
                         {
-                            std::optional<piece_t> optional_piece = char_to_piece(*iter);
+                            std::optional<colored_piece_t> optional_piece = char_to_piece(*iter);
                             if (!optional_piece)
                                 throw invalid_usi_input{ "unexpected character 2" };
-                            temp.captured_pieces_list[to_color(*optional_piece)][trim_color(*optional_piece)] = count;
+                            if (!optional_piece->is_captured())
+                                throw invalid_usi_input{ "unexpected character 3" };
+                            temp.captured_pieces_list[optional_piece->to_color()][captured_piece_t{ *optional_piece }] = count;
                             count = 1;
                         }
                     }
@@ -2415,26 +2538,26 @@ namespace shogipp
         *this = std::move(temp);
     }
 
-    inline bool kyokumen_t::promotable(piece_t piece, pos_t source, pos_t destination)
+    inline bool kyokumen_t::promotable(colored_piece_t piece, pos_t source, pos_t destination)
     {
-        if (!is_promotable(piece))
+        if (!piece.is_promotable())
             return false;
-        if (to_color(piece) == black)
+        if (piece.to_color() == black)
             return source < width * (3 + padding_height) || destination < width * (3 + padding_height);
         return source >= width * (6 + padding_height) || destination >= width * (6 + padding_height);
     }
 
-    inline bool kyokumen_t::must_promote(piece_t piece, pos_t destination)
+    inline bool kyokumen_t::must_promote(colored_piece_t piece, pos_t destination)
     {
-        if (trim_color(piece) == pawn || trim_color(piece) == lance)
+        if (noncolored_piece_t{ piece } == pawn || noncolored_piece_t{ piece } == lance)
         {
-            if (to_color(piece) == black)
+            if (piece.to_color() == black)
                 return destination < (width * (1 + padding_height));
             return destination >= width * (8 + padding_height);
         }
-        else if (trim_color(piece) == knight)
+        else if (noncolored_piece_t{ piece } == knight)
         {
-            if (to_color(piece) == black)
+            if (piece.to_color() == black)
                 return destination < width * (2 + padding_height);
             return destination >= width * (7 + padding_height);
         }
@@ -2446,13 +2569,13 @@ namespace shogipp
     {
         for (pos_t current = source + offset; !board_t::out(current); current += offset)
         {
-            if (board[current] == empty)
+            if (board[current].empty())
                 *result++ = current;
             else
             {
-                if (to_color(board[source]) == to_color(board[current])) break;
+                if (board[source].to_color() == board[current].to_color()) break;
                 *result++ = current;
-                if (to_color(board[source]) != to_color(board[current])) break;
+                if (board[source].to_color() != board[current].to_color()) break;
             }
         }
     }
@@ -2461,58 +2584,58 @@ namespace shogipp
     inline void kyokumen_t::search_near_destination(OutputIterator result, pos_t source, pos_t offset) const
     {
         const pos_t current = source + offset;
-        if (!board_t::out(current) && (board[current] == empty || to_color(board[current]) != to_color(board[source])))
+        if (!board_t::out(current) && (board[current].empty() || board[current].to_color() != board[source].to_color()))
             *result++ = current;
     }
 
     template<typename OutputIterator>
     inline void kyokumen_t::search_destination(OutputIterator result, pos_t source, color_t color) const
     {
-        const piece_t piece = trim_color(board[source]);
+        const noncolored_piece_t piece{ board[source] };
         for (const pos_t * offset = far_move_offsets(piece); *offset; ++offset)
             search_far_destination(result, source, *offset * reverse(color));
         for (const pos_t * offset = near_move_offsets(piece); *offset; ++offset)
             search_near_destination(result, source, *offset * reverse(color));
     }
 
-    inline bool kyokumen_t::puttable(piece_t piece, pos_t destination) const
+    inline bool kyokumen_t::puttable(captured_piece_t piece, pos_t destination) const
     {
-        if (board[destination] != empty)
+        if (!board[destination].empty())
             return false;
         if (color() == black)
         {
-            if ((piece == pawn || piece == lance) && destination < width * (padding_height + 1))
+            if ((piece == captured_pawn || piece == captured_lance) && destination < width * (padding_height + 1))
                 return false;
-            if (piece == knight && destination < width * (padding_height + 2))
+            if (piece == captured_knight && destination < width * (padding_height + 2))
                 return false;
         }
         else
         {
-            if ((piece == pawn || piece == lance) && destination >= width * (padding_height + 8))
+            if ((piece == captured_pawn || piece == captured_lance) && destination >= width * (padding_height + 8))
                 return false;
-            if (piece == knight && destination >= width * (padding_height + 7))
+            if (piece == captured_knight && destination >= width * (padding_height + 7))
                 return false;
         }
-        if (piece == pawn)
+        if (piece == captured_pawn)
         {
             const pos_t suji = pos_to_suji(destination);
 
             // 二歩
             for (pos_t dan = 0; dan < dan_size; ++dan)
             {
-                piece_t current = board[suji_dan_to_pos(suji, dan)];
-                if (current != empty && trim_color(current) == pawn && color() == to_color(current))
+                const colored_piece_t current = board[suji_dan_to_pos(suji, dan)];
+                if (!current.empty() && noncolored_piece_t{ current } == pawn && color() == current.to_color())
                     return false;
             }
 
             // 打ち歩詰め
             const pos_t pos = destination + front * (reverse(color()));
-            if (!board_t::out(pos) && board[pos] != empty && trim_color(board[pos]) == king && to_color(board[pos]) != color())
+            if (!board_t::out(pos) && !board[pos].empty() && noncolored_piece_t{ board[pos] } == king && board[pos].to_color() != color())
             {
                 move_t move{ destination, piece };
                 moves_t moves;
                 {
-                    VALIDATE_lanceKUMEN_ROLLBACK(*this);
+                    VALIDATE_kyokumen_ROLLBACK(*this);
                     const_cast<kyokumen_t &>(*this).do_move(move);
                     search_moves(std::back_inserter(moves));
                     const_cast<kyokumen_t &>(*this).undo_move(move);
@@ -2528,14 +2651,14 @@ namespace shogipp
     inline void kyokumen_t::search_source(OutputIterator result, color_t color) const
     {
         for (pos_t pos = 0; pos < pos_size; ++pos)
-            if (!board_t::out(pos) && board[pos] != empty && to_color(board[pos]) == color)
+            if (!board_t::out(pos) && !board[pos].empty() && board[pos].to_color() == color)
                 *result++ = pos;
     }
 
     inline pos_t kyokumen_t::search(pos_t pos, pos_t offset) const
     {
         pos_t current;
-        for (current = pos + offset; !board_t::out(current) && board[current] == empty; current += offset);
+        for (current = pos + offset; !board_t::out(current) && board[current].empty(); current += offset);
         if (board_t::out(current))
             return npos;
         return current;
@@ -2544,16 +2667,16 @@ namespace shogipp
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
     inline void kyokumen_t::search_piece_near(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
-        if (pos_t current = pos + offset; !board_t::out(current) && board[current] != empty)
-            if (is_collected(to_color(board[current])) && std::find(first, last, trim_color(board[current])) != last)
+        if (pos_t current = pos + offset; !board_t::out(current) && !board[current].empty())
+            if (is_collected(board[current].to_color()) && std::find(first, last, noncolored_piece_t{ board[current] }) != last)
                 *result++ = transform(current, offset, false);
     }
 
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
     inline void kyokumen_t::search_piece_far(OutputIterator result, pos_t pos, pos_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
-        if (pos_t found = search(pos, offset); found != npos && found != pos + offset && board[found] != empty)
-            if (is_collected(to_color(board[found])) && std::find(first, last, trim_color(board[found])) != last)
+        if (pos_t found = search(pos, offset); found != npos && found != pos + offset && !board[found].empty())
+            if (is_collected(board[found].to_color()) && std::find(first, last, noncolored_piece_t{ board[found] }) != last)
                 *result++ = transform(found, offset, true);
     }
 
@@ -2628,19 +2751,19 @@ namespace shogipp
     {
         additional_info.check_list_stack.clear();
         additional_info.hash_stack.clear();
-        update_goldg_pos_list();
+        update_king_pos_list();
     }
 
-    inline void kyokumen_t::update_goldg_pos_list()
+    inline void kyokumen_t::update_king_pos_list()
     {
         for (pos_t pos = 0; pos < pos_size; ++pos)
-            if (!board_t::out(pos) && board[pos] != empty && trim_color(board[pos]) == king)
-                additional_info.king_pos_list[to_color(board[pos])] = pos;
+            if (!board_t::out(pos) && !board[pos].empty() && noncolored_piece_t{ board[pos] } == king)
+                additional_info.king_pos_list[board[pos].to_color()] = pos;
     }
 
     inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, color_t color) const
     {
-        using pair = std::pair<pos_t, std::vector<piece_t>>;
+        using pair = std::pair<pos_t, std::vector<noncolored_piece_t>>;
         static const std::vector<pair> table
         {
             { front      , { lance, rook, promoted_rook } },
@@ -2658,12 +2781,12 @@ namespace shogipp
         {
             const pos_t reversed_offset = offset * reverse(color);
             const pos_t first = search(king_pos, reversed_offset);
-            if (first != npos && to_color(board[first]) == color)
+            if (first != npos && board[first].to_color() == color)
             {
                 const pos_t second = search(first, reversed_offset);
-                if (second != npos && to_color(board[second]) != color)
+                if (second != npos && board[second].to_color() != color)
                 {
-                    const piece_t kind = trim_color(board[second]);
+                    const noncolored_piece_t kind = noncolored_piece_t{ board[second] };
                     bool match = std::find(hashirigoma_list.begin(), hashirigoma_list.end(), kind) != hashirigoma_list.end();
                     if (match)
                     {
@@ -2708,16 +2831,16 @@ namespace shogipp
         {
             const pos_t destination = source + *p * reverse(color());
             if (!board_t::out(destination)
-                && (board[destination] == empty || to_color(board[destination]) != color()))
+                && (board[destination].empty() || board[destination].to_color() != color()))
             {
                 const move_t move{ source, destination, board[source], board[destination], false };
                 std::vector<kiki_t> kiki;
                 {
-                    VALIDATE_lanceKUMEN_ROLLBACK(*this);
+                    VALIDATE_kyokumen_ROLLBACK(*this);
                     kyokumen_t & nonconst_this = const_cast<kyokumen_t &>(*this);
-                    piece_t captured = board[destination];
+                    const colored_piece_t captured = board[destination];
                     nonconst_this.board[destination] = board[source];
-                    nonconst_this.board[source] = empty;
+                    nonconst_this.board[source] = colored_piece_t{};
                     search_kiki(std::back_inserter(kiki), destination, color());
                     nonconst_this.board[source] = board[destination];
                     nonconst_this.board[destination] = captured;
@@ -2741,7 +2864,7 @@ namespace shogipp
             if (check_list.front().aigoma)
             {
                 const pos_t offset = check_list.front().offset;
-                for (pos_t destination = ou_pos + offset; !board_t::out(destination) && board[destination] == empty; destination += offset)
+                for (pos_t destination = ou_pos + offset; !board_t::out(destination) && board[destination].empty(); destination += offset)
                 {
                     // 駒を移動させる合駒
                     std::vector<kiki_t> kiki_list;
@@ -2749,7 +2872,7 @@ namespace shogipp
                     for (const kiki_t & kiki : kiki_list)
                     {
                         // 王で合駒はできない。
-                        if (trim_color(board[kiki.pos]) != king)
+                        if (noncolored_piece_t{ board[kiki.pos] } != king)
                         {
                             // 既に合駒として使っている駒は移動できない。
                             const auto aigoma_iter = aigoma_info.find(kiki.pos);
@@ -2760,7 +2883,7 @@ namespace shogipp
                     }
 
                     // 駒を打つ合駒
-                    for (piece_t piece = pawn; piece <= rook; ++piece)
+                    for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
                         if (captured_pieces_list[color()][piece])
                             if (puttable(piece, destination))
                                 *result++ = { destination, piece };
@@ -2774,7 +2897,7 @@ namespace shogipp
             for (const kiki_t & kiki : kiki_list)
             {
                 // 王を動かす手は既に検索済み
-                if (trim_color(board[kiki.pos]) != king)
+                if (noncolored_piece_t{ board[kiki.pos] } != king)
                 {
                     // 既に合駒として使っている駒は移動できない。
                     const auto aigoma_iter = aigoma_info.find(kiki.pos);
@@ -2815,7 +2938,7 @@ namespace shogipp
             for (const pos_t destination : destination_list)
             {
 #ifndef NDEBUG
-                if (board[destination] != empty && trim_color(board[destination]) == king)
+                if (!board[destination].empty() && noncolored_piece_t { board[destination] } == king)
                 {
                     board.print();
                     std::cout << pos_to_string(source) << std::endl;
@@ -2836,7 +2959,7 @@ namespace shogipp
                 }
 
                 // 利いている場所に王を移動させてはならない
-                if (trim_color(board[source]) == king)
+                if (noncolored_piece_t{ board[source] } == king)
                 {
                     std::vector<kiki_t> kiki_list;
                     search_kiki(std::back_inserter(kiki_list), destination, color());
@@ -2852,7 +2975,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_moves_puts(OutputIterator result) const
     {
-        for (piece_t piece = pawn; piece <= rook; ++piece)
+        for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
             if (captured_pieces_list[color()][piece])
                 for (pos_t destination = 0; destination < pos_size; ++destination)
                     if (puttable(piece, destination))
@@ -2884,13 +3007,13 @@ namespace shogipp
         // 盤上の駒のハッシュ値をXOR演算
         for (pos_t pos = 0; pos < pos_size; ++pos)
             if (!board_t::out(pos))
-                if (piece_t piece = board[pos]; piece != empty)
+                if (const colored_piece_t piece = board[pos]; !piece.empty())
                     hash ^= hash_table.piece_hash(piece, pos);
 
         // 持ち駒のハッシュ値をXOR演算
         for (const color_t color : colors)
-            for (piece_t piece = pawn; piece <= rook; ++piece)
-                hash ^= hash_table.captured_piece_hash(piece, captured_pieces_list[color][piece], color);
+            for (piece_value_t piece = pawn.value(); piece <= rook.value(); ++piece)
+                hash ^= hash_table.captured_piece_hash(captured_piece_t{ piece }, captured_pieces_list[color][captured_piece_t{ piece }], color);
 
         // 手番のハッシュ値をXOR演算
         hash ^= hash_table.color_hash(color());
@@ -2903,26 +3026,26 @@ namespace shogipp
     {
         if (move.put())
         {
-            const captured_pieces_t::size_type count = captured_pieces_list[color()][move.source_piece()];
+            const captured_pieces_t::size_type count = captured_pieces_list[color()][move.captured_piece()];
             SHOGIPP_ASSERT(count > 0);
-            const piece_t piece = (color() == white) ? to_white(move.source_piece()) : move.source_piece();
+            const colored_piece_t piece{ move.captured_piece(), color() };
             hash ^= hash_table.piece_hash(piece, move.destination());
-            hash ^= hash_table.captured_piece_hash(move.source_piece(), count, color());
-            hash ^= hash_table.captured_piece_hash(move.source_piece(), count - 1, color());
+            hash ^= hash_table.captured_piece_hash(move.captured_piece(), count, color());
+            hash ^= hash_table.captured_piece_hash(move.captured_piece(), count - 1, color());
         }
         else
         {
-            SHOGIPP_ASSERT(!(!is_promotable(move.source_piece()) && move.promote()));
+            SHOGIPP_ASSERT(!(!move.source_piece().is_promotable() && move.promote()));
             hash ^= hash_table.piece_hash(move.source_piece(), move.source());
-            if (move.captured_piece() != empty)
+            if (!move.destination_piece().empty())
             {
-                const piece_t new_captured_piece = to_captured(move.captured_piece());
+                const captured_piece_t new_captured_piece{ move.destination_piece() };
                 const captured_pieces_t::size_type count = captured_pieces_list[color()][new_captured_piece];
                 hash ^= hash_table.captured_piece_hash(new_captured_piece, count, color());
                 hash ^= hash_table.captured_piece_hash(new_captured_piece, count + 1, color());
-                hash ^= hash_table.piece_hash(move.captured_piece(), move.destination());
+                hash ^= hash_table.piece_hash(move.destination_piece(), move.destination());
             }
-            const piece_t new_destination_piece = move.promote() ? to_promoted(move.source_piece()) : move.source_piece();
+            const colored_piece_t new_destination_piece = move.promote() ? move.source_piece().to_promoted() : move.source_piece();
             hash ^= hash_table.piece_hash(new_destination_piece, move.destination());
         }
         hash ^= hash_table.color_hash(!color());
@@ -2935,7 +3058,7 @@ namespace shogipp
         std::cout << (color == black ? "▲" : "△");
         if (move.put())
         {
-            std::cout << suji_to_string(pos_to_suji(move.destination())) << dan_to_string(pos_to_dan(move.destination())) << piece_to_string(trim_color(move.source_piece())) << "打";
+            std::cout << pos_to_string(move.destination()) << move.captured_piece().to_string() << "打";
         }
         else
         {
@@ -2950,7 +3073,7 @@ namespace shogipp
             else
                 promotion_string = "";
             std::cout
-                << pos_to_string(move.destination()) << piece_to_string(trim_color(move.source_piece())) << promotion_string
+                << pos_to_string(move.destination()) << noncolored_piece_t{ move.source_piece() }.to_string() << promotion_string
                 << "（" << pos_to_string(move.source()) << "）";
         }
     }
@@ -2986,7 +3109,7 @@ namespace shogipp
                 const kiki_t & kiki = check_list[i];
                 if (i > 0)
                     std::cout << "　";
-                std::cout << pos_to_string(kiki.pos) << piece_to_string(trim_color(board[kiki.pos])) << std::endl;
+                std::cout << pos_to_string(kiki.pos) << noncolored_piece_t{ board[kiki.pos] }.to_string() << std::endl;
             }
         }
     }
@@ -3034,7 +3157,7 @@ namespace shogipp
     {
         for (pos_t pos = 0; pos < pos_size; ++pos)
             if (board_t::out(pos))
-                SHOGIPP_ASSERT(board[pos] == out_of_range);
+                SHOGIPP_ASSERT(board[pos].value() == out_of_range.value());
     }
 
     inline void kyokumen_t::do_move(const move_t & move)
@@ -3042,18 +3165,18 @@ namespace shogipp
         hash_t hash = make_hash(this->hash(), move);
         if (move.put())
         {
-            SHOGIPP_ASSERT(captured_pieces_list[color()][move.source_piece()] > 0);
-            board[move.destination()] = color() == white ? to_white(move.source_piece()) : move.source_piece();
-            --captured_pieces_list[color()][move.source_piece()];
+            SHOGIPP_ASSERT(captured_pieces_list[color()][move.captured_piece()] > 0);
+            board[move.destination()] = colored_piece_t{ move.captured_piece(), color() };
+            --captured_pieces_list[color()][move.captured_piece()];
         }
         else
         {
-            SHOGIPP_ASSERT(!(!is_promotable(move.source_piece()) && move.promote()));
-            if (board[move.destination()] != empty)
-                ++captured_pieces_list[color()][board[move.destination()]];
-            board[move.destination()] = move.promote() ? to_promoted(board[move.source()]) : board[move.source()];
-            board[move.source()] = empty;
-            if (trim_color(move.source_piece()) == king)
+            SHOGIPP_ASSERT(!(!move.source_piece().is_promotable() && move.promote()));
+            if (!board[move.destination()].empty())
+                ++captured_pieces_list[color()][captured_piece_t{ board[move.destination()] }];
+            board[move.destination()] = move.promote() ? board[move.source()].to_promoted() : board[move.source()];
+            board[move.source()] = colored_piece_t{};
+            if (noncolored_piece_t{ move.source_piece() } == king)
                 additional_info.king_pos_list[color()] = move.destination();
         }
         ++move_count;
@@ -3068,17 +3191,17 @@ namespace shogipp
         --move_count;
         if (move.put())
         {
-            ++captured_pieces_list[color()][move.source_piece()];
-            board[move.destination()] = empty;
+            ++captured_pieces_list[color()][move.captured_piece()];
+            board[move.destination()] = colored_piece_t{};
         }
         else
         {
-            if (trim_color(move.source_piece()) == king)
+            if (noncolored_piece_t{ move.source_piece() } == king)
                 additional_info.king_pos_list[color()] = move.source();
             board[move.source()] = move.source_piece();
-            board[move.destination()] = move.captured_piece();
-            if (move.captured_piece() != empty)
-                --captured_pieces_list[color()][move.captured_piece()];
+            board[move.destination()] = move.destination_piece();
+            if (!move.destination_piece().empty())
+                --captured_pieces_list[color()][captured_piece_t{ move.destination_piece() }];
         }
         kifu.pop_back();
         pop_additional_info();
@@ -3097,125 +3220,12 @@ namespace shogipp
         search_count_t count = 0;
         for (const move_t & move : search_moves())
         {
-            VALIDATE_lanceKUMEN_ROLLBACK(*this);
+            VALIDATE_kyokumen_ROLLBACK(*this);
             const_cast<kyokumen_t &>(*this).do_move(move);
             count += count_node(depth - 1);
             const_cast<kyokumen_t &>(*this).undo_move(move);
         }
         return count;
-    }
-
-    inline void kyokumen_t::read_kifu_file(std::filesystem::path kifu_file)
-    {
-        static constexpr std::string_view source_position_prefix = "（";
-        static constexpr std::string_view source_position_suffix = "）";
-        static constexpr std::string_view uchite_string = "打";
-        static constexpr std::string_view promote_string = "成";
-        static constexpr std::string_view nonpromote_string = "不成";
-
-        std::ifstream stream{ kifu_file };
-        std::string line;
-        
-        kyokumen_t temp_lancekumen;
-
-        try
-        {
-            while (std::getline(stream, line))
-            {
-                if (line.empty() || (!line.empty() && line.front() == '#'))
-                    continue;
-
-                std::string_view rest = line;
-                
-                std::optional<color_t> color = parse(rest, color_mark_map, color_mark_size);
-                if (!color)
-                    throw file_format_error{ "read_kifu_file 1" };
-                
-                std::optional<pos_t> destination_suji = parse(rest, suji_string_map, suji_string_size);
-                if (!destination_suji)
-                    throw file_format_error{ "read_kifu_file 2" };
-
-                std::optional<pos_t> destination_dan = parse(rest, dan_string_map, dan_string_size);
-                if (!destination_dan)
-                    throw file_format_error{ "read_kifu_file 3" };
-
-                std::optional<pos_t> destination = suji_dan_to_pos(*destination_suji, *destination_dan);
-                if (!destination)
-                    throw file_format_error{ "read_kifu_file 4" };
-
-                std::optional<piece_t> piece = parse(rest, piece_string_map, piece_string_size);
-                if (!piece)
-                    throw file_format_error{ "read_kifu_file 5" };
-
-                if (*color != temp_lancekumen.color())
-                    throw file_format_error{ "read_kifu_file 6" };
-
-                bool promote = false;
-                if (rest.size() >= uchite_string.size()
-                    && rest.substr(0, uchite_string.size()) == uchite_string)
-                {
-                    rest.remove_prefix(uchite_string.size());
-                    if (*piece < pawn || *piece > rook)
-                        throw file_format_error{ "read_kifu_file 7" };
-                    if (!rest.empty())
-                        throw file_format_error{ "read_kifu_file 8" };
-                    if (temp_lancekumen.captured_pieces_list[temp_lancekumen.color()][*piece] == 0)
-                    {
-                        temp_lancekumen.captured_pieces_list[black].print();
-                        throw file_format_error{ "read_kifu_file 9" };
-                    }
-                    move_t move{ *destination, *piece };
-                    temp_lancekumen.do_move(move);
-                    continue;
-                }
-                else if (rest.size() >= promote_string.size()
-                    && rest.substr(0, promote_string.size()) == promote_string)
-                {
-                    promote = true;
-                    rest.remove_prefix(promote_string.size());
-                }
-                else if (rest.size() >= nonpromote_string.size()
-                    && rest.substr(0, nonpromote_string.size()) == nonpromote_string)
-                {
-                    rest.remove_prefix(nonpromote_string.size());
-                }
-
-                if (rest.size() >= source_position_prefix.size()
-                    && rest.substr(0, source_position_prefix.size()) == source_position_prefix)
-                {
-                    rest.remove_prefix(source_position_prefix.size());
-                    std::optional<pos_t> source_suji = parse(rest, suji_string_map, suji_string_size);
-                    std::optional<pos_t> source_dan = parse(rest, dan_string_map, dan_string_size);
-                    pos_t source = suji_dan_to_pos(*source_suji, *source_dan);
-                    if (rest.size() >= source_position_suffix.size()
-                        && rest.substr(0, source_position_suffix.size()) == source_position_suffix)
-                    {
-                        rest.remove_prefix(source_position_suffix.size());
-                        if (!rest.empty())
-                            throw file_format_error{ "read_kifu_file 10" };
-                        if (temp_lancekumen.board[source] == empty)
-                            throw file_format_error{ "read_kifu_file 11" };
-                        if (to_color(temp_lancekumen.board[source]) != temp_lancekumen.color())
-                            throw file_format_error{ "read_kifu_file 12" };
-                        move_t move{ source, *destination, temp_lancekumen.board[source], temp_lancekumen.board[*destination], promote };
-                        temp_lancekumen.do_move(move);
-                        continue;
-                    }
-                }
-
-                throw file_format_error{ "read_kifu_file 10" };
-            }
-
-            std::swap(*this, temp_lancekumen);
-        }
-        catch (const parse_error & e)
-        {
-            throw file_format_error{ e.what() };
-        }
-        catch (const file_format_error &)
-        {
-            throw;
-        }
     }
 
     inline std::string kyokumen_t::sfen_string() const
@@ -3484,13 +3494,13 @@ namespace shogipp
 
         for (pos_t pos = 0; pos < pos_size; ++pos)
         {
-            const piece_t piece = kyokumen.board[pos];
-            if (!board_t::out(pos) && piece != empty)
-                evaluation_value += map[trim_color(piece)] * reverse(to_color(piece));
+            const colored_piece_t piece = kyokumen.board[pos];
+            if (!board_t::out(pos) && !piece.empty())
+                evaluation_value += map[noncolored_piece_t{ piece }.value()] * reverse(piece.to_color());
         }
 
         for (const color_t color : colors)
-            for (piece_t piece = pawn; piece <= rook; ++piece)
+            for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
                 evaluation_value += map[piece] * kyokumen.captured_pieces_list[color][piece] * reverse(color);
 
         return evaluation_value;
@@ -3567,7 +3577,7 @@ namespace shogipp
         std::optional<move_t> best_move;
         search_count_t cache_rookt_count{};
         state_t state = state_t::not_ready;
-        milli_second_time_t limit_time;
+        milli_second_time_t limit_time{};
         std::map<std::string, std::string> options;
         bool ponder = false;
 
@@ -3775,6 +3785,7 @@ namespace shogipp
 
         if (depth >= max_depth)
         {
+            ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
             if (cached_evaluation_value)
             {
@@ -3812,7 +3823,7 @@ namespace shogipp
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_lanceKUMEN_ROLLBACK(kyokumen);
+                VALIDATE_kyokumen_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -negamax(kyokumen, depth + 1, cache, nested_candidate_move);
                 kyokumen.undo_move(move);
@@ -3909,6 +3920,7 @@ namespace shogipp
         
         if (depth >= max_depth)
         {
+            ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
             if (cached_evaluation_value)
             {
@@ -3947,7 +3959,7 @@ namespace shogipp
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_lanceKUMEN_ROLLBACK(kyokumen);
+                VALIDATE_kyokumen_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move);
                 kyokumen.undo_move(move);
@@ -4065,7 +4077,7 @@ namespace shogipp
                         std::optional<move_t> nested_candidate_move;
                         evaluation_value_t evaluation_value;
                         {
-                            VALIDATE_lanceKUMEN_ROLLBACK(kyokumen);
+                            VALIDATE_kyokumen_ROLLBACK(kyokumen);
                             kyokumen.do_move(move);
                             evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move, previous_destination);
                             kyokumen.undo_move(move);
@@ -4084,6 +4096,7 @@ namespace shogipp
                 }
             }
 
+            ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
             if (cached_evaluation_value)
             {
@@ -4120,10 +4133,10 @@ namespace shogipp
             }
 
             std::optional<move_t> nested_candidate_move;
-            pos_t destination = (!move.put() && move.captured_piece() != empty) ? move.destination() : npos;
+            pos_t destination = (!move.put() && !move.destination_piece().empty()) ? move.destination() : npos;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_lanceKUMEN_ROLLBACK(kyokumen);
+                VALIDATE_kyokumen_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, destination);
                 kyokumen.undo_move(move);
@@ -4202,7 +4215,7 @@ namespace shogipp
             auto back_inserter = std::back_inserter(scores);
             for (const move_t & t : moves)
             {
-                VALIDATE_lanceKUMEN_ROLLBACK(kyokumen);
+                VALIDATE_kyokumen_ROLLBACK(kyokumen);
                 kyokumen.do_move(t);
                 *back_inserter++ = { &t, evaluate(kyokumen) };
                 kyokumen.undo_move(t);
@@ -4368,10 +4381,10 @@ namespace shogipp
 
             for (pos_t pos = 0; pos < pos_size; ++pos)
             {
-                if (!board_t::out(pos) && kyokumen.board[pos] != empty)
+                if (!board_t::out(pos) && !kyokumen.board[pos].empty())
                 {
                     std::vector<kiki_t> kiki_list;
-                    color_t color = to_color(kyokumen.board[pos]);
+                    const color_t color = kyokumen.board[pos].to_color();
                     kyokumen.search_kiki(std::back_inserter(kiki_list), pos, color);
                     evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
                     std::vector<pos_t> himo_list;
@@ -4661,7 +4674,7 @@ namespace shogipp
     {
         auto & kishi = kishi_list[kyokumen.color()];
 
-        kyokumen_t temp_lancekumen = kyokumen;
+        kyokumen_t temp_kyokumen = kyokumen;
 
         while (true)
         {
@@ -5144,7 +5157,6 @@ namespace shogipp
     {
         try
         {
-            std::string kifu_path;
             std::optional<std::string> black_name;
             std::optional<std::string> white_name;
 
@@ -5152,15 +5164,11 @@ namespace shogipp
 
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {
-                if (option == "kifu" && !params.empty())
-                {
-                    kifu_path = params[0];
-                }
-                else if (option == "sente" && !params.empty())
+                if (option == "black" && !params.empty())
                 {
                     black_name = params[0];
                 }
-                else if (option == "gote" && !params.empty())
+                else if (option == "white" && !params.empty())
                 {
                     white_name = params[0];
                 }
@@ -5188,16 +5196,7 @@ namespace shogipp
                 }
                 const std::shared_ptr<abstract_kishi_t> & white_kishi = white_iter->second;
 
-                if (!kifu_path.empty())
-                {
-                    kyokumen_t kyokumen;
-                    kyokumen.read_kifu_file(kifu_path);
-                    do_taikyoku(kyokumen, black_kishi, white_kishi);
-                }
-                else
-                {
-                    do_taikyoku(black_kishi, white_kishi);
-                }
+                do_taikyoku(black_kishi, white_kishi);
             }
         }
         catch (const std::exception & e)

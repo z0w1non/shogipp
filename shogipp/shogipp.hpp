@@ -4688,11 +4688,11 @@ namespace shogipp
                 break;
             case command_t::id_t::perft:
             {
-                search_count_t count;
-                const milli_second_time_t time = details::test_time_performance([&] { count = kyokumen.count_node(*cmd.opt_depth); }, 1);
-                std::cout << "count: " << count << std::endl;
+                search_count_t node;
+                const milli_second_time_t time = details::test_time_performance([&] { node = kyokumen.count_node(*cmd.opt_depth); }, 1);
+                std::cout << "node: " << node << std::endl;
                 std::cout << "time[ms]: " << time << std::endl;
-                std::cout << "nps[n/s]: " << (count * 1000 / time) << std::endl;
+                std::cout << "nps[n/s]: " << (node * 1000 / time) << std::endl;
                 break;
             }
             case command_t::id_t::hash:

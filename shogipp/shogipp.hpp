@@ -568,7 +568,9 @@ namespace shogipp
     inline color_t colored_piece_t::to_color() const noexcept
     {
         SHOGIPP_ASSERT(!empty());
-        return value() <= color_distance ? black : white;
+        if (value() <= color_distance)
+            return black;
+        return white;
     }
 
     inline bool colored_piece_t::is_hashirigoma() const noexcept
@@ -632,7 +634,7 @@ namespace shogipp
      * @return 特定の手番の駒
      * @details pawn -> black_pawn or white_pawn
      */
-    inline piece_value_t to_colored_impl(piece_value_t piece, color_t color)
+    inline piece_value_t to_colored_impl(piece_value_t piece, color_t color) noexcept
     {
         SHOGIPP_ASSERT(piece != empty_value);
         return (color == black) ? piece : piece + color_distance;
@@ -672,7 +674,7 @@ namespace shogipp
     {
     }
 
-    inline std::optional<colored_piece_t> char_to_piece(char c)
+    inline std::optional<colored_piece_t> char_to_piece(char c) noexcept
     {
         static const std::map<char, colored_piece_t> map
         {
@@ -699,7 +701,7 @@ namespace shogipp
         return iter->second;
     }
 
-    inline std::optional<std::string> piece_to_sfen_string(colored_piece_t piece)
+    inline std::optional<std::string> piece_to_sfen_string(colored_piece_t piece) noexcept
     {
         static const std::map<colored_piece_t, std::string> map
         {
@@ -738,7 +740,7 @@ namespace shogipp
         return iter->second;
     }
 
-    inline char color_to_color_char(color_t color)
+    inline char color_to_color_char(color_t color) noexcept
     {
         static constexpr char map[] { 'b', 'w' };
         SHOGIPP_ASSERT(color >= black);
@@ -752,7 +754,7 @@ namespace shogipp
      * @retval sente color == gote の場合
      * @retval gote color == sente の場合
      */
-    inline color_t operator !(color_t color)
+    inline color_t operator !(color_t color) noexcept
     {
         SHOGIPP_ASSERT(color >= black);
         SHOGIPP_ASSERT(color <= white);
@@ -789,7 +791,7 @@ namespace shogipp
      * @param pos 座標
      * @return 段
      */
-    inline constexpr pos_t pos_to_dan(pos_t pos)
+    inline constexpr pos_t pos_to_dan(pos_t pos) noexcept
     {
         return pos / width - padding_height;
     }
@@ -799,7 +801,7 @@ namespace shogipp
      * @param pos 座標
      * @return 筋
      */
-    inline constexpr pos_t pos_to_suji(pos_t pos)
+    inline constexpr pos_t pos_to_suji(pos_t pos) noexcept
     {
         return pos % width - padding_width;
     }
@@ -810,7 +812,7 @@ namespace shogipp
      * @param b 座標B
      * @return 2つの座標間のマンハッタン距離
      */
-    inline pos_t distance(pos_t a, pos_t b)
+    inline pos_t distance(pos_t a, pos_t b) noexcept
     {
         const pos_t suji_a = pos_to_suji(a);
         const pos_t dan_a = pos_to_dan(a);

@@ -266,8 +266,6 @@ namespace shogipp
         using std::runtime_error::runtime_error;
     };
 
-    using piece_t = unsigned char;
-
     enum color_t : unsigned char
     {
         black = 0,
@@ -467,7 +465,7 @@ namespace shogipp
             {
                 impl_t()
                 {
-                    for (piece_t piece = pawn; piece < piece_size; ++piece)
+                    for (piece_value_t piece = empty_value; piece < piece_size; ++piece)
                         map[piece] = colored_piece_t{ piece }.to_noncolored() == target_piece;
                 }
                 bool map[piece_size]{};
@@ -1544,26 +1542,6 @@ namespace shogipp
             return 1;
         return 2;
     };
-
-    class context_t
-    {
-    public:
-        inline context_t(piece_t captured);
-        inline piece_t captured() const;
-
-    private:
-        piece_t m_captured;
-    };
-
-    inline context_t::context_t(piece_t captured)
-        : m_captured{ captured }
-    {
-    }
-
-    inline piece_t context_t::captured() const
-    {
-        return m_captured;
-    }
 
     inline hash_t hash_table_t::move_hash(const move_t & move, color_t color) const
     {

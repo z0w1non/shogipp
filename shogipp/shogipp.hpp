@@ -767,9 +767,11 @@ namespace shogipp
     constexpr position_t npos = -1; // ñ≥å¯Ç»ç¿ïWÇï\åªÇ∑ÇÈíËêî
     constexpr position_t width = 11;
     constexpr position_t height = 11;
-    constexpr position_t position_size = width * height;
     constexpr position_t padding_width = 1;
     constexpr position_t padding_height = 1;
+    constexpr position_t position_size = width * height;
+    constexpr position_t position_begin = width + padding_width;
+    constexpr position_t position_end = position_size - position_begin;
     constexpr position_t file_size = 9;
     constexpr position_t rank_size = 9;
 
@@ -1813,9 +1815,14 @@ namespace shogipp
     class pawn_bitboard_t
     {
     public:
+        using value_type = unsigned short;
+
+        inline pawn_bitboard_t(const board_t & board) noexcept
+        {
+        }
 
     private:
-        std::uint32_t value[3];
+        value_type value;
     };
 
     inline move_t::move_t(std::string_view sfen_move, const board_t & board)
@@ -2967,7 +2974,7 @@ namespace shogipp
     {
         for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
             if (captured_pieces_list[color().value()][piece])
-                for (position_t destination = 0; destination < position_size; ++destination)
+                for (position_t destination = position_begin; destination < position_end; ++destination)
                     if (puttable(piece, destination))
                         *result++ = { destination, piece };
     }

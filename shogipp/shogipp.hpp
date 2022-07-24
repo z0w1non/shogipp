@@ -455,8 +455,8 @@ namespace shogipp
         inline bool is_promotable() const noexcept;
 
         /*
-         * @breif 駒が後手の駒か判定する。
-         * @return 先手の駒である場合 sente
+         * @breif 所有者の手番を取得する。
+         * @return 手番
          */
         inline color_t to_color() const noexcept;
 
@@ -907,7 +907,7 @@ namespace shogipp
 
     /**
      * @breif 後手の場合に -1 を、先手の場合に 1 を返す。
-     * @param color 先手か後手か
+     * @param color 手番
      * @return 符号反転用の数値
      */
     inline constexpr position_t reverse(color_t color) noexcept
@@ -1077,14 +1077,14 @@ namespace shogipp
          * @breif 持ち駒のハッシュ値を計算する。
          * @param piece 駒
          * @param count 駒の数
-         * @param is_gote 後手の持ち駒か
+         * @param color 手番
          * @return ハッシュ値
          */
         inline hash_t captured_piece_hash(captured_piece_t piece, std::size_t count, color_t color) const noexcept;
 
         /**
          * @breif 手番のハッシュ値を計算する。
-         * @param color 先手か後手か
+         * @param color 手番
          * @return ハッシュ値
          */
         inline hash_t color_hash(color_t color) const noexcept;
@@ -1092,7 +1092,7 @@ namespace shogipp
         /**
          * @breif 合法手のハッシュ値を計算する。
          * @param move 合法手
-         * @param color 先手か後手か
+         * @param color 手番
          * @return ハッシュ値
          */
         inline hash_t move_hash(const move_t & move, color_t color) const noexcept;
@@ -2035,7 +2035,7 @@ namespace shogipp
          * @breif 移動元の座標から移動可能の移動先を検索する。
          * @param result 移動先の座標の出力イテレータ
          * @param source 移動元の座標
-         * @param color 先手・後手どちらの移動か
+         * @param color どちらの手番の移動か
          */
         template<typename OutputIterator>
         inline void search_destination(OutputIterator result, position_t source, color_t color) const;
@@ -2051,7 +2051,7 @@ namespace shogipp
         /**
          * @breif 移動元の座標を検索する。
          * @param result 出力イテレータ
-         * @param color 先手・後手どちらの移動か
+         * @param color どちらの手番の移動か
          */
         template<typename OutputIterator>
         inline void search_source(OutputIterator result, color_t color) const;
@@ -2268,7 +2268,7 @@ namespace shogipp
         /**
          * @breif 合法手を標準出力に出力する。
          * @param move 合法手
-         * @param is_gote 後手の合法手か
+         * @param color 後手の合法手か
          */
         inline void print_move(const move_t & move, color_t color) const;
 
@@ -5175,14 +5175,14 @@ namespace shogipp
                 auto black_iter = kishi_map.find(*black_name);
                 if (black_iter == kishi_map.end())
                 {
-                    throw invalid_command_line_input{ "invalid sente name" };
+                    throw invalid_command_line_input{ "invalid black name" };
                 }
                 const std::shared_ptr<abstract_kishi_t> & black_kishi = black_iter->second;
 
                 auto white_iter = kishi_map.find(*white_name);
                 if (white_iter == kishi_map.end())
                 {
-                    throw invalid_command_line_input{ "invalid gote name" };
+                    throw invalid_command_line_input{ "invalid white name" };
                 }
                 const std::shared_ptr<abstract_kishi_t> & white_kishi = white_iter->second;
 

@@ -972,20 +972,10 @@ namespace shogipp
             return *this;
         }
 
-        inline basic_hash_t & operator +=(const basic_hash_t & hash) noexcept
-        {
-            std::size_t * first = reinterpret_cast<std::size_t *>(data);
-            std::size_t * end = reinterpret_cast<std::size_t *>(data + hash_size);
-            const std::size_t * input = reinterpret_cast<const std::size_t *>(hash.data);
-            while (first != end)
-                *first++ += *input++;
-            return *this;
-        }
-
-        inline basic_hash_t operator +(const basic_hash_t & hash) const noexcept
+        inline basic_hash_t operator ^(const basic_hash_t & hash) const noexcept
         {
             basic_hash_t temp{ *this };
-            temp += hash;
+            temp ^= hash;
             return temp;
         }
 
@@ -2828,7 +2818,7 @@ namespace shogipp
         additional_info.hash_stack.push_back(hash);
         if (!kifu.empty())
         {
-            const hash_t hash = this->hash() + hash_table.move_hash(kifu.back(), !color());
+            const hash_t hash = this->hash() ^ hash_table.move_hash(kifu.back(), !color());
             additional_info.previously_done_moves.push(hash);
         }
     }
@@ -3366,7 +3356,7 @@ namespace shogipp
         moves.erase(std::remove_if(moves.begin(), moves.end(), [&](const auto & i) -> bool
             {
                 return additional_info.previously_done_moves.contains(
-                    hash_table.move_hash(i, color) + hash
+                    hash_table.move_hash(i, color) ^ hash
                 );
             }
         ), moves.end());

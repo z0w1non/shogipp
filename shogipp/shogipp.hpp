@@ -525,13 +525,13 @@ namespace shogipp
     constexpr noncolored_piece_t promoted_rook  { promoted_rook_value   };
     constexpr noncolored_piece_t out_of_range   { out_of_range_value    };
 
-    constexpr captured_piece_t captured_pawn  { 0x01 };
-    constexpr captured_piece_t captured_lance { 0x02 };
-    constexpr captured_piece_t captured_knight{ 0x03 };
-    constexpr captured_piece_t captured_silver{ 0x04 };
-    constexpr captured_piece_t captured_gold  { 0x05 };
-    constexpr captured_piece_t captured_bishop{ 0x06 };
-    constexpr captured_piece_t captured_rook  { 0x07 };
+    constexpr captured_piece_t captured_pawn  { pawn_value   };
+    constexpr captured_piece_t captured_lance { lance_value  };
+    constexpr captured_piece_t captured_knight{ knight_value };
+    constexpr captured_piece_t captured_silver{ silver_value };
+    constexpr captured_piece_t captured_gold  { gold_value   };
+    constexpr captured_piece_t captured_bishop{ bishop_value };
+    constexpr captured_piece_t captured_rook  { rook_value   };
 
     constexpr colored_piece_t black_pawn           { pawn_value            };
     constexpr colored_piece_t black_lance          { lance_value           };

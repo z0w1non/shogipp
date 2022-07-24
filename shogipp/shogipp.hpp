@@ -1812,19 +1812,6 @@ namespace shogipp
         return result;
     }
 
-    class pawn_bitboard_t
-    {
-    public:
-        using value_type = unsigned short;
-
-        inline pawn_bitboard_t(const board_t & board) noexcept
-        {
-        }
-
-    private:
-        value_type value;
-    };
-
     inline move_t::move_t(std::string_view sfen_move, const board_t & board)
     {
         if (sfen_move.size() < 4)

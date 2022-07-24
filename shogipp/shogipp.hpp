@@ -1756,7 +1756,7 @@ namespace shogipp
 
     inline bool board_t::out(position_t position) noexcept
     {
-        return position < 0 || position >= position_size || clear_board[position].value() == out_of_range.value();
+        return position < position_begin || position >= position_end || clear_board[position].value() == out_of_range.value();
     }
 
     inline void board_t::print() const
@@ -2318,7 +2318,7 @@ namespace shogipp
          */
         inline hash_t hash() const;
 
-        inline void validate_board_kingt();
+        inline void validate_board_out();
 
         /**
          * @breif 合法手を実行する。
@@ -2647,7 +2647,7 @@ namespace shogipp
     template<typename OutputIterator>
     inline void kyokumen_t::search_source(OutputIterator result, color_t color) const
     {
-        for (position_t position = 0; position < position_size; ++position)
+        for (position_t position = position_begin; position < position_end; ++position)
             if (!board_t::out(position) && !board[position].empty() && board[position].to_color() == color)
                 *result++ = position;
     }
@@ -2753,7 +2753,7 @@ namespace shogipp
 
     inline void kyokumen_t::update_king_position_list()
     {
-        for (position_t position = 0; position < position_size; ++position)
+        for (position_t position = position_begin; position < position_end; ++position)
             if (!board_t::out(position) && !board[position].empty() && noncolored_piece_t{ board[position] } == king)
                 additional_info.king_position_list[board[position].to_color().value()] = position;
     }
@@ -3002,7 +3002,7 @@ namespace shogipp
         hash_t hash{};
 
         // 盤上の駒のハッシュ値をXOR演算
-        for (position_t position = 0; position < position_size; ++position)
+        for (position_t position = position_begin; position < position_end; ++position)
             if (!board_t::out(position))
                 if (const colored_piece_t piece = board[position]; !piece.empty())
                     hash ^= hash_table.piece_hash(piece, position);
@@ -3150,7 +3150,7 @@ namespace shogipp
         return additional_info.hash_stack[move_count];
     }
 
-    inline void kyokumen_t::validate_board_kingt()
+    inline void kyokumen_t::validate_board_out()
     {
         for (position_t position = 0; position < position_size; ++position)
             if (board_t::out(position))
@@ -3179,7 +3179,7 @@ namespace shogipp
         ++move_count;
         kifu.push_back(move);
         push_additional_info(hash);
-        validate_board_kingt();
+        validate_board_out();
     }
 
     inline void kyokumen_t::undo_move(const move_t & move)
@@ -3489,7 +3489,7 @@ namespace shogipp
     {
         evaluation_value_t evaluation_value = 0;
 
-        for (position_t position = 0; position < position_size; ++position)
+        for (position_t position = position_begin; position < position_end; ++position)
         {
             const colored_piece_t piece = kyokumen.board[position];
             if (!board_t::out(position) && !piece.empty())
@@ -4376,7 +4376,7 @@ namespace shogipp
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
             evaluation_value *= 100;
 
-            for (position_t position = 0; position < position_size; ++position)
+            for (position_t position = position_begin; position < position_end; ++position)
             {
                 if (!board_t::out(position) && !kyokumen.board[position].empty())
                 {

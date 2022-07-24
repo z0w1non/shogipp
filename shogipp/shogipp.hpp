@@ -2337,13 +2337,13 @@ namespace shogipp
         inline moves_t search_moves() const;
 
         /**
-         * @breif 千日手を削除しない合法手を検索する。
+         * @breif 千日手を含む厳密でない合法手を検索する。
          * @param result 合法手の出力イテレータ
          */
         inline moves_t nonstrict_search_moves() const;
 
         /**
-         * @breif 千日手を削除した厳密な合法手を検索する。
+         * @breif 千日手を含まない厳密な合法手を検索する。
          * @param result 合法手の出力イテレータ
          */
         inline moves_t strict_search_moves() const;

@@ -2340,7 +2340,7 @@ namespace shogipp
          * @breif 千日手を削除しない合法手を検索する。
          * @param result 合法手の出力イテレータ
          */
-        inline moves_t lenient_search_moves() const;
+        inline moves_t nonstrict_search_moves() const;
 
         /**
          * @breif 千日手を削除した厳密な合法手を検索する。
@@ -3093,10 +3093,10 @@ namespace shogipp
     {
         if (anti_repetition_of_moves)
             return strict_search_moves();
-        return lenient_search_moves();
+        return nonstrict_search_moves();
     }
 
-    inline moves_t kyokumen_t::lenient_search_moves() const
+    inline moves_t kyokumen_t::nonstrict_search_moves() const
     {
         moves_t moves;
         search_moves(std::back_inserter(moves));

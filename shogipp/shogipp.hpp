@@ -972,6 +972,23 @@ namespace shogipp
             return *this;
         }
 
+        inline basic_hash_t & operator +=(const basic_hash_t & hash) noexcept
+        {
+            std::size_t * first = reinterpret_cast<std::size_t *>(data);
+            std::size_t * end = reinterpret_cast<std::size_t *>(data + hash_size);
+            const std::size_t * input = reinterpret_cast<const std::size_t *>(hash.data);
+            while (first != end)
+                *first++ += *input++;
+            return *this;
+        }
+
+        inline basic_hash_t operator +(const basic_hash_t & hash) const noexcept
+        {
+            basic_hash_t temp{ *this };
+            temp += hash;
+            return temp;
+        }
+
         inline bool operator ==(const basic_hash_t & hash) const noexcept
         {
             return std::equal(std::begin(data), std::end(data), std::begin(hash.data));
@@ -1573,8 +1590,8 @@ namespace shogipp
         if (move.put())
         {
             index = static_cast<std::size_t>(move.destination());
-            index *= piece_size;
-            index += move.source_piece().value();
+            index *= captured_piece_size;
+            index += move.captured_piece().value();
             index *= color_t::size();
             index += color.value();
             SHOGIPP_ASSERT(index < std::size(put_table));
@@ -1968,6 +1985,74 @@ namespace shogipp
         }
     };
 
+    template<typename Value, typename Hash = std::hash<Value>>
+    class stack_set_t
+    {
+    public:
+        using value_type = Value;
+        using stack_type = std::deque<value_type>;
+        using hash_type = Hash;
+        using unordered_set_type = std::unordered_set<value_type, hash_type>;
+
+        /**
+         * @breif スタックで管理されるキャッシュを構築する。
+         */
+        inline stack_set_t()
+        {
+        }
+
+        inline stack_set_t(const stack_set_t &) = default;
+        inline stack_set_t(stack_set_t &&) = default;
+        inline stack_set_t & operator =(const stack_set_t &) = default;
+        inline stack_set_t & operator =(stack_set_t &&) = default;
+
+        /**
+         * @breif キャッシュを破棄する。
+         */
+        inline void clear()
+        {
+            stack.clear();
+            uset.clear();
+        }
+
+        /**
+         * @breif 値が登録されているか判定する。
+         * @param 値
+         * @retval true 値が登録されている
+         * @retval false 値が登録されていない
+         */
+        inline bool contains(value_type value) const
+        {
+            return uset.find(value) != uset.end();
+        }
+
+        /**
+         * @breif 値を登録する。
+         * @param value 値
+         */
+        inline void push(value_type value)
+        {
+            stack.emplace_back(value);
+            uset.insert(value);
+        }
+
+        inline void pop()
+        {
+            uset.erase(stack.back());
+            stack.pop_back();
+        }
+
+    private:
+        stack_type stack;
+        unordered_set_type uset;
+    };
+
+#ifdef SIZE_OF_HASH
+    using stack_cache_t = stack_set_t<hash_t, basic_hash_hasher_t<SIZE_OF_HASH>>;
+#else
+    using stack_cache_t = stack_set_t<hash_t>;
+#endif
+
     /**
      * @breif 局面の追加情報
      * @details 手番の合法手を検索する過程で手番にかかっている王手が必要になるため、個別にスタック構造を保持する。
@@ -1977,7 +2062,8 @@ namespace shogipp
     public:
         std::vector<std::vector<kiki_t>> check_list_stack;  // 手番にかかっている王手
         std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
-        position_t king_position_list[color_t::size()]{};        // 王の座標
+        position_t king_position_list[color_t::size()]{};   // 王の座標
+        stack_cache_t previously_done_moves;                // 既出の合法手
     };
 
     /**
@@ -2246,8 +2332,21 @@ namespace shogipp
         /**
          * @breif 合法手を検索する。
          * @param result 合法手の出力イテレータ
+         * @details anti_repetition_of_moves == true の場合この関数は strict_search_moves にリダイレクトされる。
          */
         inline moves_t search_moves() const;
+
+        /**
+         * @breif 千日手を削除しない合法手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        inline moves_t lenient_search_moves() const;
+
+        /**
+         * @breif 千日手を削除した厳密な合法手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        inline moves_t strict_search_moves() const;
 
         /**
          * @breif 局面のハッシュ値を計算する。
@@ -2338,11 +2437,17 @@ namespace shogipp
          */
         inline std::string sfen_string() const;
 
+        /**
+         * @breif 合法手の集合から千日手を削除する。
+         */
+        inline void remove_repetition_of_moves(moves_t & moves) const noexcept;
+
         board_t board;                                              // 盤
         captured_pieces_t captured_pieces_list[color_t::size()];    // 持ち駒
         move_count_t move_count = 0;                                // 手数
         std::vector<move_t> kifu;                                   // 棋譜
         additional_info_t additional_info;                          // 追加情報
+        bool anti_repetition_of_moves = true;                       // 耐千日手
     };
 
     /**
@@ -2621,7 +2726,7 @@ namespace shogipp
                 {
                     VALIDATE_kyokumen_ROLLBACK(*this);
                     const_cast<kyokumen_t &>(*this).do_move(move);
-                    search_moves(std::back_inserter(moves));
+                    moves = search_moves();
                     const_cast<kyokumen_t &>(*this).undo_move(move);
                 }
                 if (moves.empty())
@@ -2721,6 +2826,11 @@ namespace shogipp
     {
         additional_info.check_list_stack.push_back(search_check(color()));
         additional_info.hash_stack.push_back(hash);
+        if (!kifu.empty())
+        {
+            const hash_t hash = this->hash() + hash_table.move_hash(kifu.back(), !color());
+            additional_info.previously_done_moves.push(hash);
+        }
     }
 
     inline void kyokumen_t::pop_additional_info()
@@ -2729,6 +2839,7 @@ namespace shogipp
         SHOGIPP_ASSERT(!additional_info.hash_stack.empty());
         additional_info.check_list_stack.pop_back();
         additional_info.hash_stack.pop_back();
+        additional_info.previously_done_moves.pop();
     }
 
     inline void kyokumen_t::clear_additional_info()
@@ -2736,6 +2847,7 @@ namespace shogipp
         additional_info.check_list_stack.clear();
         additional_info.hash_stack.clear();
         update_king_position_list();
+        additional_info.previously_done_moves.clear();
     }
 
     inline void kyokumen_t::update_king_position_list()
@@ -2979,8 +3091,23 @@ namespace shogipp
 
     inline moves_t kyokumen_t::search_moves() const
     {
+        if (anti_repetition_of_moves)
+            return strict_search_moves();
+        return lenient_search_moves();
+    }
+
+    inline moves_t kyokumen_t::lenient_search_moves() const
+    {
         moves_t moves;
         search_moves(std::back_inserter(moves));
+        return moves;
+    }
+
+    inline moves_t kyokumen_t::strict_search_moves() const
+    {
+        moves_t moves;
+        search_moves(std::back_inserter(moves));
+        remove_repetition_of_moves(moves);
         return moves;
     }
 
@@ -3075,10 +3202,9 @@ namespace shogipp
 
     inline void kyokumen_t::print_move() const
     {
-        moves_t move;
         kyokumen_t temp = *this;
-        temp.search_moves(std::back_inserter(move));
-        print_move(move.begin(), move.end());
+        const moves_t moves = temp.strict_search_moves();
+        print_move(moves.begin(), moves.end());
     }
 
     inline void kyokumen_t::print_check() const
@@ -3233,6 +3359,19 @@ namespace shogipp
         return result;
     }
 
+    inline void kyokumen_t::remove_repetition_of_moves(moves_t & moves) const noexcept
+    {
+        const hash_t hash = this->hash();
+        const color_t color = this->color();
+        moves.erase(std::remove_if(moves.begin(), moves.end(), [&](const auto & i) -> bool
+            {
+                return additional_info.previously_done_moves.contains(
+                    hash_table.move_hash(i, color) + hash
+                );
+            }
+        ), moves.end());
+    }
+
     using evaluation_value_t = int;
 
     template<typename Key, typename Value, typename Hash = std::hash<Key>>
@@ -3351,8 +3490,7 @@ namespace shogipp
             bool selected = false;
 
             unsigned int id;
-            moves_t moves;
-            kyokumen.search_moves(std::back_inserter(moves));
+            moves_t moves = kyokumen.search_moves();
             
             while (!selected)
             {
@@ -3785,8 +3923,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        moves_t moves;
-        kyokumen.search_moves(std::back_inserter(moves));
+        moves_t moves = kyokumen.search_moves();
 
         if (moves.empty())
             return -std::numeric_limits<evaluation_value_t>::max();
@@ -3920,8 +4057,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        moves_t moves;
-        kyokumen.search_moves(std::back_inserter(moves));
+        moves_t moves = kyokumen.search_moves();
         sort_moves_by_category(moves.begin(), moves.end());
 
         if (moves.empty())
@@ -4052,8 +4188,7 @@ namespace shogipp
             {
                 std::vector<evaluated_moves> evaluated_moves;
                 auto inserter = std::back_inserter(evaluated_moves);
-                moves_t moves;
-                kyokumen.search_moves(std::back_inserter(moves));
+                moves_t moves = kyokumen.search_moves();
                 for (const move_t & move : moves)
                 {
                     if (!move.put() && move.destination() == previous_destination)
@@ -4096,8 +4231,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        moves_t moves;
-        kyokumen.search_moves(std::back_inserter(moves));
+        moves_t moves = kyokumen.search_moves();
         sort_moves_by_category(moves.begin(), moves.end());
 
         if (moves.empty())
@@ -4192,8 +4326,7 @@ namespace shogipp
          */
         move_t best_move(kyokumen_t & kyokumen) override
         {
-            moves_t moves;
-            kyokumen.search_moves(std::back_inserter(moves));
+            moves_t moves = kyokumen.search_moves();
 
             std::vector<evaluated_moves> scores;
             auto back_inserter = std::back_inserter(scores);
@@ -4741,8 +4874,7 @@ namespace shogipp
 
     inline void taikyoku_t::update_moves() const
     {
-        moves.clear();
-        kyokumen.search_moves(std::back_inserter(moves));
+        moves = kyokumen.search_moves();
     }
 
     /**

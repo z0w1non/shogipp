@@ -5587,7 +5587,7 @@ namespace shogipp
                     if (!std::regex_match(path, results, std::regex(R"((.*)_(\d+))")))
                         throw std::exception();
                     name = results[1].str();
-                    id = std::stoull(results[1].str());
+                    id = std::stoull(results[2].str());
 
                     individuals.push_back(std::make_shared<genom_evaluator_t>(path, name, id));
                 }
@@ -5683,8 +5683,8 @@ namespace shogipp
                 else
                 {
                     std::vector<std::string> genom_paths;
-                    for (const std::filesystem::directory_entry & dir : std::filesystem::directory_iterator{ *ga_genom })
-                        genom_paths.push_back(dir.path().string());
+                    for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_genom })
+                        genom_paths.push_back(entry.path().string());
                     ga = std::make_shared<generic_algorithm_t>(genom_paths);
                 }
 

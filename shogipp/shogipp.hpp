@@ -4620,8 +4620,9 @@ namespace shogipp
             {
                 if (!board_t::out(position) && !kyokumen.board[position].empty())
                 {
-                    std::vector<kiki_t> kiki_list;
                     const color_t color = kyokumen.board[position].to_color();
+
+                    std::vector<kiki_t> kiki_list;
                     kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
                     evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
 

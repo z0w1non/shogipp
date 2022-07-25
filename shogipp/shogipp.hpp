@@ -5520,64 +5520,58 @@ namespace shogipp
             return taikyoku.kyokumen.kifu;
         }
 
-        inline void run(unsigned long long iteration_number = 1)
+        inline void run()
         {
-            for (unsigned long long iteration_count = 0; iteration_count < iteration_number; ++iteration_count)
+            std::vector<fitness_type> fitness_table;
+            fitness_table.resize(individuals.size(), 0);
+
+            // 総当りで対局させる。
+            for (std::size_t i = 0; i < individuals.size(); ++i)
             {
-                std::vector<fitness_type> fitness_table;
-                fitness_table.resize(individuals.size(), 0);
-
-                // 総当りで対局させる。
-                for (std::size_t i = 0; i < individuals.size(); ++i)
+                for (std::size_t j = 0; j < individuals.size(); ++j)
                 {
-                    for (std::size_t j = 0; j < individuals.size(); ++j)
+                    if (i != j)
                     {
-                        if (i != j)
-                        {
-                            std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j]);
-                            if (kifu.size() % 2 == 1) // 棋譜の長さが奇数の場合、先手の勝利
-                                fitness_table[i] += 1;
-                        }
+                        std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j]);
+                        if (kifu.size() % 2 == 1) // 棋譜の長さが奇数の場合、先手の勝利
+                            fitness_table[i] += 1;
                     }
                 }
-
-                // 次世代を作成する。
-                std::vector<std::shared_ptr<genom_evaluator_t>> next_individuals;
-                while (next_individuals.size() < individuals.size())
-                {
-                    const action_t action = random_action();
-                    if (action == action_t::mutation)
-                    {
-                        const std::shared_ptr<genom_evaluator_t> & individual = select_individual(fitness_table);
-                        const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*individual->genom());
-                        genom->mutate();
-                        const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, individual->name(), individual->id() + 1);
-                        next_individuals.push_back(next_individual);
-                    }
-                    else if (action == action_t::crossover)
-                    {
-                        const std::shared_ptr<genom_evaluator_t> & base = select_individual(fitness_table);
-                        const std::shared_ptr<genom_evaluator_t> & sub = select_individual(fitness_table);
-                        const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*base->genom());
-                        genom->clossover(*sub->genom());
-                        const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, base->name(), base->id() + 1);
-                        next_individuals.push_back(next_individual);
-                    }
-                    else if (action == action_t::selection)
-                    {
-                        const std::shared_ptr<genom_evaluator_t> & individual = select_individual(fitness_table);
-                        const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*individual->genom());
-                        const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, individual->name(), individual->id() + 1);
-                        next_individuals.push_back(next_individual);
-                    }
-                }
-
-                // 世代を更新する。
-                individuals = std::move(next_individuals);
             }
 
-            for (const auto & individual : individuals)
-                individual->write_file(individual->name() + "_" + std::to_string(individual->id()));
+            // 次世代を作成する。
+            std::vector<std::shared_ptr<genom_evaluator_t>> next_individuals;
+            while (next_individuals.size() < individuals.size())
+            {
+                const action_t action = random_action();
+                if (action == action_t::mutation)
+                {
+                    const std::shared_ptr<genom_evaluator_t> & individual = select_individual(fitness_table);
+                    const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*individual->genom());
+                    genom->mutate();
+                    const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, individual->name(), individual->id() + 1);
+                    next_individuals.push_back(next_individual);
+                }
+                else if (action == action_t::crossover)
+                {
+                    const std::shared_ptr<genom_evaluator_t> & base = select_individual(fitness_table);
+                    const std::shared_ptr<genom_evaluator_t> & sub = select_individual(fitness_table);
+                    const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*base->genom());
+                    genom->clossover(*sub->genom());
+                    const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, base->name(), base->id() + 1);
+                    next_individuals.push_back(next_individual);
+                }
+                else if (action == action_t::selection)
+                {
+                    const std::shared_ptr<genom_evaluator_t> & individual = select_individual(fitness_table);
+                    const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*individual->genom());
+                    const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, individual->name(), individual->id() + 1);
+                    next_individuals.push_back(next_individual);
+                }
+            }
+
+            // 世代を更新する。
+            individuals = std::move(next_individuals);
         }
 
         inline generic_algorithm_t(const std::vector<std::string> & paths)
@@ -5616,6 +5610,12 @@ namespace shogipp
             }
         }
 
+        inline void write_file(const std::string & directory) const
+        {
+            for (const auto & individual : individuals)
+                individual->write_file(directory + "/" + individual->name() + "_" + std::to_string(individual->id()));
+        }
+
         std::vector<std::shared_ptr<genom_evaluator_t>> individuals;
         unsigned int mutation_ratio = 1;
         unsigned int crossover_ratio = 500;
@@ -5631,8 +5631,6 @@ namespace shogipp
             std::optional<unsigned long long> ga_iteration;
             std::optional<std::string> ga_genom;
             std::optional<unsigned int> ga_create_genom;
-
-            std::shared_ptr<abstract_evaluator_t> a, b;
 
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {
@@ -5652,7 +5650,7 @@ namespace shogipp
                     }
                     catch (...)
                     {
-                        std::cerr << "invalid parameter" << std::endl;
+                        std::cerr << "invalid ga-iteration parameter" << std::endl;
                     }
                 }
                 else if (option == "ga-genom" && !params.empty())
@@ -5667,7 +5665,7 @@ namespace shogipp
                     }
                     catch (...)
                     {
-                        std::cerr << "invalid parameter" << std::endl;
+                        std::cerr << "invalid ga-create-genom parameter" << std::endl;
                     }
                 }
             };
@@ -5689,7 +5687,10 @@ namespace shogipp
                     ga = std::make_shared<generic_algorithm_t>(genom_paths);
                 }
 
-                ga->run(*ga_iteration);
+                for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
+                    ga->run();
+
+                ga->write_file(*ga_genom);
             }
             else if (black_name && white_name)
             {

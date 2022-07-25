@@ -4577,14 +4577,14 @@ namespace shogipp
         {
             std::ifstream in(path, std::ios::in | std::ios::binary);
             char * data = reinterpret_cast<char *>(this);
-            in.read(data, sizeof(data));
+            in.read(data, sizeof(*this));
         }
 
         inline void write_file(const std::filesystem::path & path) const
         {
             std::ofstream out(path, std::ios::out | std::ios::binary);
             const char * data = reinterpret_cast<const char *>(this);
-            out.write(data, sizeof(data));
+            out.write(data, sizeof(*this));
         }
 
         inline evaluation_value_t evaluate(kyokumen_t & kyokumen) const
@@ -5678,6 +5678,7 @@ namespace shogipp
                 if (ga_create_genom)
                 {
                     ga = std::make_shared<generic_algorithm_t>(*ga_create_genom);
+                    ga->write_file(*ga_genom);
                 }
                 else
                 {

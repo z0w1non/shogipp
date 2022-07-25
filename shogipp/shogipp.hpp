@@ -5457,7 +5457,7 @@ namespace shogipp
         { "fukayomi", std::make_shared<fukayomi_evaluator_t>() },
     };
 
-    class generic_algorithm_t
+    class genetic_algorithm_t
     {
     public:
         enum class action_t
@@ -5574,7 +5574,7 @@ namespace shogipp
             individuals = std::move(next_individuals);
         }
 
-        inline generic_algorithm_t(const std::vector<std::string> & paths)
+        inline genetic_algorithm_t(const std::vector<std::string> & paths)
         {
             for (const std::string & path : paths)
             {
@@ -5598,7 +5598,7 @@ namespace shogipp
             }
         }
 
-        inline generic_algorithm_t(unsigned int genom_number)
+        inline genetic_algorithm_t(unsigned int genom_number)
         {
             for (unsigned int i = 0; i < genom_number; ++i)
             {
@@ -5617,9 +5617,9 @@ namespace shogipp
         }
 
         std::vector<std::shared_ptr<genom_evaluator_t>> individuals;
-        unsigned int mutation_ratio = 1;
-        unsigned int crossover_ratio = 500;
-        unsigned int selection_ratio = 499;
+        unsigned int mutation_ratio = 10;
+        unsigned int crossover_ratio = 800;
+        unsigned int selection_ratio = 190;
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept
@@ -5673,11 +5673,11 @@ namespace shogipp
 
             if (ga_iteration && ga_genom)
             {
-                std::shared_ptr<generic_algorithm_t> ga;
+                std::shared_ptr<genetic_algorithm_t> ga;
 
                 if (ga_create_genom)
                 {
-                    ga = std::make_shared<generic_algorithm_t>(*ga_create_genom);
+                    ga = std::make_shared<genetic_algorithm_t>(*ga_create_genom);
                     ga->write_file(*ga_genom);
                 }
                 else
@@ -5685,7 +5685,7 @@ namespace shogipp
                     std::vector<std::string> genom_paths;
                     for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_genom })
                         genom_paths.push_back(entry.path().string());
-                    ga = std::make_shared<generic_algorithm_t>(genom_paths);
+                    ga = std::make_shared<genetic_algorithm_t>(genom_paths);
                 }
 
                 for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)

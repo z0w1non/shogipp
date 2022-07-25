@@ -931,6 +931,19 @@ namespace shogipp
         return hash;
     }
 
+    static std::minstd_rand random_impl{ SHOGIPP_SEED };
+
+    /**
+     * @breif 乱数を返す。
+     * @return 乱数
+     */
+    template<typename T>
+    inline T random(int min = std::numeric_limits<T>::min(), int max = std::numeric_limits<T>::max())
+    {
+        std::uniform_int_distribution<> uid{ min, max };
+        return uid(random_impl);
+    }
+
 #ifdef SIZE_OF_HASH
 
     /**
@@ -1059,6 +1072,30 @@ namespace shogipp
 #endif
     }
 
+    enum : std::size_t
+    {
+        captured_pawn_offset    = 0                                            , captured_pawn_size   = 18 + 1,
+        captured_lance_offset   = captured_pawn_offset   + captured_pawn_size  , captured_lance_size  =  4 + 1,
+        captured_knight_offset  = captured_lance_offset  + captured_lance_size , captured_knight_size =  4 + 1,
+        captured_silver_offset  = captured_knight_offset + captured_knight_size, captured_silver_size =  4 + 1,
+        captured_gold_offset    = captured_silver_offset + captured_silver_size, captured_gold_size   =  4 + 1,
+        captured_bishop_offset  = captured_gold_offset   + captured_gold_size  , captured_bishop_size =  2 + 1,
+        captured_rook_offset    = captured_bishop_offset + captured_bishop_size, captured_rook_size   =  2 + 1,
+        captured_size           = captured_rook_offset   + captured_rook_size
+    };
+
+    constexpr std::size_t captured_offsets[]
+    {
+        0, /* dummy */
+        captured_pawn_offset,
+        captured_lance_offset,
+        captured_knight_offset,
+        captured_silver_offset,
+        captured_gold_offset,
+        captured_bishop_offset,
+        captured_rook_offset,
+    };
+
     class move_t;
 
     /**
@@ -1103,19 +1140,6 @@ namespace shogipp
          * @return ハッシュ値
          */
         inline hash_t move_hash(const move_t & move, color_t color) const noexcept;
-
-    private:
-        enum : std::size_t
-        {
-            captured_pawn_offset    = 0                                            , captured_pawn_size   = 18 + 1,
-            captured_lance_offset   = captured_pawn_offset   + captured_pawn_size  , captured_lance_size  =  4 + 1,
-            captured_knight_offset  = captured_lance_offset  + captured_lance_size , captured_knight_size =  4 + 1,
-            captured_silver_offset  = captured_knight_offset + captured_knight_size, captured_silver_size =  4 + 1,
-            captured_gold_offset    = captured_silver_offset + captured_silver_size, captured_gold_size   =  4 + 1,
-            captured_bishop_offset  = captured_gold_offset   + captured_gold_size  , captured_bishop_size =  2 + 1,
-            captured_rook_offset    = captured_bishop_offset + captured_bishop_size, captured_rook_size   =  2 + 1,
-            captured_size           = captured_rook_offset   + captured_rook_size
-        };
 
         hash_t board_table[piece_size * file_size * rank_size];              // 盤のハッシュテーブル
         hash_t captured_piece_table[captured_size * color_t::size()];            // 持ち駒のハッシュテーブル
@@ -1165,19 +1189,7 @@ namespace shogipp
         SHOGIPP_ASSERT(!(piece == captured_bishop && count >= captured_bishop_size));
         SHOGIPP_ASSERT(!(piece == captured_rook   && count >= captured_rook_size  ));
 
-        static const std::size_t map[]
-        {
-            0, /* dummy */
-            captured_pawn_offset,
-            captured_lance_offset,
-            captured_knight_offset,
-            captured_silver_offset,
-            captured_gold_offset,
-            captured_bishop_offset,
-            captured_rook_offset,
-        };
-
-        std::size_t index = map[piece.value()];
+        std::size_t index = captured_offsets[piece.value()];
         index += count;
         index *= color_t::size();
         index += color.value();
@@ -3465,7 +3477,7 @@ namespace shogipp
          * @breif 評価関数オブジェクトの名前を返す。
          * @return 評価関数オブジェクトの名前
          */
-        virtual const char * name() = 0;
+        virtual const char * name() const = 0;
     };
 
     /**
@@ -4372,7 +4384,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        const char * name() override
+        const char * name() const override
         {
             return "sample evaluator";
         }
@@ -4409,7 +4421,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        const char * name() override
+        const char * name() const override
         {
             return "ひよこ";
         }
@@ -4447,7 +4459,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        const char * name() override
+        const char * name() const override
         {
             return "にわとり";
         }
@@ -4507,10 +4519,122 @@ namespace shogipp
             return evaluation_value;
         }
 
-        const char * name() override
+        const char * name() const override
         {
             return "深読み";
         }
+    };
+
+    class genom_t
+    {
+    public:
+        short board_piece[promoted_rook_value - pawn_value + 1];
+        short captured_piece_point[captured_size];
+        short kiki_point;
+        short himo_point;
+        short destination_point;
+
+        inline void generate() noexcept
+        {
+            unsigned char * begin = reinterpret_cast<unsigned char *>(this);
+            unsigned char * end = reinterpret_cast<unsigned char *>(this) + sizeof(*this);
+            std::generate(begin, end, []() -> unsigned char { return random<unsigned char>(); });
+        }
+
+        inline void mutate() noexcept
+        {
+            unsigned char * begin = reinterpret_cast<unsigned char *>(this);
+            const unsigned int shift = random<unsigned int>(0, CHAR_BIT - 1);
+            const std::size_t offset = random<std::size_t>(0, sizeof(*this) - 1);
+            unsigned char * data = reinterpret_cast<unsigned char *>(this);
+            data[offset] ^= (1 << shift);
+        }
+
+        inline void read_file(const std::filesystem::path & path)
+        {
+            std::ifstream in(path, std::ios::in | std::ios::binary);
+            char * data = reinterpret_cast<char *>(this);
+            in.read(data, sizeof(data));
+        }
+
+        inline void write_file(const std::filesystem::path & path) const
+        {
+            std::ofstream out(path, std::ios::out | std::ios::binary);
+            const char * data = reinterpret_cast<const char *>(this);
+            out.write(data, sizeof(data));
+        }
+
+        inline evaluation_value_t evaluate(kyokumen_t & kyokumen) const
+        {
+            evaluation_value_t evaluation_value = 0;
+
+            for (position_t position = position_begin; position < position_end; ++position)
+            {
+                const colored_piece_t piece = kyokumen.board[position];
+                if (!board_t::out(position) && !piece.empty())
+                {
+                    const std::size_t index = noncolored_piece_t{ piece }.value() - pawn_value;
+                    SHOGIPP_ASSERT(index < std::size(board_piece));
+                    evaluation_value += board_piece[index] * reverse(piece.to_color());
+                }
+            }
+
+            for (const color_t color : colors)
+            {
+                for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
+                {
+                    const std::size_t index = captured_offsets[piece] + kyokumen.captured_pieces_list[color.value()][piece];
+                    SHOGIPP_ASSERT(index < std::size(captured_piece_point));
+                    evaluation_value += captured_piece_point[index] * reverse(color);
+                }
+            }
+
+            for (position_t position = position_begin; position < position_end; ++position)
+            {
+                if (!board_t::out(position) && !kyokumen.board[position].empty())
+                {
+                    std::vector<kiki_t> kiki_list;
+                    const color_t color = kyokumen.board[position].to_color();
+                    kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
+                    evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
+
+                    std::vector<position_t> himo_list;
+                    kyokumen.search_himo(std::back_inserter(himo_list), position, color);
+                    evaluation_value += himo_point * static_cast<evaluation_value_t>(himo_list.size()) * reverse(color);
+
+                    std::vector<position_t> destination_list;
+                    kyokumen.search_destination(std::back_inserter(destination_list), position, color);
+                    evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
+                }
+            }
+
+            return evaluation_value;
+        }
+    };
+
+    class genom_evaluator_t
+        : public extendable_alphabeta_evaluator_t
+    {
+    public:
+        inline genom_evaluator_t(const std::string & path)
+            : m_genom{ std::make_shared<genom_t>() }
+            , m_name{ path }
+        {
+            m_genom->read_file(path);
+        }
+
+        evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        {
+            m_genom->evaluate(kyokumen);
+        }
+
+        const char * name() const override
+        {
+            return m_name.c_str();
+        }
+
+        std::shared_ptr<genom_t> m_genom;
+        std::string m_name;
     };
 
     /**
@@ -4525,7 +4649,7 @@ namespace shogipp
             return uid(rand);
         }
 
-        const char * name() override
+        const char * name() const override
         {
             return "random evaluator";
         }

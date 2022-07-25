@@ -260,6 +260,33 @@ namespace shogipp
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
         }
+
+        /**
+         * @breif 乱数を返す。
+         * @return 乱数
+         */
+        template<typename T>
+        inline T random(int min = std::numeric_limits<T>::min(), int max = std::numeric_limits<T>::max())
+        {
+            static std::minstd_rand random_impl{ SHOGIPP_SEED };
+            std::uniform_int_distribution<> uid{ min, max };
+            return uid(random_impl);
+        }
+
+        /**
+         * @breif バイト値を一様交叉する。
+         * @param a 値1
+         * @param b 値2
+         * @return 一様交叉された値
+         */
+        inline unsigned char uniform_croossover(unsigned char a, unsigned char b)
+        {
+            unsigned char result = 0;
+            unsigned char random_byte = random<unsigned char>();
+            result |= (a & random_byte);
+            result |= (b & (~random_byte));
+            return result;
+        }
     } // namespace details
 
     class file_format_error
@@ -929,19 +956,6 @@ namespace shogipp
         while (hash = uid(rand), returned.find(hash) != returned.end());
         returned.insert(hash);
         return hash;
-    }
-
-    static std::minstd_rand random_impl{ SHOGIPP_SEED };
-
-    /**
-     * @breif 乱数を返す。
-     * @return 乱数
-     */
-    template<typename T>
-    inline T random(int min = std::numeric_limits<T>::min(), int max = std::numeric_limits<T>::max())
-    {
-        std::uniform_int_distribution<> uid{ min, max };
-        return uid(random_impl);
     }
 
 #ifdef SIZE_OF_HASH
@@ -3477,7 +3491,7 @@ namespace shogipp
          * @breif 評価関数オブジェクトの名前を返す。
          * @return 評価関数オブジェクトの名前
          */
-        virtual const char * name() const = 0;
+        virtual std::string name() const = 0;
     };
 
     /**
@@ -3518,7 +3532,7 @@ namespace shogipp
             return moves[id];
         }
 
-        const char * name()
+        std::string name()
         {
             return "command_line_evaluator";
         }
@@ -4384,7 +4398,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        const char * name() const override
+        std::string name() const override
         {
             return "sample evaluator";
         }
@@ -4421,7 +4435,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        const char * name() const override
+        std::string name() const override
         {
             return "ひよこ";
         }
@@ -4459,7 +4473,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        const char * name() const override
+        std::string name() const override
         {
             return "にわとり";
         }
@@ -4519,7 +4533,7 @@ namespace shogipp
             return evaluation_value;
         }
 
-        const char * name() const override
+        std::string name() const override
         {
             return "深読み";
         }
@@ -4538,16 +4552,25 @@ namespace shogipp
         {
             unsigned char * begin = reinterpret_cast<unsigned char *>(this);
             unsigned char * end = reinterpret_cast<unsigned char *>(this) + sizeof(*this);
-            std::generate(begin, end, []() -> unsigned char { return random<unsigned char>(); });
+            std::generate(begin, end, []() -> unsigned char { return details::random<unsigned char>(); });
         }
 
         inline void mutate() noexcept
         {
             unsigned char * begin = reinterpret_cast<unsigned char *>(this);
-            const unsigned int shift = random<unsigned int>(0, CHAR_BIT - 1);
-            const std::size_t offset = random<std::size_t>(0, sizeof(*this) - 1);
+            const unsigned int shift = details::random<unsigned int>(0, CHAR_BIT - 1);
+            const std::size_t offset = details::random<std::size_t>(0, sizeof(*this) - 1);
             unsigned char * data = reinterpret_cast<unsigned char *>(this);
             data[offset] ^= (1 << shift);
+        }
+
+        inline void clossover(const genom_t & genom) noexcept
+        {
+            unsigned char * first = reinterpret_cast<unsigned char *>(this);
+            unsigned char * last = reinterpret_cast<unsigned char *>(this) + sizeof(*this);
+            const unsigned char * input = reinterpret_cast<const unsigned char *>(&genom);
+            while (first != last)
+                *first++ ^= *input++;
         }
 
         inline void read_file(const std::filesystem::path & path)
@@ -4616,25 +4639,70 @@ namespace shogipp
         : public extendable_alphabeta_evaluator_t
     {
     public:
-        inline genom_evaluator_t(const std::string & path)
+        using id_type = unsigned long long;
+
+        inline genom_evaluator_t(const std::filesystem::path & path, const std::string & name, id_type id)
             : m_genom{ std::make_shared<genom_t>() }
-            , m_name{ path }
+            , m_name{ name }
+            , m_id{ id }
         {
             m_genom->read_file(path);
         }
+
+        inline genom_evaluator_t(const std::shared_ptr<genom_t> & genom, const std::string & name, id_type id)
+            : m_genom{ genom }
+            , m_name{ name }
+            , m_id{ id }
+        {
+        }
+
+        inline genom_evaluator_t()
+            : m_genom{ std::make_shared<genom_t>() }
+            , m_name{ std::to_string(unique_size_t_hash()) }
+            , m_id{}
+        {
+            m_genom->generate();
+        }
+
+        inline genom_evaluator_t(const genom_evaluator_t &) = default;
+        inline genom_evaluator_t(genom_evaluator_t &&) = default;
+        inline genom_evaluator_t & operator =(const genom_evaluator_t &) = default;
+        inline genom_evaluator_t & operator =(genom_evaluator_t &&) = default;
 
         evaluation_value_t evaluate(kyokumen_t & kyokumen) override
         {
             m_genom->evaluate(kyokumen);
         }
 
-        const char * name() const override
+        std::string name() const override
         {
-            return m_name.c_str();
+            return m_name;
         }
 
+        inline void write_file(const std::filesystem::path & path) const
+        {
+            m_genom->write_file(path);
+        }
+
+        inline const std::shared_ptr<genom_t> & genom() const noexcept
+        {
+            return m_genom;
+        }
+
+        inline std::shared_ptr<genom_t> & genom() noexcept
+        {
+            return m_genom;
+        }
+
+        inline id_type id() const noexcept
+        {
+            return m_id;
+        }
+
+    private:
         std::shared_ptr<genom_t> m_genom;
         std::string m_name;
+        id_type m_id;
     };
 
     /**
@@ -4649,7 +4717,7 @@ namespace shogipp
             return uid(rand);
         }
 
-        const char * name() const override
+        std::string name() const override
         {
             return "random evaluator";
         }
@@ -4842,7 +4910,7 @@ namespace shogipp
          * @breif 棋士の名前を返す。
          * @return 棋士の名前
          */
-        virtual const char * name() const = 0;
+        virtual std::string name() const = 0;
     };
 
     /**
@@ -4853,7 +4921,7 @@ namespace shogipp
     {
     public:
         command_t get_command(taikyoku_t & taikyoku) override;
-        const char * name() const override;
+        std::string name() const override;
     };
 
     /**
@@ -4868,7 +4936,7 @@ namespace shogipp
         {}
 
         command_t get_command(taikyoku_t & taikyoku) override;
-        const char * name() const override;
+        std::string name() const override;
 
     private:
         std::shared_ptr<abstract_evaluator_t> ptr;
@@ -4879,7 +4947,7 @@ namespace shogipp
         return read_command_line_input(taikyoku.get_moves());
     }
 
-    const char * stdin_kishi_t::name() const
+    std::string stdin_kishi_t::name() const
     {
         return "stdin";
     }
@@ -4889,7 +4957,7 @@ namespace shogipp
         return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen) };
     }
 
-    const char * computer_kishi_t::name() const
+    std::string computer_kishi_t::name() const
     {
         return ptr->name();
     }
@@ -5387,6 +5455,165 @@ namespace shogipp
         { "hiyoko"  , std::make_shared<hiyoko_evaluator_t  >() },
         { "niwatori", std::make_shared<niwatori_evaluator_t>() },
         { "fukayomi", std::make_shared<fukayomi_evaluator_t>() },
+    };
+
+    class generic_algorithm_t
+    {
+    public:
+        enum class action_t
+        {
+            mutation,
+            crossover,
+            selection
+        };
+
+        using fitness_type = unsigned int;
+
+        inline action_t random_action() noexcept
+        {
+            unsigned int div = mutation_ratio + crossover_ratio + selection_ratio;
+            unsigned int value = details::random<unsigned int>(0, div - 1);
+            if (value < mutation_ratio)
+                return action_t::mutation;
+            value -= mutation_ratio;
+            if (value < crossover_ratio)
+                return action_t::crossover;
+            return action_t::selection;
+        }
+
+        inline const std::shared_ptr<genom_evaluator_t> & select_individual(const std::vector<fitness_type> & fitness_table) const
+        {
+            fitness_type div = 0;
+            for (const fitness_type fitness : fitness_table)
+                div += fitness;
+            for (std::size_t i = 0; i < fitness_table.size(); ++i)
+            {
+                const fitness_type fitness = fitness_table[i];
+                if (div < fitness)
+                    return individuals[i];
+                div -= fitness;
+            }
+            return individuals.back();
+        }
+
+        inline static std::vector<move_t> make_kifu(const std::shared_ptr<genom_evaluator_t> & black, const std::shared_ptr<genom_evaluator_t> & white)
+        {
+            std::shared_ptr<abstract_kishi_t> black_kishi{ std::make_shared<computer_kishi_t>(black) };
+            std::shared_ptr<abstract_kishi_t> white_kishi{ std::make_shared<computer_kishi_t>(white) };
+
+            taikyoku_t taikyoku{ black_kishi, white_kishi };
+            while (true)
+            {
+                taikyoku.print();
+                if (!taikyoku.procedure())
+                    break;
+            }
+
+            taikyoku.print(); // 詰んだ局面を標準出力に出力する。
+
+            std::cout << std::endl;
+            details::timer.print_elapsed_time();
+
+            taikyoku.kyokumen.print_kifu();
+            std::cout.flush();
+
+            return taikyoku.kyokumen.kifu;
+        }
+
+        inline void run(unsigned long long iteration_number = 1)
+        {
+            for (unsigned long long iteration_count = 0; iteration_count < iteration_number; ++iteration_count)
+            {
+                std::vector<fitness_type> fitness_table;
+                fitness_table.resize(individuals.size());
+
+                // 総当りで対局させる。
+                for (std::size_t i = 0; i < individuals.size(); ++i)
+                {
+                    for (std::size_t j = 0; j < individuals.size(); ++j)
+                    {
+                        if (i != j)
+                        {
+                            std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j]);
+                            if (kifu.size() % 2 == 1)
+                                fitness_table[i] += 1;
+                        }
+                    }
+                }
+
+                // 次世代を作成する。
+                std::vector<std::shared_ptr<genom_evaluator_t>> next_individuals;
+                while (next_individuals.size() < individuals.size())
+                {
+                    const action_t action = random_action();
+                    if (action == action_t::mutation)
+                    {
+                        const std::shared_ptr<genom_evaluator_t> & individual = select_individual(fitness_table);
+                        const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*individual->genom());
+                        genom->mutate();
+                        const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, individual->name(), individual->id() + 1);
+                        next_individuals.push_back(next_individual);
+                    }
+                    else if (action == action_t::crossover)
+                    {
+                        const std::shared_ptr<genom_evaluator_t> & base = select_individual(fitness_table);
+                        const std::shared_ptr<genom_evaluator_t> & sub = select_individual(fitness_table);
+                        const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*base->genom());
+                        genom->clossover(*sub->genom());
+                        const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, base->name(), base->id() + 1);
+                        next_individuals.push_back(next_individual);
+                    }
+                    else if (action == action_t::selection)
+                    {
+                        const std::shared_ptr<genom_evaluator_t> & individual = select_individual(fitness_table);
+                        const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*individual->genom());
+                        const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, individual->name(), individual->id() + 1);
+                        next_individuals.push_back(next_individual);
+                    }
+                }
+
+                // 世代を更新する。
+                individuals = std::move(next_individuals);
+            }
+
+            for (const auto & individual : individuals)
+                individual->write_file(individual->name() + "_" + std::to_string(individual->id()));
+        }
+
+        inline generic_algorithm_t(const std::vector<std::string> & paths)
+        {
+            for (const std::string & path : paths)
+            {
+                try
+                {
+                    std::smatch results;
+                    std::string name;
+                    unsigned long long id{};
+
+                    if (!std::regex_match(path, results, std::regex(R"((.*)_(\d+))")))
+                        throw std::exception();
+                    name = results[1].str();
+                    id = std::stoull(results[1].str());
+
+                    individuals.push_back(std::make_shared<genom_evaluator_t>(path, name, id));
+                }
+                catch (...)
+                {
+                    std::cerr << "invalid format path" << std::endl;
+                }
+            }
+        }
+
+        inline generic_algorithm_t(std::size_t individual_number)
+        {
+            for (std::size_t i = 0; i < individual_number; ++i)
+                individuals.push_back(std::make_shared<genom_evaluator_t>());
+        }
+
+        std::vector<std::shared_ptr<genom_evaluator_t>> individuals;
+        unsigned int mutation_ratio = 1;
+        unsigned int crossover_ratio = 500;
+        unsigned int selection_ratio = 499;
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept

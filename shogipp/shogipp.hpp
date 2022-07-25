@@ -4671,7 +4671,7 @@ namespace shogipp
 
         evaluation_value_t evaluate(kyokumen_t & kyokumen) override
         {
-            m_genom->evaluate(kyokumen);
+            return m_genom->evaluate(kyokumen);
         }
 
         std::string name() const override
@@ -5525,7 +5525,7 @@ namespace shogipp
             for (unsigned long long iteration_count = 0; iteration_count < iteration_number; ++iteration_count)
             {
                 std::vector<fitness_type> fitness_table;
-                fitness_table.resize(individuals.size());
+                fitness_table.resize(individuals.size(), 0);
 
                 // ‘“–‚è‚Å‘Î‹Ç‚³‚¹‚éB
                 for (std::size_t i = 0; i < individuals.size(); ++i)
@@ -5535,7 +5535,7 @@ namespace shogipp
                         if (i != j)
                         {
                             std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j]);
-                            if (kifu.size() % 2 == 1)
+                            if (kifu.size() % 2 == 1) // Šû•ˆ‚Ì’·‚³‚ªŠï”‚Ìê‡Aæè‚ÌŸ—˜
                                 fitness_table[i] += 1;
                         }
                     }
@@ -5588,7 +5588,7 @@ namespace shogipp
                 {
                     std::smatch results;
                     std::string name;
-                    unsigned long long id{};
+                    genom_evaluator_t::id_type id{};
 
                     if (!std::regex_match(path, results, std::regex(R"((.*)_(\d+))")))
                         throw std::exception();
@@ -5604,10 +5604,16 @@ namespace shogipp
             }
         }
 
-        inline generic_algorithm_t(std::size_t individual_number)
+        inline generic_algorithm_t(unsigned int genom_number)
         {
-            for (std::size_t i = 0; i < individual_number; ++i)
-                individuals.push_back(std::make_shared<genom_evaluator_t>());
+            for (unsigned int i = 0; i < genom_number; ++i)
+            {
+                const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>();
+                genom->generate();
+                const std::string name = std::to_string(details::random<unsigned int>(0, genom_number - 1));
+                const genom_evaluator_t::id_type id{};
+                individuals.push_back(std::make_shared<genom_evaluator_t>(genom, name, id));
+            }
         }
 
         std::vector<std::shared_ptr<genom_evaluator_t>> individuals;
@@ -5622,6 +5628,9 @@ namespace shogipp
         {
             std::optional<std::string> black_name;
             std::optional<std::string> white_name;
+            std::optional<unsigned long long> ga_iteration;
+            std::optional<std::string> ga_genom;
+            std::optional<unsigned int> ga_create_genom;
 
             std::shared_ptr<abstract_evaluator_t> a, b;
 
@@ -5635,15 +5644,54 @@ namespace shogipp
                 {
                     white_name = params[0];
                 }
+                else if (option == "ga-iteration" && !params.empty())
+                {
+                    try
+                    {
+                        ga_iteration = std::stoull(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid parameter" << std::endl;
+                    }
+                }
+                else if (option == "ga-genom" && !params.empty())
+                {
+                    ga_genom = params[0];
+                }
+                else if (option == "ga-create-genom" && !params.empty())
+                {
+                    try
+                    {
+                        ga_create_genom = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid parameter" << std::endl;
+                    }
+                }
             };
             parse_program_options(argc, argv, callback);
 
-            if (!black_name || !white_name)
+            if (ga_iteration && ga_genom)
             {
-                usi_engine_t usi_engine;
-                usi_engine.run();
+                std::shared_ptr<generic_algorithm_t> ga;
+
+                if (ga_create_genom)
+                {
+                    ga = std::make_shared<generic_algorithm_t>(*ga_create_genom);
+                }
+                else
+                {
+                    std::vector<std::string> genom_paths;
+                    for (const std::filesystem::directory_entry & dir : std::filesystem::directory_iterator{ *ga_genom })
+                        genom_paths.push_back(dir.path().string());
+                    ga = std::make_shared<generic_algorithm_t>(genom_paths);
+                }
+
+                ga->run(*ga_iteration);
             }
-            else
+            else if (black_name && white_name)
             {
                 auto black_iter = kishi_map.find(*black_name);
                 if (black_iter == kishi_map.end())
@@ -5661,6 +5709,12 @@ namespace shogipp
 
                 do_taikyoku(black_kishi, white_kishi);
             }
+            else
+            {
+                usi_engine_t usi_engine;
+                usi_engine.run();
+            }
+
         }
         catch (const std::exception & e)
         {

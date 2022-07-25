@@ -4542,11 +4542,11 @@ namespace shogipp
     class genom_t
     {
     public:
-        short board_piece[promoted_rook_value - pawn_value + 1];
-        short captured_piece_point[captured_size];
-        short kiki_point;
-        short himo_point;
-        short destination_point;
+        short board_piece[promoted_rook_value - pawn_value + 1]{};
+        short captured_piece_point[captured_size]{};
+        short kiki_point{};
+        short himo_point{};
+        short destination_point{};
 
         inline void generate() noexcept
         {

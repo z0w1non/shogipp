@@ -4570,7 +4570,11 @@ namespace shogipp
             unsigned char * last = reinterpret_cast<unsigned char *>(this) + sizeof(*this);
             const unsigned char * input = reinterpret_cast<const unsigned char *>(&genom);
             while (first != last)
-                *first++ ^= *input++;
+            {
+                *first = details::uniform_croossover(*first, *input);
+                ++first;
+                ++input;
+            }
         }
 
         inline void read_file(const std::filesystem::path & path)

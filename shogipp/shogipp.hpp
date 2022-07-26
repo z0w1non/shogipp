@@ -5874,7 +5874,10 @@ namespace shogipp
                 }
                 else if (option == "ga-create-mode" && !params.empty())
                 {
-                    ga_create_mode = params[0];
+                    if (params[0] == "random" || params[0] == "template")
+                        ga_create_mode = params[0];
+                    else
+                        std::cerr << "invalid ga-create-mode parameter" << std::endl;
                 }
                 else if (option == "ga-mutation-rate" && !params.empty())
                 {

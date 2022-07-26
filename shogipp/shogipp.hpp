@@ -5508,8 +5508,8 @@ namespace shogipp
 
         inline static std::vector<move_t> make_kifu(const std::shared_ptr<chromosome_evaluator_t> & black, const std::shared_ptr<chromosome_evaluator_t> & white)
         {
-            std::shared_ptr<abstract_kishi_t> black_kishi{ std::make_shared<computer_kishi_t>(black) };
-            std::shared_ptr<abstract_kishi_t> white_kishi{ std::make_shared<computer_kishi_t>(white) };
+            const std::shared_ptr<abstract_kishi_t> black_kishi{ std::make_shared<computer_kishi_t>(black) };
+            const std::shared_ptr<abstract_kishi_t> white_kishi{ std::make_shared<computer_kishi_t>(white) };
 
             taikyoku_t taikyoku{ black_kishi, white_kishi };
             while (true)

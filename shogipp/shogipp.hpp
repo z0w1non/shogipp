@@ -992,9 +992,9 @@ namespace shogipp
         inline basic_hash_t & operator ^=(const basic_hash_t & hash) noexcept
         {
             std::size_t * first = reinterpret_cast<std::size_t *>(data);
-            std::size_t * end = reinterpret_cast<std::size_t *>(data + hash_size);
+            std::size_t * last = reinterpret_cast<std::size_t *>(data + hash_size);
             const std::size_t * input = reinterpret_cast<const std::size_t *>(hash.data);
-            while (first != end)
+            while (first != last)
                 *first++ ^= *input++;
             return *this;
         }

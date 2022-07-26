@@ -45,7 +45,7 @@
 #endif
 
 #ifdef NDEBUG
-#define SHOGIPP_ASSERT(expr)
+#define SHOGIPP_ASSERT(expr) (void)0
 #else
 #define SHOGIPP_ASSERT(expr)                                                        \
     do                                                                              \
@@ -3485,7 +3485,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        virtual move_t best_move(kyokumen_t & kyokumen) = 0;
+        virtual move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) = 0;
 
         /**
          * @breif 評価関数オブジェクトの名前を返す。
@@ -3900,7 +3900,7 @@ namespace shogipp
             std::optional<move_t> & candidate_move
         );
 
-        move_t best_move(kyokumen_t & kyokumen) override;
+        move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) override;
 
         std::shared_ptr<usi_info_t> usi_info;
 
@@ -3985,7 +3985,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen)
+    move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth)
     {
         if (usi_info)
         {
@@ -4033,7 +4033,7 @@ namespace shogipp
             cache_t & cache,
             std::optional<move_t> & candidate_move);
 
-        move_t best_move(kyokumen_t & kyokumen) override;
+        move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) override;
 
         std::shared_ptr<usi_info_t> usi_info;
 
@@ -4124,7 +4124,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen)
+    move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth)
     {
         if (usi_info)
         {
@@ -4174,7 +4174,7 @@ namespace shogipp
             std::optional<move_t> & candidate_move,
             position_t previous_destination);
 
-        move_t best_move(kyokumen_t & kyokumen) override;
+        move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) override;
 
         std::shared_ptr<usi_info_t> usi_info;
 
@@ -4299,7 +4299,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen)
+    move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth)
     {
         if (usi_info)
         {
@@ -4343,7 +4343,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t best_move(kyokumen_t & kyokumen) override
+        move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) override
         {
             moves_t moves = kyokumen.search_moves();
 
@@ -4964,7 +4964,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen) };
+        return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen, 0, 0) };
     }
 
     std::string computer_kishi_t::name() const
@@ -5316,7 +5316,7 @@ namespace shogipp
                         {
                             try
                             {
-                                evaluator->best_move(kyokumen);
+                                evaluator->best_move(kyokumen, 3, 256);
                             }
                             catch (...)
                             {

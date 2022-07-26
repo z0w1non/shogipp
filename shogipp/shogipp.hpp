@@ -3473,6 +3473,40 @@ namespace shogipp
 #endif
 
     /**
+     * @breif 評価関数オブジェクトが呼び出された文脈を表現する。
+     */
+    class context_t
+    {
+    public:
+        constexpr inline context_t() noexcept = default;
+
+        constexpr inline context_t(depth_t max_depth, depth_t selective_max_depth) noexcept
+            : m_max_depth{ max_depth }
+            , m_selective_max_depth{ selective_max_depth }
+        {
+        }
+
+        constexpr inline context_t(const context_t & context) noexcept = default;
+        constexpr inline context_t(context_t && context) noexcept = default;
+        constexpr inline context_t & operator =(const context_t & context) noexcept = default;
+        constexpr inline context_t & operator =(context_t && context) noexcept = default;
+
+        inline depth_t max_depth() const noexcept
+        {
+            return m_max_depth;
+        }
+
+        inline depth_t selective_max_depth() const noexcept
+        {
+            return m_selective_max_depth;
+        }
+
+    private:
+        depth_t m_max_depth{};
+        depth_t m_selective_max_depth{};
+    };
+
+    /**
      * @breif 評価関数オブジェクトのインターフェース
      */
     class abstract_evaluator_t
@@ -3485,7 +3519,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        virtual move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) = 0;
+        virtual move_t best_move(kyokumen_t & kyokumen, const context_t & context) = 0;
 
         /**
          * @breif 評価関数オブジェクトの名前を返す。
@@ -3501,7 +3535,7 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        move_t best_move(kyokumen_t & kyokumen)
+        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override
         {
             bool selected = false;
 
@@ -3532,7 +3566,7 @@ namespace shogipp
             return moves[id];
         }
 
-        std::string name()
+        std::string name() const override
         {
             return "command_line_evaluator";
         }
@@ -3897,22 +3931,21 @@ namespace shogipp
             kyokumen_t & kyokumen,
             depth_t depth,
             cache_t & cache,
-            std::optional<move_t> & candidate_move
+            std::optional<move_t> & candidate_move,
+            const context_t & context
         );
 
-        move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) override;
+        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
-
-    private:
-        depth_t max_depth = 3;
     };
 
     evaluation_value_t negamax_evaluator_t::negamax(
         kyokumen_t & kyokumen,
         depth_t depth,
         cache_t & cache,
-        std::optional<move_t> & candidate_move
+        std::optional<move_t> & candidate_move,
+        const context_t & context
     )
     {
         if (usi_info)
@@ -3924,7 +3957,7 @@ namespace shogipp
             usi_info->nodes += 1;
         }
 
-        if (depth >= max_depth)
+        if (depth >= context.max_depth())
         {
             ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
@@ -3965,7 +3998,7 @@ namespace shogipp
             {
                 VALIDATE_kyokumen_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -negamax(kyokumen, depth + 1, cache, nested_candidate_move);
+                evaluation_value = -negamax(kyokumen, depth + 1, cache, nested_candidate_move, context);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -3985,7 +4018,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth)
+    move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen, const context_t & context)
     {
         if (usi_info)
         {
@@ -3999,7 +4032,7 @@ namespace shogipp
         evaluation_value_t evaluation_value;
         try
         {
-            evaluation_value = negamax(kyokumen, 0, cache, candidate_move);
+            evaluation_value = negamax(kyokumen, 0, cache, candidate_move, context);
         }
         catch (const usi_stop_exception &)
         {
@@ -4031,14 +4064,13 @@ namespace shogipp
             evaluation_value_t alpha,
             evaluation_value_t beta,
             cache_t & cache,
-            std::optional<move_t> & candidate_move);
+            std::optional<move_t> & candidate_move,
+            const context_t & context
+        );
 
-        move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) override;
+        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
-
-    private:
-        depth_t max_depth = 3;
     };
 
     evaluation_value_t alphabeta_evaluator_t::alphabeta(
@@ -4047,7 +4079,9 @@ namespace shogipp
         evaluation_value_t alpha,
         evaluation_value_t beta,
         cache_t & cache,
-        std::optional<move_t> & candidate_move)
+        std::optional<move_t> & candidate_move,
+        const context_t & context
+    )
     {
         if (usi_info)
         {
@@ -4058,7 +4092,7 @@ namespace shogipp
             usi_info->nodes += 1;
         }
         
-        if (depth >= max_depth)
+        if (depth >= context.max_depth())
         {
             ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
@@ -4100,7 +4134,7 @@ namespace shogipp
             {
                 VALIDATE_kyokumen_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move);
+                evaluation_value = -alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, context);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -4124,7 +4158,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth)
+    move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, const context_t & context)
     {
         if (usi_info)
         {
@@ -4138,7 +4172,7 @@ namespace shogipp
         evaluation_value_t evaluation_value;
         try
         {
-            evaluation_value = alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move);
+            evaluation_value = alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, context);
         }
         catch (const usi_stop_exception &)
         {
@@ -4172,14 +4206,13 @@ namespace shogipp
             evaluation_value_t beta,
             cache_t & cache,
             std::optional<move_t> & candidate_move,
-            position_t previous_destination);
+            position_t previous_destination,
+            const context_t & context
+        );
 
-        move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) override;
+        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
-
-    private:
-        depth_t default_max_depth = 3;
     };
 
     evaluation_value_t extendable_alphabeta_evaluator_t::extendable_alphabeta(
@@ -4189,7 +4222,9 @@ namespace shogipp
         evaluation_value_t beta,
         cache_t & cache,
         std::optional<move_t> & candidate_move,
-        position_t previous_destination)
+        position_t previous_destination,
+        const context_t & context
+    )
     {
         if (usi_info)
         {
@@ -4200,10 +4235,10 @@ namespace shogipp
             usi_info->nodes += 1;
         }
         
-        if (depth >= default_max_depth)
+        if (depth >= context.max_depth())
         {
             // 前回駒取りが発生していた場合、探索を延長する。
-            if (previous_destination != npos)
+            if (depth >= context.selective_max_depth() && previous_destination != npos)
             {
                 std::vector<evaluated_moves> evaluated_moves;
                 auto inserter = std::back_inserter(evaluated_moves);
@@ -4217,7 +4252,7 @@ namespace shogipp
                         {
                             VALIDATE_kyokumen_ROLLBACK(kyokumen);
                             kyokumen.do_move(move);
-                            evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move, previous_destination);
+                            evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move, previous_destination, context);
                             kyokumen.undo_move(move);
                         }
                         *inserter++ = { &move, evaluation_value };
@@ -4275,7 +4310,7 @@ namespace shogipp
             {
                 VALIDATE_kyokumen_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
-                evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, destination);
+                evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, destination, context);
                 kyokumen.undo_move(move);
             }
             *inserter++ = { &move, evaluation_value };
@@ -4299,7 +4334,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth)
+    move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, const context_t & context)
     {
         if (usi_info)
         {
@@ -4313,7 +4348,7 @@ namespace shogipp
         evaluation_value_t evaluation_value;
         try
         {
-            evaluation_value = extendable_alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, npos);
+            evaluation_value = extendable_alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, npos, context);
         }
         catch (const usi_stop_exception &)
         {
@@ -4343,7 +4378,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t best_move(kyokumen_t & kyokumen, depth_t max_depth, depth_t selective_max_depth) override
+        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override
         {
             moves_t moves = kyokumen.search_moves();
 
@@ -4964,7 +4999,8 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen, 0, 0) };
+        const context_t context;
+        return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen, context) };
     }
 
     std::string computer_kishi_t::name() const
@@ -5316,7 +5352,8 @@ namespace shogipp
                         {
                             try
                             {
-                                evaluator->best_move(kyokumen, 3, 256);
+                                const context_t context(3, std::numeric_limits<depth_t>::max());
+                                evaluator->best_move(kyokumen, context);
                             }
                             catch (...)
                             {

@@ -4674,7 +4674,7 @@ namespace shogipp
     class chromosome_t
     {
     public:
-        unsigned short board_piece_points[promoted_rook_value - pawn_value - 1]{};
+        unsigned short board_piece_points[promoted_rook_value - pawn_value]{};
         unsigned short captured_piece_points[captured_size]{};
         unsigned short kiki_point{};
         unsigned short himo_point{};
@@ -4690,6 +4690,7 @@ namespace shogipp
                 /* gold            */  600,
                 /* bishop          */  800,
                 /* rook            */ 1000,
+                /* king            */  000,
                 /* promoted_pawn   */  700,
                 /* promoted_lance  */  600,
                 /* promoted_knight */  600,
@@ -4770,11 +4771,9 @@ namespace shogipp
                     const noncolored_piece_t noncolored_piece{ piece };
                     if (noncolored_piece == pawn)
                         evaluation_value += 100 * reverse(piece.to_color());
-                    else if (noncolored_piece != king)
+                    else
                     {
-                        std::size_t index = noncolored_piece.value() - pawn_value - 1;
-                        if (noncolored_piece.value() >= king_value)
-                            --index;
+                        const std::size_t index = noncolored_piece.value() - pawn_value - 1;
                         SHOGIPP_ASSERT(index < std::size(board_piece));
                         evaluation_value += board_piece_points[index] * reverse(piece.to_color());
                     }

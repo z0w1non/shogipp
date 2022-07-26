@@ -3588,7 +3588,7 @@ namespace shogipp
             << "    [--ga-mutation-rate <ga-mutation-rate>]" << std::endl
             << "    [--ga-crossover-rate <ga-crossover-rate>]" << std::endl
             << "    [--ga-selection-rate <ga-selection-rate>]" << std::endl
-            << "shogipp.exe --ga-chromosome <chromosome-directory> --ga-iteration <iteration-number>" << std::endl
+            << "    [--ga-iteration <iteration-number>]" << std::endl
             ;
     }
 

@@ -4586,8 +4586,8 @@ namespace shogipp
     class chromosome_t
     {
     public:
-        short board_piece[promoted_rook_value - pawn_value]{};
-        short captured_piece_point[captured_size]{};
+        unsigned short board_piece[promoted_rook_value - pawn_value]{};
+        unsigned short captured_piece_point[captured_size]{};
         short kiki_point{};
         short himo_point{};
         short destination_point{};

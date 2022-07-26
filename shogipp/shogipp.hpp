@@ -4586,8 +4586,8 @@ namespace shogipp
     class chromosome_t
     {
     public:
-        char board_piece[promoted_rook_value - pawn_value + 1]{};
-        char captured_piece_point[captured_size]{};
+        short board_piece[promoted_rook_value - pawn_value]{};
+        short captured_piece_point[captured_size]{};
         short kiki_point{};
         short himo_point{};
         short destination_point{};
@@ -4644,9 +4644,15 @@ namespace shogipp
                 const colored_piece_t piece = kyokumen.board[position];
                 if (!board_t::out(position) && !piece.empty())
                 {
-                    const std::size_t index = noncolored_piece_t{ piece }.value() - pawn_value;
-                    SHOGIPP_ASSERT(index < std::size(board_piece));
-                    evaluation_value += board_piece[index] * reverse(piece.to_color());
+                    const noncolored_piece_t noncolored_piece{ piece };
+                    if (noncolored_piece == pawn)
+                        evaluation_value += 100 * reverse(piece.to_color());
+                    else
+                    {
+                        const std::size_t index = noncolored_piece.value() - pawn_value - 1;
+                        SHOGIPP_ASSERT(index < std::size(board_piece));
+                        evaluation_value += board_piece[index] * reverse(piece.to_color());
+                    }
                 }
             }
 
@@ -4659,8 +4665,6 @@ namespace shogipp
                     evaluation_value += captured_piece_point[index] * reverse(color);
                 }
             }
-
-            evaluation_value *= 100;
 
             for (position_t position = position_begin; position < position_end; ++position)
             {

@@ -4999,7 +4999,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        const context_t context;
+        const context_t context{ 3, std::numeric_limits<depth_t>::max() };
         return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen, context) };
     }
 

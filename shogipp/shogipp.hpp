@@ -5605,18 +5605,6 @@ namespace shogipp
             }
         }
 
-        inline genetic_algorithm_t(unsigned int chromosome_number)
-        {
-            for (unsigned int i = 0; i < chromosome_number; ++i)
-            {
-                const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>();
-                chromosome->generate();
-                const std::string name = std::to_string(details::random<unsigned int>(0, chromosome_number - 1));
-                const chromosome_evaluator_t::id_type id{};
-                individuals.push_back(std::make_shared<chromosome_evaluator_t>(chromosome, name, id));
-            }
-        }
-
         inline void write_file(const std::string & directory) const
         {
             for (const auto & individual : individuals)
@@ -5678,27 +5666,28 @@ namespace shogipp
             };
             parse_program_options(argc, argv, callback);
 
-            if (ga_iteration && ga_chromosome)
+            if (ga_chromosome)
             {
-                std::shared_ptr<genetic_algorithm_t> ga;
-
                 if (ga_create_chromosome)
                 {
-                    ga = std::make_shared<genetic_algorithm_t>(*ga_create_chromosome);
-                    ga->write_file(*ga_chromosome);
+                    for (unsigned int i = 0; i < *ga_create_chromosome; ++i)
+                    {
+                        const std::filesystem::path path = *ga_chromosome + "/" + std::to_string(i) + "_0";
+                        const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>();
+                        chromosome->generate();
+                        chromosome->write_file(path);
+                    }
                 }
-                else
+                else if (ga_iteration)
                 {
                     std::vector<std::string> chromosome_paths;
                     for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_chromosome })
                         chromosome_paths.push_back(entry.path().string());
-                    ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
+                    std::shared_ptr<genetic_algorithm_t> ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
+                    for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
+                        ga->run();
+                    ga->write_file(*ga_chromosome);
                 }
-
-                for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
-                    ga->run();
-
-                ga->write_file(*ga_chromosome);
             }
             else if (black_name && white_name)
             {

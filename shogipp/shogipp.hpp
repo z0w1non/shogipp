@@ -3541,7 +3541,10 @@ namespace shogipp
     void print_help()
     {
         std::cout
-            << ""
+            << "shogipp.exe" << std::endl
+            << "shogipp.exe --black <evaluator> --white <evaluator>" << std::endl
+            << "shogipp.exe --ga-chromosome <chromosome-directory> --ga-create-chromosome <chromosome-number>" << std::endl
+            << "shogipp.exe --ga-chromosome <chromosome-directory> --ga-iteration <iteration-number>" << std::endl
             ;
     }
 
@@ -5626,10 +5629,15 @@ namespace shogipp
             std::optional<unsigned long long> ga_iteration;
             std::optional<std::string> ga_chromosome;
             std::optional<unsigned int> ga_create_chromosome;
+            bool help = false;
 
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {
-                if (option == "black" && !params.empty())
+                if (option == "help")
+                {
+                    print_help();
+                }
+                else if (option == "black" && !params.empty())
                 {
                     black_name = params[0];
                 }

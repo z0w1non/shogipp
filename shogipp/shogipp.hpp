@@ -93,6 +93,8 @@ namespace shogipp
     using search_count_t = unsigned long long;
     using milli_second_time_t = unsigned long long;
 
+    milli_second_time_t limit_time = std::numeric_limits<milli_second_time_t>::max();
+
     namespace details
     {
         SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)");
@@ -3486,9 +3488,14 @@ namespace shogipp
     public:
         constexpr inline context_t() noexcept = default;
 
-        constexpr inline context_t(depth_t max_depth, depth_t max_selective_depth) noexcept
+        constexpr inline context_t(
+            depth_t max_depth,
+            depth_t max_selective_depth,
+            milli_second_time_t limit_time
+        ) noexcept
             : m_max_depth{ max_depth }
             , m_max_selective_depth{ max_selective_depth }
+            , m_limit_time{ limit_time }
         {
         }
 
@@ -3507,9 +3514,15 @@ namespace shogipp
             return m_max_selective_depth;
         }
 
+        inline milli_second_time_t limit_time() const noexcept
+        {
+            return m_limit_time;
+        }
+
     private:
         depth_t m_max_depth{};
         depth_t m_max_selective_depth{};
+        milli_second_time_t m_limit_time{};
     };
 
     /**
@@ -5013,7 +5026,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        const context_t context{ program_option_max_depth, program_option_max_selective_depth };
+        const context_t context{ program_option_max_depth, program_option_max_selective_depth, limit_time };
         return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen, context) };
     }
 
@@ -5366,7 +5379,7 @@ namespace shogipp
                         {
                             try
                             {
-                                const context_t context(program_option_max_depth, program_option_max_selective_depth);
+                                const context_t context(program_option_max_depth, program_option_max_selective_depth, limit_time);
                                 evaluator->best_move(kyokumen, context);
                             }
                             catch (...)

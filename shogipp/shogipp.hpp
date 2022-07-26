@@ -5629,7 +5629,6 @@ namespace shogipp
             std::optional<unsigned long long> ga_iteration;
             std::optional<std::string> ga_chromosome;
             std::optional<unsigned int> ga_create_chromosome;
-            bool help = false;
 
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {

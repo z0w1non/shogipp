@@ -4542,8 +4542,8 @@ namespace shogipp
     class chromosome_t
     {
     public:
-        short board_piece[promoted_rook_value - pawn_value + 1]{};
-        short captured_piece_point[captured_size]{};
+        char board_piece[promoted_rook_value - pawn_value + 1]{};
+        char captured_piece_point[captured_size]{};
         short kiki_point{};
         short himo_point{};
         short destination_point{};
@@ -4615,6 +4615,8 @@ namespace shogipp
                     evaluation_value += captured_piece_point[index] * reverse(color);
                 }
             }
+
+            evaluation_value *= 100;
 
             for (position_t position = position_begin; position < position_end; ++position)
             {

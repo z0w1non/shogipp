@@ -3499,9 +3499,9 @@ namespace shogipp
         {
         }
 
-        constexpr inline context_t(const context_t & context) noexcept = default;
+        constexpr inline context_t(context_t & context) noexcept = default;
         constexpr inline context_t(context_t && context) noexcept = default;
-        constexpr inline context_t & operator =(const context_t & context) noexcept = default;
+        constexpr inline context_t & operator =(context_t & context) noexcept = default;
         constexpr inline context_t & operator =(context_t && context) noexcept = default;
 
         inline depth_t max_depth() const noexcept
@@ -3538,7 +3538,23 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        virtual move_t best_move(kyokumen_t & kyokumen, const context_t & context) = 0;
+        virtual move_t best_move(kyokumen_t & kyokumen, context_t & context) = 0;
+
+        /**
+         * @breif 反復深化深さ優先探索で局面に対して合法手を選択する。
+         * @param kyokumen 局面
+         * @return 選択された合法手
+         */
+        virtual move_t best_move_iddfs(kyokumen_t & kyokumen, context_t & context)
+        {
+            try
+            {
+            }
+            catch (...)
+            {
+                ;
+            }
+        }
 
         /**
          * @breif 評価関数オブジェクトの名前を返す。
@@ -3554,7 +3570,7 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override
+        move_t best_move(kyokumen_t & kyokumen, context_t & context) override
         {
             bool selected = false;
 
@@ -3955,10 +3971,10 @@ namespace shogipp
             depth_t depth,
             cache_t & cache,
             std::optional<move_t> & candidate_move,
-            const context_t & context
+            context_t & context
         );
 
-        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override;
+        move_t best_move(kyokumen_t & kyokumen, context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
     };
@@ -3968,7 +3984,7 @@ namespace shogipp
         depth_t depth,
         cache_t & cache,
         std::optional<move_t> & candidate_move,
-        const context_t & context
+        context_t & context
     )
     {
         if (usi_info)
@@ -4041,7 +4057,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen, const context_t & context)
+    move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen, context_t & context)
     {
         if (usi_info)
         {
@@ -4088,10 +4104,10 @@ namespace shogipp
             evaluation_value_t beta,
             cache_t & cache,
             std::optional<move_t> & candidate_move,
-            const context_t & context
+            context_t & context
         );
 
-        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override;
+        move_t best_move(kyokumen_t & kyokumen, context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
     };
@@ -4103,7 +4119,7 @@ namespace shogipp
         evaluation_value_t beta,
         cache_t & cache,
         std::optional<move_t> & candidate_move,
-        const context_t & context
+        context_t & context
     )
     {
         if (usi_info)
@@ -4181,7 +4197,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, const context_t & context)
+    move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, context_t & context)
     {
         if (usi_info)
         {
@@ -4230,10 +4246,10 @@ namespace shogipp
             cache_t & cache,
             std::optional<move_t> & candidate_move,
             position_t previous_destination,
-            const context_t & context
+            context_t & context
         );
 
-        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override;
+        move_t best_move(kyokumen_t & kyokumen, context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
     };
@@ -4246,7 +4262,7 @@ namespace shogipp
         cache_t & cache,
         std::optional<move_t> & candidate_move,
         position_t previous_destination,
-        const context_t & context
+        context_t & context
     )
     {
         if (usi_info)
@@ -4357,7 +4373,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, const context_t & context)
+    move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, context_t & context)
     {
         if (usi_info)
         {
@@ -4401,7 +4417,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t best_move(kyokumen_t & kyokumen, const context_t & context) override
+        move_t best_move(kyokumen_t & kyokumen, context_t & context) override
         {
             moves_t moves = kyokumen.search_moves();
 

@@ -5945,8 +5945,10 @@ namespace shogipp
                         ga->set_selection_rate(*ga_selection_rate);
 
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
+                    {
                         ga->run();
-                    ga->write_file(*ga_chromosome);
+                        ga->write_file(*ga_chromosome);
+                    }
                 }
             }
             else if (black_name && white_name)

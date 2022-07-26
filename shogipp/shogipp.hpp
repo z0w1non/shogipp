@@ -321,6 +321,13 @@ namespace shogipp
         using std::runtime_error::runtime_error;
     };
 
+    class no_best_move_exception
+        : public std::runtime_error
+    {
+        using std::runtime_error::runtime_error;
+    };
+
+
     class color_t
     {
     public:
@@ -3504,25 +3511,48 @@ namespace shogipp
         constexpr inline context_t & operator =(context_t & context) noexcept = default;
         constexpr inline context_t & operator =(context_t && context) noexcept = default;
 
-        inline depth_t max_depth() const noexcept
+        inline depth_t get_max_depth() const noexcept
         {
             return m_max_depth;
         }
 
-        inline depth_t max_selective_depth() const noexcept
+        inline void set_max_depth(depth_t max_depth) noexcept
+        {
+            m_max_depth = max_depth;
+        }
+
+        inline depth_t get_max_selective_depth() const noexcept
         {
             return m_max_selective_depth;
         }
 
-        inline milli_second_time_t limit_time() const noexcept
+        inline void start() noexcept
         {
-            return m_limit_time;
+            begin = std::chrono::system_clock::now();
+        }
+
+        inline bool timeout() const noexcept
+        {
+            const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
+            return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin) >= std::chrono::milliseconds{ m_limit_time };
+        }
+
+        inline const std::optional<move_t> & best_move() const noexcept
+        {
+            return m_best_move;
+        }
+
+        inline std::optional<move_t> & best_move() noexcept
+        {
+            return m_best_move;
         }
 
     private:
         depth_t m_max_depth{};
         depth_t m_max_selective_depth{};
         milli_second_time_t m_limit_time{};
+        std::chrono::system_clock::time_point begin;
+        std::optional<move_t> m_best_move;
     };
 
     /**
@@ -3547,13 +3577,31 @@ namespace shogipp
          */
         virtual move_t best_move_iddfs(kyokumen_t & kyokumen, context_t & context)
         {
+            std::optional<move_t> opt_best_move;
+            context_t temp_context;
             try
             {
+                context.start();
+                for (depth_t depth = 0; depth <= context.get_max_depth(); ++depth)
+                {
+                    temp_context = context;
+                    temp_context.set_max_depth(depth);
+                    best_move(kyokumen, temp_context);
+                    if (temp_context.best_move())
+                        opt_best_move = *temp_context.best_move();
+                }
+
             }
             catch (...)
             {
-                ;
+                if (temp_context.best_move())
+                    opt_best_move = *temp_context.best_move();
             }
+
+            if (!opt_best_move)
+                throw no_best_move_exception{ "best_move_iddfs failed" };
+
+            return *opt_best_move;
         }
 
         /**
@@ -3996,7 +4044,7 @@ namespace shogipp
             usi_info->nodes += 1;
         }
 
-        if (depth >= context.max_depth())
+        if (depth >= context.get_max_depth())
         {
             ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
@@ -4131,7 +4179,7 @@ namespace shogipp
             usi_info->nodes += 1;
         }
         
-        if (depth >= context.max_depth())
+        if (depth >= context.get_max_depth())
         {
             ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
@@ -4274,10 +4322,10 @@ namespace shogipp
             usi_info->nodes += 1;
         }
         
-        if (depth >= context.max_depth())
+        if (depth >= context.get_max_depth())
         {
             // ‘O‰ñ‹îŽæ‚è‚ª”­¶‚µ‚Ä‚¢‚½ê‡A’Tõ‚ð‰„’·‚·‚éB
-            if (depth >= context.max_selective_depth() && previous_destination != npos)
+            if (depth >= context.get_max_selective_depth() && previous_destination != npos)
             {
                 std::vector<evaluated_moves> evaluated_moves;
                 auto inserter = std::back_inserter(evaluated_moves);
@@ -5042,7 +5090,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        const context_t context{ program_option_max_depth, program_option_max_selective_depth, limit_time };
+        context_t context{ program_option_max_depth, program_option_max_selective_depth, limit_time };
         return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen, context) };
     }
 
@@ -5395,7 +5443,7 @@ namespace shogipp
                         {
                             try
                             {
-                                const context_t context(program_option_max_depth, program_option_max_selective_depth, limit_time);
+                                context_t context(program_option_max_depth, program_option_max_selective_depth, limit_time);
                                 evaluator->best_move(kyokumen, context);
                             }
                             catch (...)

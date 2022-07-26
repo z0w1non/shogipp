@@ -93,7 +93,7 @@ namespace shogipp
     using search_count_t = unsigned long long;
     using milli_second_time_t = unsigned long long;
 
-    milli_second_time_t limit_time = std::numeric_limits<milli_second_time_t>::max();
+    milli_second_time_t limit_time = 10 * 1000;
 
     namespace details
     {
@@ -315,7 +315,7 @@ namespace shogipp
         using std::runtime_error::runtime_error;
     };
 
-    class usi_stop_exception
+    class timeout_exception
         : public std::runtime_error
     {
         using std::runtime_error::runtime_error;
@@ -3537,22 +3537,11 @@ namespace shogipp
             return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin) >= std::chrono::milliseconds{ m_limit_time };
         }
 
-        inline const std::optional<move_t> & best_move() const noexcept
-        {
-            return m_best_move;
-        }
-
-        inline std::optional<move_t> & best_move() noexcept
-        {
-            return m_best_move;
-        }
-
     private:
         depth_t m_max_depth{};
         depth_t m_max_selective_depth{};
         milli_second_time_t m_limit_time{};
         std::chrono::system_clock::time_point begin;
-        std::optional<move_t> m_best_move;
     };
 
     /**
@@ -3581,21 +3570,16 @@ namespace shogipp
             context_t temp_context;
             try
             {
-                context.start();
-                for (depth_t depth = 0; depth <= context.get_max_depth(); ++depth)
+                for (depth_t depth = 1; depth <= context.get_max_depth(); ++depth)
                 {
                     temp_context = context;
                     temp_context.set_max_depth(depth);
-                    best_move(kyokumen, temp_context);
-                    if (temp_context.best_move())
-                        opt_best_move = *temp_context.best_move();
+                    opt_best_move = best_move(kyokumen, temp_context);
                 }
-
             }
-            catch (...)
+            catch (const timeout_exception &)
             {
-                if (temp_context.best_move())
-                    opt_best_move = *temp_context.best_move();
+                ;
             }
 
             if (!opt_best_move)
@@ -4039,13 +4023,16 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             if (usi_info->state == usi_info_t::state_t::requested_to_stop)
-                throw usi_stop_exception{ "requested to stop" };
+                throw timeout_exception{ "requested to stop" };
             usi_info->depth = depth;
             usi_info->nodes += 1;
         }
 
         if (depth >= context.get_max_depth())
         {
+            if (context.timeout())
+                throw timeout_exception{ "context.timeout() == true" };
+
             ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
             if (cached_evaluation_value)
@@ -4121,7 +4108,7 @@ namespace shogipp
         {
             evaluation_value = negamax(kyokumen, 0, cache, candidate_move, context);
         }
-        catch (const usi_stop_exception &)
+        catch (const timeout_exception &)
         {
             ;
         }
@@ -4133,6 +4120,9 @@ namespace shogipp
             usi_info->terminate();
             SHOGIPP_ASSERT(candidate_move.has_value());
         }
+
+        if (!candidate_move)
+            throw no_best_move_exception{ "best_move failed" };
 
         return *candidate_move;
     }
@@ -4174,13 +4164,16 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             if (usi_info->state == usi_info_t::state_t::requested_to_stop)
-                throw usi_stop_exception{ "requested to stop" };
+                throw timeout_exception{ "requested to stop" };
             usi_info->depth = depth;
             usi_info->nodes += 1;
         }
         
         if (depth >= context.get_max_depth())
         {
+            if (context.timeout())
+                throw timeout_exception{ "context.timeout() == true" };
+            
             ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
             if (cached_evaluation_value)
@@ -4261,7 +4254,7 @@ namespace shogipp
         {
             evaluation_value = alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, context);
         }
-        catch (const usi_stop_exception &)
+        catch (const timeout_exception &)
         {
             ;
         }
@@ -4273,6 +4266,9 @@ namespace shogipp
             usi_info->terminate();
             SHOGIPP_ASSERT(candidate_move.has_value());
         }
+
+        if (!candidate_move)
+            throw no_best_move_exception{ "best_move failed" };
 
         return *candidate_move;
     }
@@ -4317,13 +4313,16 @@ namespace shogipp
         {
             std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
             if (usi_info->state == usi_info_t::state_t::requested_to_stop)
-                throw usi_stop_exception{ "requested to stop" };
+                throw timeout_exception{ "requested to stop" };
             usi_info->depth = depth;
             usi_info->nodes += 1;
         }
         
         if (depth >= context.get_max_depth())
         {
+            if (context.timeout())
+                throw timeout_exception{ "context.timeout() == true" };
+            
             // ‘O‰ñ‹îŽæ‚è‚ª”­¶‚µ‚Ä‚¢‚½ê‡A’Tõ‚ð‰„’·‚·‚éB
             if (depth >= context.get_max_selective_depth() && previous_destination != npos)
             {
@@ -4437,7 +4436,7 @@ namespace shogipp
         {
             evaluation_value = extendable_alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, npos, context);
         }
-        catch (const usi_stop_exception &)
+        catch (const timeout_exception &)
         {
             ;
         }
@@ -4449,6 +4448,9 @@ namespace shogipp
             usi_info->terminate();
             SHOGIPP_ASSERT(candidate_move.has_value());
         }
+
+        if (!candidate_move)
+            throw no_best_move_exception{ "best_move failed" };
 
         return *candidate_move;
     }
@@ -5091,7 +5093,8 @@ namespace shogipp
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
         context_t context{ program_option_max_depth, program_option_max_selective_depth, limit_time };
-        return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen, context) };
+        context.start();
+        return command_t{ command_t::id_t::move, ptr->best_move_iddfs(taikyoku.kyokumen, context) };
     }
 
     std::string computer_kishi_t::name() const
@@ -5439,12 +5442,13 @@ namespace shogipp
 
                         evaluator->usi_info = usi_info;
 
-                        auto search_thread_impl = [evaluator, kyokumen]() mutable
+                        auto search_thread_impl = [evaluator, kyokumen, usi_info]() mutable
                         {
                             try
                             {
-                                context_t context(program_option_max_depth, program_option_max_selective_depth, limit_time);
-                                evaluator->best_move(kyokumen, context);
+                                context_t context(program_option_max_depth, program_option_max_selective_depth, usi_info->limit_time);
+                                context.start();
+                                evaluator->best_move_iddfs(kyokumen, context);
                             }
                             catch (...)
                             {

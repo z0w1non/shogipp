@@ -4669,13 +4669,49 @@ namespace shogipp
     class chromosome_t
     {
     public:
-        unsigned short board_piece[promoted_rook_value - pawn_value]{};
-        unsigned short captured_piece_point[captured_size]{};
-        short kiki_point{};
-        short himo_point{};
-        short destination_point{};
+        unsigned short board_piece_points[promoted_rook_value - pawn_value]{};
+        unsigned short captured_piece_points[captured_size]{};
+        unsigned short kiki_point{};
+        unsigned short himo_point{};
+        unsigned short destination_point{};
 
-        inline void generate() noexcept
+        inline void generate_template() noexcept
+        {
+            constexpr unsigned short board_piece_points_template[]
+            {
+                /* lance           */  300,
+                /* knight          */  400,
+                /* silver          */  500,
+                /* gold            */  600,
+                /* bishop          */  800,
+                /* rook            */ 1000,
+                /* king            */  000,
+                /* promoted_pawn   */  700,
+                /* promoted_lance  */  600,
+                /* promoted_knight */  600,
+                /* promoted_silver */  600,
+                /* promoted_bishop */ 1000,
+                /* promoted_rook   */ 1200
+            };
+            std::copy(std::begin(board_piece_points_template), std::end(board_piece_points_template), std::begin(board_piece_points));
+
+            constexpr unsigned short captured_piece_points_template[]
+            {
+                /* pawn            */  100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+                /* lance           */  300, 300, 300, 300, 300,
+                /* knight          */  400, 400, 400, 400, 400,
+                /* silver          */  500, 500, 500, 500, 500,
+                /* gold            */  600, 600, 600, 600, 600,
+                /* bishop          */  800, 800, 800,
+                /* rook            */ 1000, 1000, 1000,
+            };
+            std::copy(std::begin(captured_piece_points_template), std::end(captured_piece_points_template), std::begin(captured_piece_points));
+            kiki_point = 10;
+            himo_point = 10;
+            destination_point = 1;
+        }
+
+        inline void generate_random() noexcept
         {
             unsigned char * begin = reinterpret_cast<unsigned char *>(this);
             unsigned char * end = reinterpret_cast<unsigned char *>(this) + sizeof(*this);
@@ -4734,7 +4770,7 @@ namespace shogipp
                     {
                         const std::size_t index = noncolored_piece.value() - pawn_value - 1;
                         SHOGIPP_ASSERT(index < std::size(board_piece));
-                        evaluation_value += board_piece[index] * reverse(piece.to_color());
+                        evaluation_value += board_piece_points[index] * reverse(piece.to_color());
                     }
                 }
             }
@@ -4745,7 +4781,7 @@ namespace shogipp
                 {
                     const std::size_t index = captured_offsets[piece] + kyokumen.captured_pieces_list[color.value()][piece];
                     SHOGIPP_ASSERT(index < std::size(captured_piece_point));
-                    evaluation_value += captured_piece_point[index] * reverse(color);
+                    evaluation_value += board_piece_points[index] * reverse(color);
                 }
             }
 
@@ -4757,7 +4793,7 @@ namespace shogipp
 
                     std::vector<kiki_t> kiki_list;
                     kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
-                    evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
+                    evaluation_value += -1 * kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
 
                     std::vector<position_t> himo_list;
                     kyokumen.search_himo(std::back_inserter(himo_list), position, color);
@@ -4792,14 +4828,6 @@ namespace shogipp
             , m_name{ name }
             , m_id{ id }
         {
-        }
-
-        inline chromosome_evaluator_t()
-            : m_chromosome{ std::make_shared<chromosome_t>() }
-            , m_name{ std::to_string(unique_size_t_hash()) }
-            , m_id{}
-        {
-            m_chromosome->generate();
         }
 
         inline chromosome_evaluator_t(const chromosome_evaluator_t &) = default;
@@ -5766,6 +5794,7 @@ namespace shogipp
             std::optional<unsigned long long> ga_iteration;
             std::optional<std::string> ga_chromosome;
             std::optional<unsigned int> ga_create_chromosome;
+            std::optional<std::string> ga_create_mode;
             std::optional<unsigned int> ga_mutation_rate;
             std::optional<unsigned int> ga_crossover_rate;
             std::optional<unsigned int> ga_selection_rate;
@@ -5843,6 +5872,10 @@ namespace shogipp
                         std::cerr << "invalid ga-create-chromosome parameter" << std::endl;
                     }
                 }
+                else if (option == "ga-create-mode" && !params.empty())
+                {
+                    ga_create_mode = params[0];
+                }
                 else if (option == "ga-mutation-rate" && !params.empty())
                 {
                     try
@@ -5881,13 +5914,16 @@ namespace shogipp
 
             if (ga_chromosome)
             {
-                if (ga_create_chromosome)
+                if (ga_create_chromosome && ga_create_mode)
                 {
                     for (unsigned int i = 0; i < *ga_create_chromosome; ++i)
                     {
                         const std::filesystem::path path = *ga_chromosome + "/" + std::to_string(i) + "_0";
                         const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>();
-                        chromosome->generate();
+                        if (*ga_create_mode == "random")
+                            chromosome->generate_random();
+                        else if (*ga_create_mode == "template")
+                            chromosome->generate_template();
                         chromosome->write_file(path);
                     }
                 }

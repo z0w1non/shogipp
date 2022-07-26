@@ -93,7 +93,8 @@ namespace shogipp
     using search_count_t = unsigned long long;
     using milli_second_time_t = unsigned long long;
 
-    milli_second_time_t limit_time = 10 * 1000;
+    constexpr milli_second_time_t default_limit_time = 3 * 1000;
+    milli_second_time_t limit_time = default_limit_time;
 
     namespace details
     {

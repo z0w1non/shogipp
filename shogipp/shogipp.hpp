@@ -932,6 +932,12 @@ namespace shogipp
     using move_count_t = unsigned int;
     using depth_t = unsigned int;
 
+    constexpr depth_t default_max_depth = 3;
+    constexpr depth_t default_max_selective_depth = std::numeric_limits<depth_t>::max();
+
+    depth_t program_option_max_depth = default_max_depth;
+    depth_t program_option_max_selective_depth = default_max_selective_depth;
+
     /**
      * @breif 後手の場合に -1 を、先手の場合に 1 を返す。
      * @param color 手番
@@ -3480,9 +3486,9 @@ namespace shogipp
     public:
         constexpr inline context_t() noexcept = default;
 
-        constexpr inline context_t(depth_t max_depth, depth_t selective_max_depth) noexcept
+        constexpr inline context_t(depth_t max_depth, depth_t max_selective_depth) noexcept
             : m_max_depth{ max_depth }
-            , m_selective_max_depth{ selective_max_depth }
+            , m_max_selective_depth{ max_selective_depth }
         {
         }
 
@@ -3496,14 +3502,14 @@ namespace shogipp
             return m_max_depth;
         }
 
-        inline depth_t selective_max_depth() const noexcept
+        inline depth_t max_selective_depth() const noexcept
         {
-            return m_selective_max_depth;
+            return m_max_selective_depth;
         }
 
     private:
         depth_t m_max_depth{};
-        depth_t m_selective_max_depth{};
+        depth_t m_max_selective_depth{};
     };
 
     /**
@@ -4238,7 +4244,7 @@ namespace shogipp
         if (depth >= context.max_depth())
         {
             // 前回駒取りが発生していた場合、探索を延長する。
-            if (depth >= context.selective_max_depth() && previous_destination != npos)
+            if (depth >= context.max_selective_depth() && previous_destination != npos)
             {
                 std::vector<evaluated_moves> evaluated_moves;
                 auto inserter = std::back_inserter(evaluated_moves);
@@ -4999,7 +5005,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        const context_t context{ 3, std::numeric_limits<depth_t>::max() };
+        const context_t context{ program_option_max_depth, program_option_max_selective_depth };
         return command_t{ command_t::id_t::move, ptr->best_move(taikyoku.kyokumen, context) };
     }
 
@@ -5352,7 +5358,7 @@ namespace shogipp
                         {
                             try
                             {
-                                const context_t context(3, std::numeric_limits<depth_t>::max());
+                                const context_t context(program_option_max_depth, program_option_max_selective_depth);
                                 evaluator->best_move(kyokumen, context);
                             }
                             catch (...)
@@ -5680,6 +5686,28 @@ namespace shogipp
                 else if (option == "white" && !params.empty())
                 {
                     white_name = params[0];
+                }
+                else if (option == "max-depth" && !params.empty())
+                {
+                    try
+                    {
+                        program_option_max_depth = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid max-depth parameter" << std::endl;
+                    }
+                }
+                else if (option == "max-selective-depth" && !params.empty())
+                {
+                    try
+                    {
+                        program_option_max_selective_depth = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid max-selective-depth parameter" << std::endl;
+                    }
                 }
                 else if (option == "ga-iteration" && !params.empty())
                 {

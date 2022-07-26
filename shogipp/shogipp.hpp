@@ -3571,7 +3571,7 @@ namespace shogipp
             context_t temp_context;
             try
             {
-                for (depth_t depth = 1; depth <= context.get_max_depth(); ++depth)
+                for (depth_t depth = 1; depth <= context.get_max_depth(); depth += 2)
                 {
                     temp_context = context;
                     temp_context.set_max_depth(depth);
@@ -3583,8 +3583,12 @@ namespace shogipp
                 ;
             }
 
+            // 最善手を取得できなかった場合適当な合法手を選択する。
             if (!opt_best_move)
-                throw no_best_move_exception{ "best_move_iddfs failed" };
+            {
+                const moves_t moves = kyokumen.strict_search_moves();
+                return moves.front();
+            }
 
             return *opt_best_move;
         }
@@ -4670,7 +4674,7 @@ namespace shogipp
     class chromosome_t
     {
     public:
-        unsigned short board_piece_points[promoted_rook_value - pawn_value]{};
+        unsigned short board_piece_points[promoted_rook_value - pawn_value - 1]{};
         unsigned short captured_piece_points[captured_size]{};
         unsigned short kiki_point{};
         unsigned short himo_point{};
@@ -4686,7 +4690,6 @@ namespace shogipp
                 /* gold            */  600,
                 /* bishop          */  800,
                 /* rook            */ 1000,
-                /* king            */  000,
                 /* promoted_pawn   */  700,
                 /* promoted_lance  */  600,
                 /* promoted_knight */  600,
@@ -4698,13 +4701,13 @@ namespace shogipp
 
             constexpr unsigned short captured_piece_points_template[]
             {
-                /* pawn            */  100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-                /* lance           */  300, 300, 300, 300, 300,
-                /* knight          */  400, 400, 400, 400, 400,
-                /* silver          */  500, 500, 500, 500, 500,
-                /* gold            */  600, 600, 600, 600, 600,
-                /* bishop          */  800, 800, 800,
-                /* rook            */ 1000, 1000, 1000,
+                /* pawn            */ 0, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
+                /* lance           */ 0, 300, 300, 300, 300,
+                /* knight          */ 0, 400, 400, 400, 400,
+                /* silver          */ 0, 500, 500, 500, 500,
+                /* gold            */ 0, 600, 600, 600, 600,
+                /* bishop          */ 0, 800, 800,
+                /* rook            */ 0, 1000, 1000,
             };
             std::copy(std::begin(captured_piece_points_template), std::end(captured_piece_points_template), std::begin(captured_piece_points));
             kiki_point = 10;
@@ -4767,9 +4770,11 @@ namespace shogipp
                     const noncolored_piece_t noncolored_piece{ piece };
                     if (noncolored_piece == pawn)
                         evaluation_value += 100 * reverse(piece.to_color());
-                    else
+                    else if (noncolored_piece != king)
                     {
-                        const std::size_t index = noncolored_piece.value() - pawn_value - 1;
+                        std::size_t index = noncolored_piece.value() - pawn_value - 1;
+                        if (noncolored_piece.value() >= king_value)
+                            --index;
                         SHOGIPP_ASSERT(index < std::size(board_piece));
                         evaluation_value += board_piece_points[index] * reverse(piece.to_color());
                     }

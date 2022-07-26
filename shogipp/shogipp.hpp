@@ -3582,7 +3582,7 @@ namespace shogipp
     {
         std::cout
             << "shogipp.exe" << std::endl
-            << "shogipp.exe --black <evaluator> --white <evaluator>" << std::endl
+            << "shogipp.exe --black <evaluator> --white <evaluator> [--max-depth <max-depth>] [--max-selective-depth <max-selective-depth>]" << std::endl
             << "shogipp.exe --ga-chromosome <chromosome-directory> --ga-create-chromosome <chromosome-number>" << std::endl
             << "shogipp.exe --ga-chromosome <chromosome-directory> --ga-iteration <iteration-number>" << std::endl
             ;

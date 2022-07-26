@@ -5528,12 +5528,12 @@ namespace shogipp
 
         inline action_t random_action() noexcept
         {
-            unsigned int div = mutation_ratio + crossover_ratio + selection_ratio;
+            unsigned int div = m_mutation_rate + m_crossover_rate + m_selection_rate;
             unsigned int value = details::random<unsigned int>(0, div - 1);
-            if (value < mutation_ratio)
+            if (value < m_mutation_rate)
                 return action_t::mutation;
-            value -= mutation_ratio;
-            if (value < crossover_ratio)
+            value -= m_mutation_rate;
+            if (value < m_crossover_rate)
                 return action_t::crossover;
             return action_t::selection;
         }
@@ -5661,10 +5661,11 @@ namespace shogipp
                 individual->write_file(directory + "/" + individual->name() + "_" + std::to_string(individual->id()));
         }
 
+    private:
         std::vector<std::shared_ptr<chromosome_evaluator_t>> individuals;
-        unsigned int mutation_ratio = 10;
-        unsigned int crossover_ratio = 800;
-        unsigned int selection_ratio = 190;
+        unsigned int m_mutation_rate = 10;
+        unsigned int m_crossover_rate = 800;
+        unsigned int m_selection_rate = 190;
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept
@@ -5759,7 +5760,7 @@ namespace shogipp
                     std::vector<std::string> chromosome_paths;
                     for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_chromosome })
                         chromosome_paths.push_back(entry.path().string());
-                    std::shared_ptr<genetic_algorithm_t> ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
+                    const std::shared_ptr<genetic_algorithm_t> ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                         ga->run();
                     ga->write_file(*ga_chromosome);

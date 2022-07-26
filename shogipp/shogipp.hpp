@@ -5661,9 +5661,13 @@ namespace shogipp
                 individual->write_file(directory + "/" + individual->name() + "_" + std::to_string(individual->id()));
         }
 
+        inline void set_mutation_rate (unsigned int mutation_rate ) noexcept { m_mutation_rate  = mutation_rate ; }
+        inline void set_crossover_rate(unsigned int crossover_rate) noexcept { m_crossover_rate = crossover_rate; }
+        inline void set_selection_rate(unsigned int selection_rate) noexcept { m_selection_rate = selection_rate; }
+
     private:
         std::vector<std::shared_ptr<chromosome_evaluator_t>> individuals;
-        unsigned int m_mutation_rate = 10;
+        unsigned int m_mutation_rate  = 10;
         unsigned int m_crossover_rate = 800;
         unsigned int m_selection_rate = 190;
     };
@@ -5677,6 +5681,9 @@ namespace shogipp
             std::optional<unsigned long long> ga_iteration;
             std::optional<std::string> ga_chromosome;
             std::optional<unsigned int> ga_create_chromosome;
+            std::optional<unsigned int> ga_mutation_rate;
+            std::optional<unsigned int> ga_crossover_rate;
+            std::optional<unsigned int> ga_selection_rate;
 
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {
@@ -5740,6 +5747,39 @@ namespace shogipp
                         std::cerr << "invalid ga-create-chromosome parameter" << std::endl;
                     }
                 }
+                else if (option == "ga-mutation-rate" && !params.empty())
+                {
+                    try
+                    {
+                        ga_mutation_rate = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid ga-mutation-rate parameter" << std::endl;
+                    }
+                }
+                else if (option == "ga-crossover-rate" && !params.empty())
+                {
+                    try
+                    {
+                        ga_crossover_rate = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid ga-crossover-rate parameter" << std::endl;
+                    }
+                }
+                else if (option == "ga-selection-rate" && !params.empty())
+                {
+                    try
+                    {
+                        ga_selection_rate = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid ga-selection-rate parameter" << std::endl;
+                    }
+                }
             };
             parse_program_options(argc, argv, callback);
 
@@ -5761,6 +5801,14 @@ namespace shogipp
                     for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_chromosome })
                         chromosome_paths.push_back(entry.path().string());
                     const std::shared_ptr<genetic_algorithm_t> ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
+
+                    if (ga_mutation_rate)
+                        ga->set_mutation_rate(*ga_mutation_rate);
+                    if (ga_crossover_rate)
+                        ga->set_crossover_rate(*ga_crossover_rate);
+                    if (ga_selection_rate)
+                        ga->set_selection_rate(*ga_selection_rate);
+
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                         ga->run();
                     ga->write_file(*ga_chromosome);

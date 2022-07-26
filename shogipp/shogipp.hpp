@@ -5738,6 +5738,17 @@ namespace shogipp
                         std::cerr << "invalid max-selective-depth parameter" << std::endl;
                     }
                 }
+                else if (option == "limit-time" && !params.empty())
+                {
+                    try
+                    {
+                        limit_time = std::stoull(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid limit-time parameter" << std::endl;
+                    }
+                }
                 else if (option == "ga-iteration" && !params.empty())
                 {
                     try

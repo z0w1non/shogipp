@@ -4539,7 +4539,7 @@ namespace shogipp
         }
     };
 
-    class genom_t
+    class chromosome_t
     {
     public:
         short board_piece[promoted_rook_value - pawn_value + 1]{};
@@ -4564,11 +4564,11 @@ namespace shogipp
             data[offset] ^= (1 << shift);
         }
 
-        inline void clossover(const genom_t & genom) noexcept
+        inline void clossover(const chromosome_t & chromosome) noexcept
         {
             unsigned char * first = reinterpret_cast<unsigned char *>(this);
             unsigned char * last = reinterpret_cast<unsigned char *>(this) + sizeof(*this);
-            const unsigned char * input = reinterpret_cast<const unsigned char *>(&genom);
+            const unsigned char * input = reinterpret_cast<const unsigned char *>(&chromosome);
             while (first != last)
             {
                 *first = details::uniform_croossover(*first, *input);
@@ -4640,43 +4640,43 @@ namespace shogipp
         }
     };
 
-    class genom_evaluator_t
+    class chromosome_evaluator_t
         : public extendable_alphabeta_evaluator_t
     {
     public:
         using id_type = unsigned long long;
 
-        inline genom_evaluator_t(const std::filesystem::path & path, const std::string & name, id_type id)
-            : m_genom{ std::make_shared<genom_t>() }
+        inline chromosome_evaluator_t(const std::filesystem::path & path, const std::string & name, id_type id)
+            : m_chromosome{ std::make_shared<chromosome_t>() }
             , m_name{ name }
             , m_id{ id }
         {
-            m_genom->read_file(path);
+            m_chromosome->read_file(path);
         }
 
-        inline genom_evaluator_t(const std::shared_ptr<genom_t> & genom, const std::string & name, id_type id)
-            : m_genom{ genom }
+        inline chromosome_evaluator_t(const std::shared_ptr<chromosome_t> & chromosome, const std::string & name, id_type id)
+            : m_chromosome{ chromosome }
             , m_name{ name }
             , m_id{ id }
         {
         }
 
-        inline genom_evaluator_t()
-            : m_genom{ std::make_shared<genom_t>() }
+        inline chromosome_evaluator_t()
+            : m_chromosome{ std::make_shared<chromosome_t>() }
             , m_name{ std::to_string(unique_size_t_hash()) }
             , m_id{}
         {
-            m_genom->generate();
+            m_chromosome->generate();
         }
 
-        inline genom_evaluator_t(const genom_evaluator_t &) = default;
-        inline genom_evaluator_t(genom_evaluator_t &&) = default;
-        inline genom_evaluator_t & operator =(const genom_evaluator_t &) = default;
-        inline genom_evaluator_t & operator =(genom_evaluator_t &&) = default;
+        inline chromosome_evaluator_t(const chromosome_evaluator_t &) = default;
+        inline chromosome_evaluator_t(chromosome_evaluator_t &&) = default;
+        inline chromosome_evaluator_t & operator =(const chromosome_evaluator_t &) = default;
+        inline chromosome_evaluator_t & operator =(chromosome_evaluator_t &&) = default;
 
         evaluation_value_t evaluate(kyokumen_t & kyokumen) override
         {
-            return m_genom->evaluate(kyokumen);
+            return m_chromosome->evaluate(kyokumen);
         }
 
         std::string name() const override
@@ -4686,17 +4686,17 @@ namespace shogipp
 
         inline void write_file(const std::filesystem::path & path) const
         {
-            m_genom->write_file(path);
+            m_chromosome->write_file(path);
         }
 
-        inline const std::shared_ptr<genom_t> & genom() const noexcept
+        inline const std::shared_ptr<chromosome_t> & chromosome() const noexcept
         {
-            return m_genom;
+            return m_chromosome;
         }
 
-        inline std::shared_ptr<genom_t> & genom() noexcept
+        inline std::shared_ptr<chromosome_t> & chromosome() noexcept
         {
-            return m_genom;
+            return m_chromosome;
         }
 
         inline id_type id() const noexcept
@@ -4705,7 +4705,7 @@ namespace shogipp
         }
 
     private:
-        std::shared_ptr<genom_t> m_genom;
+        std::shared_ptr<chromosome_t> m_chromosome;
         std::string m_name;
         id_type m_id;
     };
@@ -5486,7 +5486,7 @@ namespace shogipp
             return action_t::selection;
         }
 
-        inline const std::shared_ptr<genom_evaluator_t> & select_individual(const std::vector<fitness_type> & fitness_table) const
+        inline const std::shared_ptr<chromosome_evaluator_t> & select_individual(const std::vector<fitness_type> & fitness_table) const
         {
             fitness_type div = 0;
             for (const fitness_type fitness : fitness_table)
@@ -5501,7 +5501,7 @@ namespace shogipp
             return individuals.back();
         }
 
-        inline static std::vector<move_t> make_kifu(const std::shared_ptr<genom_evaluator_t> & black, const std::shared_ptr<genom_evaluator_t> & white)
+        inline static std::vector<move_t> make_kifu(const std::shared_ptr<chromosome_evaluator_t> & black, const std::shared_ptr<chromosome_evaluator_t> & white)
         {
             std::shared_ptr<abstract_kishi_t> black_kishi{ std::make_shared<computer_kishi_t>(black) };
             std::shared_ptr<abstract_kishi_t> white_kishi{ std::make_shared<computer_kishi_t>(white) };
@@ -5545,32 +5545,32 @@ namespace shogipp
             }
 
             // éüê¢ë„ÇçÏê¨Ç∑ÇÈÅB
-            std::vector<std::shared_ptr<genom_evaluator_t>> next_individuals;
+            std::vector<std::shared_ptr<chromosome_evaluator_t>> next_individuals;
             while (next_individuals.size() < individuals.size())
             {
                 const action_t action = random_action();
                 if (action == action_t::mutation)
                 {
-                    const std::shared_ptr<genom_evaluator_t> & individual = select_individual(fitness_table);
-                    const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*individual->genom());
-                    genom->mutate();
-                    const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, individual->name(), individual->id() + 1);
+                    const std::shared_ptr<chromosome_evaluator_t> & individual = select_individual(fitness_table);
+                    const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*individual->chromosome());
+                    chromosome->mutate();
+                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, individual->name(), individual->id() + 1);
                     next_individuals.push_back(next_individual);
                 }
                 else if (action == action_t::crossover)
                 {
-                    const std::shared_ptr<genom_evaluator_t> & base = select_individual(fitness_table);
-                    const std::shared_ptr<genom_evaluator_t> & sub = select_individual(fitness_table);
-                    const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*base->genom());
-                    genom->clossover(*sub->genom());
-                    const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, base->name(), base->id() + 1);
+                    const std::shared_ptr<chromosome_evaluator_t> & base = select_individual(fitness_table);
+                    const std::shared_ptr<chromosome_evaluator_t> & sub = select_individual(fitness_table);
+                    const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*base->chromosome());
+                    chromosome->clossover(*sub->chromosome());
+                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, base->name(), base->id() + 1);
                     next_individuals.push_back(next_individual);
                 }
                 else if (action == action_t::selection)
                 {
-                    const std::shared_ptr<genom_evaluator_t> & individual = select_individual(fitness_table);
-                    const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>(*individual->genom());
-                    const std::shared_ptr<genom_evaluator_t> next_individual = std::make_shared<genom_evaluator_t>(genom, individual->name(), individual->id() + 1);
+                    const std::shared_ptr<chromosome_evaluator_t> & individual = select_individual(fitness_table);
+                    const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*individual->chromosome());
+                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, individual->name(), individual->id() + 1);
                     next_individuals.push_back(next_individual);
                 }
             }
@@ -5587,14 +5587,14 @@ namespace shogipp
                 {
                     std::smatch results;
                     std::string name;
-                    genom_evaluator_t::id_type id{};
+                    chromosome_evaluator_t::id_type id{};
 
                     if (!std::regex_match(path, results, std::regex(R"((.*)_(\d+))")))
                         throw std::exception();
                     name = results[1].str();
                     id = std::stoull(results[2].str());
 
-                    individuals.push_back(std::make_shared<genom_evaluator_t>(path, name, id));
+                    individuals.push_back(std::make_shared<chromosome_evaluator_t>(path, name, id));
                 }
                 catch (...)
                 {
@@ -5603,15 +5603,15 @@ namespace shogipp
             }
         }
 
-        inline genetic_algorithm_t(unsigned int genom_number)
+        inline genetic_algorithm_t(unsigned int chromosome_number)
         {
-            for (unsigned int i = 0; i < genom_number; ++i)
+            for (unsigned int i = 0; i < chromosome_number; ++i)
             {
-                const std::shared_ptr<genom_t> genom = std::make_shared<genom_t>();
-                genom->generate();
-                const std::string name = std::to_string(details::random<unsigned int>(0, genom_number - 1));
-                const genom_evaluator_t::id_type id{};
-                individuals.push_back(std::make_shared<genom_evaluator_t>(genom, name, id));
+                const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>();
+                chromosome->generate();
+                const std::string name = std::to_string(details::random<unsigned int>(0, chromosome_number - 1));
+                const chromosome_evaluator_t::id_type id{};
+                individuals.push_back(std::make_shared<chromosome_evaluator_t>(chromosome, name, id));
             }
         }
 
@@ -5621,7 +5621,7 @@ namespace shogipp
                 individual->write_file(directory + "/" + individual->name() + "_" + std::to_string(individual->id()));
         }
 
-        std::vector<std::shared_ptr<genom_evaluator_t>> individuals;
+        std::vector<std::shared_ptr<chromosome_evaluator_t>> individuals;
         unsigned int mutation_ratio = 10;
         unsigned int crossover_ratio = 800;
         unsigned int selection_ratio = 190;
@@ -5634,8 +5634,8 @@ namespace shogipp
             std::optional<std::string> black_name;
             std::optional<std::string> white_name;
             std::optional<unsigned long long> ga_iteration;
-            std::optional<std::string> ga_genom;
-            std::optional<unsigned int> ga_create_genom;
+            std::optional<std::string> ga_chromosome;
+            std::optional<unsigned int> ga_create_chromosome;
 
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {
@@ -5658,45 +5658,45 @@ namespace shogipp
                         std::cerr << "invalid ga-iteration parameter" << std::endl;
                     }
                 }
-                else if (option == "ga-genom" && !params.empty())
+                else if (option == "ga-chromosome" && !params.empty())
                 {
-                    ga_genom = params[0];
+                    ga_chromosome = params[0];
                 }
-                else if (option == "ga-create-genom" && !params.empty())
+                else if (option == "ga-create-chromosome" && !params.empty())
                 {
                     try
                     {
-                        ga_create_genom = std::stoi(params[0]);
+                        ga_create_chromosome = std::stoi(params[0]);
                     }
                     catch (...)
                     {
-                        std::cerr << "invalid ga-create-genom parameter" << std::endl;
+                        std::cerr << "invalid ga-create-chromosome parameter" << std::endl;
                     }
                 }
             };
             parse_program_options(argc, argv, callback);
 
-            if (ga_iteration && ga_genom)
+            if (ga_iteration && ga_chromosome)
             {
                 std::shared_ptr<genetic_algorithm_t> ga;
 
-                if (ga_create_genom)
+                if (ga_create_chromosome)
                 {
-                    ga = std::make_shared<genetic_algorithm_t>(*ga_create_genom);
-                    ga->write_file(*ga_genom);
+                    ga = std::make_shared<genetic_algorithm_t>(*ga_create_chromosome);
+                    ga->write_file(*ga_chromosome);
                 }
                 else
                 {
-                    std::vector<std::string> genom_paths;
-                    for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_genom })
-                        genom_paths.push_back(entry.path().string());
-                    ga = std::make_shared<genetic_algorithm_t>(genom_paths);
+                    std::vector<std::string> chromosome_paths;
+                    for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_chromosome })
+                        chromosome_paths.push_back(entry.path().string());
+                    ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
                 }
 
                 for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                     ga->run();
 
-                ga->write_file(*ga_genom);
+                ga->write_file(*ga_chromosome);
             }
             else if (black_name && white_name)
             {

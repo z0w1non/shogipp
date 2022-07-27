@@ -154,7 +154,7 @@ namespace shogipp
             /**
              * @breif 経過時間を標準出力に出力する。
              */
-            inline void print_elapsed_time() noexcept;
+            inline void print_elapsed_time(std::ostream & ostream = std::cout) noexcept;
 
             /**
              * @breif 読み手数の参照を返す。
@@ -184,13 +184,13 @@ namespace shogipp
             m_search_count = 0;
         }
 
-        inline void timer_t::print_elapsed_time() noexcept
+        inline void timer_t::print_elapsed_time(std::ostream & ostream) noexcept
         {
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
             const search_count_t nps = m_search_count * 1000 / duration;
 
-            std::cout
+            ostream
                 << std::endl
                 << "総読み手数: " << m_search_count << std::endl
                 << "実行時間[ms]: " << duration << std::endl
@@ -1655,9 +1655,10 @@ namespace shogipp
         constexpr inline captured_pieces_t & operator =(const captured_pieces_t &) noexcept = default;
 
         /**
-         * @breif 持ち駒を標準出力に出力する。
+         * @breif 持ち駒を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
          */
-        inline void print() const;
+        inline void print(std::ostream & ostream = std::cout) const;
 
         /**
          * @breif 駒と対応する持ち駒の数の参照を返す。
@@ -1682,22 +1683,22 @@ namespace shogipp
         std::fill(std::begin(count), std::end(count), 0);
     }
 
-    inline void captured_pieces_t::print() const
+    inline void captured_pieces_t::print(std::ostream & ostream) const
     {
         unsigned int kind = 0;
         for (piece_value_t piece = captured_rook.value(); piece >= captured_pawn.value(); --piece)
         {
             if ((*this)[captured_piece_t{ piece }] > 0)
             {
-                std::cout << captured_piece_t{ piece }.to_string();
+                ostream << captured_piece_t{ piece }.to_string();
                 if ((*this)[captured_piece_t{ piece }] > 1)
-                    std::cout << to_zenkaku_digit((*this)[captured_piece_t{ piece }]);
+                    ostream << to_zenkaku_digit((*this)[captured_piece_t{ piece }]);
                 ++kind;
             }
         }
         if (kind == 0)
-            std::cout << "なし";
-        std::cout << std::endl;
+            ostream << "なし";
+        ostream << std::endl;
     }
 
     inline captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece) noexcept
@@ -1769,9 +1770,10 @@ namespace shogipp
         inline static bool out(position_t position) noexcept;
 
         /**
-         * @breif 盤を標準出力に出力する。
+         * @breif 盤を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
          */
-        inline void print() const;
+        inline void print(std::ostream & ostream = std::cout) const;
 
         /**
          * @breif 盤から全ての駒を取り除く。
@@ -1808,21 +1810,21 @@ namespace shogipp
         return position < position_begin || position >= position_end || clear_board[position].value() == out_of_range.value();
     }
 
-    inline void board_t::print() const
+    inline void board_t::print(std::ostream & ostream) const
     {
-        std::cout << "  ９ ８ ７ ６ ５ ４ ３ ２ １" << std::endl;
-        std::cout << "+---------------------------+" << std::endl;
+        ostream << "  ９ ８ ７ ６ ５ ４ ３ ２ １" << std::endl;
+        ostream << "+---------------------------+" << std::endl;
         for (position_t rank = 0; rank < rank_size; ++rank)
         {
-            std::cout << "|";
+            ostream << "|";
             for (position_t file = 0; file < file_size; ++file)
             {
                 const colored_piece_t piece = data[file_rank_to_position(file, rank)];
-                std::cout << ((!piece.empty() && piece.to_color() == white) ? "v" : " ") << piece.to_string();
+                ostream << ((!piece.empty() && piece.to_color() == white) ? "v" : " ") << piece.to_string();
             }
-            std::cout << "| " << rank_to_string(rank) << std::endl;
+            ostream << "| " << rank_to_string(rank) << std::endl;
         }
-        std::cout << "+---------------------------+" << std::endl;
+        ostream << "+---------------------------+" << std::endl;
     }
 
     inline void board_t::clear()
@@ -2397,38 +2399,51 @@ namespace shogipp
         inline hash_t make_hash(hash_t hash, const move_t & move) const;
 
         /**
-         * @breif 合法手を標準出力に出力する。
+         * @breif 合法手を出力ストリームに出力する。
          * @param move 合法手
          * @param color 後手の合法手か
+         * @param ostream 出力ストリーム
          */
-        inline void print_move(const move_t & move, color_t color) const;
+        inline void print_move(const move_t & move, color_t color, std::ostream & ostream = std::cout) const;
 
         /**
-         * @breif 合法手を標準出力に出力する。
+         * @breif 合法手を出力ストリームに出力する。
          * @param first 合法手の入力イテレータのbegin
          * @param last 合法手の入力イテレータのend
+         * @param ostream 出力ストリーム
          */
         template<typename InputIterator>
-        inline void print_move(InputIterator first, InputIterator last) const;
+        inline void print_move(InputIterator first, InputIterator last, std::ostream & ostream = std::cout) const;
 
         /**
-         * @breif 合法手を標準出力に出力する。
+         * @breif 合法手を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
          */
-        inline void print_move() const;
+        inline void print_move(std::ostream & ostream = std::cout) const;
 
         /**
-         * @breif 王手を標準出力に出力する。
+         * @breif 王手を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
          */
-        inline void print_check() const;
+        inline void print_check(std::ostream & ostream = std::cout) const;
 
         /**
-         * @breif 局面を標準出力に出力する。
+         * @breif 局面を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
          */
-        inline void print() const;
+        inline void print(std::ostream & ostream = std::cout) const;
 
-        inline void print_kifu() const;
+        /**
+         * @breif 棋譜を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
+         */
+        inline void print_kifu(std::ostream & ostream = std::cout) const;
 
-        inline void print_recent_kifu(std::size_t size) const;
+        /**
+         * @breif 末尾から指定された手数分の棋譜を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
+         */
+        inline void print_recent_kifu(std::size_t size, std::ostream & ostream = std::cout) const;
 
         /**
          * @breif 局面のハッシュ値を返す。
@@ -3196,12 +3211,12 @@ namespace shogipp
         return hash;
     }
 
-    inline void kyokumen_t::print_move(const move_t & move, color_t color) const
+    inline void kyokumen_t::print_move(const move_t & move, color_t color, std::ostream & ostream) const
     {
-        std::cout << (color == black ? "▲" : "△");
+        ostream << (color == black ? "▲" : "△");
         if (move.put())
         {
-            std::cout << position_to_string(move.destination()) << move.captured_piece().to_string() << "打";
+            ostream << position_to_string(move.destination()) << move.captured_piece().to_string() << "打";
         }
         else
         {
@@ -3215,78 +3230,80 @@ namespace shogipp
             }
             else
                 promotion_string = "";
-            std::cout
+            ostream
                 << position_to_string(move.destination()) << noncolored_piece_t{ move.source_piece() }.to_string() << promotion_string
                 << "（" << position_to_string(move.source()) << "）";
         }
     }
 
     template<typename InputIterator>
-    inline void kyokumen_t::print_move(InputIterator first, InputIterator last) const
+    inline void kyokumen_t::print_move(InputIterator first, InputIterator last, std::ostream & ostream) const
     {
         for (std::size_t i = 0; first != last; ++i)
         {
-            std::printf("#%3zd ", i + 1);
-            print_move(*first++, color());
-            std::cout << std::endl;
+            const std::ios::fmtflags flags = ostream.flags();
+            ostream << "#" << std::setw(3) << (i + 1);
+            ostream.flags(flags);
+            print_move(*first++, color(), ostream);
+            ostream << std::endl;
         }
     }
 
-    inline void kyokumen_t::print_move() const
+    inline void kyokumen_t::print_move(std::ostream & ostream) const
     {
         kyokumen_t temp = *this;
         const moves_t moves = temp.strict_search_moves();
-        print_move(moves.begin(), moves.end());
+        print_move(moves.begin(), moves.end(), ostream);
     }
 
-    inline void kyokumen_t::print_check() const
+    inline void kyokumen_t::print_check(std::ostream & ostream) const
     {
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         auto & check_list = additional_info.check_list_stack[move_count];
         if (!check_list.empty())
         {
-            std::cout << "王手：";
+            ostream << "王手：";
             for (std::size_t i = 0; i < check_list.size(); ++i)
             {
                 const kiki_t & kiki = check_list[i];
                 if (i > 0)
-                    std::cout << "　";
-                std::cout << position_to_string(kiki.position) << noncolored_piece_t{ board[kiki.position] }.to_string() << std::endl;
+                    ostream << "　";
+                ostream << position_to_string(kiki.position) << noncolored_piece_t{ board[kiki.position] }.to_string() << std::endl;
             }
         }
     }
 
-    inline void kyokumen_t::print() const
+    inline void kyokumen_t::print(std::ostream & ostream) const
     {
-        std::cout << "後手持ち駒：";
-        captured_pieces_list[white.value()].print();
-        board.print();
-        std::cout << "先手持ち駒：";
-        captured_pieces_list[black.value()].print();
+        ostream << "後手持ち駒：";
+        captured_pieces_list[white.value()].print(ostream);
+        board.print(ostream);
+        ostream << "先手持ち駒：";
+        captured_pieces_list[black.value()].print(ostream);
     }
 
-    inline void kyokumen_t::print_kifu() const
+    inline void kyokumen_t::print_kifu(std::ostream & ostream) const
     {
         for (move_count_t i = 0; i < static_cast<move_count_t>(kifu.size()); ++i)
         {
             const move_count_t diff = static_cast<move_count_t>(kifu.size() - i);
-            print_move(kifu[i], diff % color_t::size() == 0 ? color() : !color());
-            std::cout << std::endl;
+            print_move(kifu[i], diff % color_t::size() == 0 ? color() : !color(), ostream);
+            ostream << std::endl;
         }
     }
 
-    inline void kyokumen_t::print_recent_kifu(std::size_t size) const
+    inline void kyokumen_t::print_recent_kifu(std::size_t size, std::ostream & ostream) const
     {
         size = std::min(size, kifu.size());
         for (move_count_t i = 0; i < size; ++i)
         {
             if (i > 0)
-                std::cout << "　";
+                ostream << "　";
             std::size_t index = kifu.size() - size + i;
             const move_count_t diff = static_cast<move_count_t>(kifu.size() - index);
-            print_move(kifu[index], diff % color_t::size() == 0 ? color() : !color());
+            print_move(kifu[index], diff % color_t::size() == 0 ? color() : !color(), ostream);
         }
-        std::cout << std::flush;
+        ostream << std::flush;
     }
 
     inline hash_t kyokumen_t::hash() const
@@ -5036,14 +5053,16 @@ namespace shogipp
          * @breif 対局を実行する。
          * @retval true 対局が終了していない
          * @retval false 対局が終了した
+         * @param 出力ストリーム
          * @details この関数が true を返した場合、再度この関数を呼び出す。
          */
-        inline bool procedure();
+        inline bool procedure(std::ostream & ostream = std::cout);
 
         /**
-         * @breif 対局を標準出力に出力する。
+         * @breif 対局を出力ストリームに出力する。
+         * @param 出力ストリーム
          */
-        inline void print() const;
+        inline void print(std::ostream & ostream = std::cout) const;
 
         /**
          * @breif 手番の合法手を返す。
@@ -5142,7 +5161,7 @@ namespace shogipp
         update_moves();
     }
 
-    inline bool taikyoku_t::procedure()
+    inline bool taikyoku_t::procedure(std::ostream & ostream)
     {
         auto & kishi = kishi_list[kyokumen.color().value()];
 
@@ -5156,8 +5175,8 @@ namespace shogipp
             case command_t::id_t::error:
                 break;
             case command_t::id_t::move:
-                kyokumen.print_move(*cmd.opt_te, kyokumen.color());
-                std::cout << std::endl << std::endl;
+                kyokumen.print_move(*cmd.opt_te, kyokumen.color(), ostream);
+                ostream << std::endl << std::endl;
                 kyokumen.do_move(*cmd.opt_te);
                 update_moves();
                 return !moves.empty();
@@ -5173,22 +5192,22 @@ namespace shogipp
             case command_t::id_t::giveup:
                 break;
             case command_t::id_t::dump:
-                kyokumen.print_kifu();
+                kyokumen.print_kifu(ostream);
                 break;
             case command_t::id_t::perft:
             {
                 search_count_t node;
                 const milli_second_time_t time = details::test_time_performance([&] { node = kyokumen.count_node(*cmd.opt_depth); }, 1);
-                std::cout << "node: " << node << std::endl;
-                std::cout << "time[ms]: " << time << std::endl;
-                std::cout << "nps[n/s]: " << (node * 1000 / time) << std::endl;
+                ostream << "node: " << node << std::endl;
+                ostream << "time[ms]: " << time << std::endl;
+                ostream << "nps[n/s]: " << (node * 1000 / time) << std::endl;
                 break;
             }
             case command_t::id_t::hash:
-                std::cout << hash_to_string(kyokumen.hash()) << std::endl;
+                ostream << hash_to_string(kyokumen.hash()) << std::endl;
                 break;
             case command_t::id_t::sfen:
-                std::cout << kyokumen.sfen_string() << std::endl;
+                ostream << kyokumen.sfen_string() << std::endl;
                 break;
             case command_t::id_t::eval:
                 break;
@@ -5196,29 +5215,29 @@ namespace shogipp
         }
     }
 
-    inline void taikyoku_t::print() const
+    inline void taikyoku_t::print(std::ostream & ostream) const
     {
         if (kyokumen.move_count == 0)
         {
             for (const color_t color : colors)
-                std::cout << color_to_string(static_cast<color_t>(color)) << "：" << kishi_list[color.value()]->name() << std::endl;
-            std::cout << std::endl;
+                ostream << color_to_string(static_cast<color_t>(color)) << "：" << kishi_list[color.value()]->name() << std::endl;
+            ostream << std::endl;
         }
 
         if (moves.empty())
         {
             auto & winner_evaluator = kishi_list[!kyokumen.color().value()];
-            std::cout << kyokumen.move_count << "手詰み" << std::endl;
-            kyokumen.print();
-            std::cout << color_to_string(!kyokumen.color()) << "勝利（" << winner_evaluator->name() << "）" << std::flush;
+            ostream << kyokumen.move_count << "手詰み" << std::endl;
+            kyokumen.print(ostream);
+            ostream << color_to_string(!kyokumen.color()) << "勝利（" << winner_evaluator->name() << "）" << std::flush;
         }
         else
         {
-            std::cout << (kyokumen.move_count + 1) << "手目" << color_to_string(kyokumen.color()) << "番" << std::endl;
-            kyokumen.print();
-            std::cout << hash_to_string(kyokumen.hash()) << std::endl;
-            kyokumen.print_move();
-            kyokumen.print_check();
+            ostream << (kyokumen.move_count + 1) << "手目" << color_to_string(kyokumen.color()) << "番" << std::endl;
+            kyokumen.print(ostream);
+            ostream << hash_to_string(kyokumen.hash()) << std::endl;
+            kyokumen.print_move(ostream);
+            kyokumen.print_check(ostream);
         }
     }
 
@@ -5671,34 +5690,42 @@ namespace shogipp
             return individuals.back();
         }
 
-        inline static std::vector<move_t> make_kifu(const std::shared_ptr<chromosome_evaluator_t> & black, const std::shared_ptr<chromosome_evaluator_t> & white)
+        inline static std::vector<move_t> make_kifu
+        (
+            const std::shared_ptr<chromosome_evaluator_t> & black,
+            const std::shared_ptr<chromosome_evaluator_t> & white,
+            const std::filesystem::path & log
+        )
         {
+            std::ofstream log_stream{ log };
             const std::shared_ptr<abstract_kishi_t> black_kishi{ std::make_shared<computer_kishi_t>(black) };
             const std::shared_ptr<abstract_kishi_t> white_kishi{ std::make_shared<computer_kishi_t>(white) };
 
             taikyoku_t taikyoku{ black_kishi, white_kishi };
             while (true)
             {
-                taikyoku.print();
-                if (!taikyoku.procedure())
+                taikyoku.print(log_stream);
+                if (!taikyoku.procedure(log_stream))
                     break;
             }
 
-            taikyoku.print(); // 詰んだ局面を標準出力に出力する。
+            taikyoku.print(log_stream); // 詰んだ局面を標準出力に出力する。
 
-            std::cout << std::endl;
-            details::timer.print_elapsed_time();
+            log_stream << std::endl;
+            details::timer.print_elapsed_time(log_stream);
 
-            taikyoku.kyokumen.print_kifu();
-            std::cout.flush();
+            taikyoku.kyokumen.print_kifu(log_stream);
+            log_stream.flush();
 
             return taikyoku.kyokumen.kifu;
         }
 
-        inline void run(unsigned long long & uid)
+        inline void run(const std::string & directory, unsigned long long & uid)
         {
             std::vector<fitness_type> fitness_table;
             fitness_table.resize(individuals.size(), 0);
+
+            std::filesystem::create_directories(directory);
 
             // 総当りで対局させる。
             for (std::size_t i = 0; i < individuals.size(); ++i)
@@ -5707,7 +5734,8 @@ namespace shogipp
                 {
                     if (i != j)
                     {
-                        const std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j]);
+                        const std::filesystem::path log{ directory + "/" + std::to_string(i) + "_" + std::to_string(j) + ".txt" };
+                        const std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j], log);
                         if (kifu.size() % 2 == 1) // 棋譜の長さが奇数の場合、先手の勝利
                             fitness_table[i] += 1;
                     }
@@ -5939,7 +5967,8 @@ namespace shogipp
                 {
                     std::vector<std::filesystem::path> chromosome_paths;
                     for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_chromosome })
-                        chromosome_paths.push_back(entry.path());
+                        if (entry.is_regular_file())
+                            chromosome_paths.push_back(entry.path());
                     const std::shared_ptr<genetic_algorithm_t> ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
 
                     if (ga_mutation_rate)
@@ -5952,8 +5981,9 @@ namespace shogipp
                     unsigned long long uid = 0;
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                     {
-                        ga->run(uid);
-                        ga->write_file(*ga_chromosome + "/" + std::to_string(iteration_count));
+                        const std::string directory = *ga_chromosome + "/" + std::to_string(iteration_count);
+                        ga->run(directory, uid);
+                        ga->write_file(directory);
                     }
                 }
             }

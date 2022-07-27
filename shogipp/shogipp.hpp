@@ -4747,14 +4747,14 @@ namespace shogipp
 
         inline void read_file(const std::filesystem::path & path)
         {
-            std::ifstream in(path, std::ios::in | std::ios::binary);
+            std::ifstream in(path, std::ios_base::in | std::ios::binary);
             char * data = reinterpret_cast<char *>(this);
             in.read(data, sizeof(*this));
         }
 
         inline void write_file(const std::filesystem::path & path) const
         {
-            std::ofstream out(path, std::ios::out | std::ios::binary);
+            std::ofstream out(path, std::ios_base::out | std::ios::binary);
             const char * data = reinterpret_cast<const char *>(this);
             out.write(data, sizeof(*this));
         }
@@ -4850,9 +4850,9 @@ namespace shogipp
             return m_name;
         }
 
-        inline void write_file(const std::filesystem::path & path) const
+        inline void write_file(const std::string & directory) const
         {
-            m_chromosome->write_file(path);
+            m_chromosome->write_file(directory + "/" + m_name + "_" + std::to_string(m_id));
         }
 
         inline const std::shared_ptr<chromosome_t> & chromosome() const noexcept
@@ -5695,7 +5695,7 @@ namespace shogipp
             return taikyoku.kyokumen.kifu;
         }
 
-        inline void run()
+        inline void run(unsigned long long & uid)
         {
             std::vector<fitness_type> fitness_table;
             fitness_table.resize(individuals.size(), 0);
@@ -5707,7 +5707,7 @@ namespace shogipp
                 {
                     if (i != j)
                     {
-                        std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j]);
+                        const std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j]);
                         if (kifu.size() % 2 == 1) // ä˚ïàÇÃí∑Ç≥Ç™äÔêîÇÃèÍçáÅAêÊéËÇÃèüóò
                             fitness_table[i] += 1;
                     }
@@ -5724,7 +5724,7 @@ namespace shogipp
                     const std::shared_ptr<chromosome_evaluator_t> & individual = select_individual(fitness_table);
                     const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*individual->chromosome());
                     chromosome->mutate();
-                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, individual->name(), individual->id() + 1);
+                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, individual->name(), uid++);
                     next_individuals.push_back(next_individual);
                 }
                 else if (action == action_t::crossover)
@@ -5733,14 +5733,14 @@ namespace shogipp
                     const std::shared_ptr<chromosome_evaluator_t> & sub = select_individual(fitness_table);
                     const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*base->chromosome());
                     chromosome->clossover(*sub->chromosome());
-                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, base->name(), base->id() + 1);
+                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, base->name(), uid++);
                     next_individuals.push_back(next_individual);
                 }
                 else if (action == action_t::selection)
                 {
                     const std::shared_ptr<chromosome_evaluator_t> & individual = select_individual(fitness_table);
                     const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*individual->chromosome());
-                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, individual->name(), individual->id() + 1);
+                    const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, individual->name(), uid++);
                     next_individuals.push_back(next_individual);
                 }
             }
@@ -5749,21 +5749,20 @@ namespace shogipp
             individuals = std::move(next_individuals);
         }
 
-        inline genetic_algorithm_t(const std::vector<std::string> & paths)
+        inline genetic_algorithm_t(const std::vector<std::filesystem::path> & paths)
         {
-            for (const std::string & path : paths)
+            for (const std::filesystem::path & path : paths)
             {
                 try
                 {
+                    const std::string filename = path.filename().string();
                     std::smatch results;
                     std::string name;
                     chromosome_evaluator_t::id_type id{};
-
-                    if (!std::regex_match(path, results, std::regex(R"((.*)_(\d+))")))
+                    if (!std::regex_match(filename, results, std::regex(R"((.*)_(\d+))")))
                         throw std::exception();
                     name = results[1].str();
                     id = std::stoull(results[2].str());
-
                     individuals.push_back(std::make_shared<chromosome_evaluator_t>(path, name, id));
                 }
                 catch (...)
@@ -5775,8 +5774,9 @@ namespace shogipp
 
         inline void write_file(const std::string & directory) const
         {
+            std::filesystem::create_directories(directory);
             for (const auto & individual : individuals)
-                individual->write_file(directory + "/" + individual->name() + "_" + std::to_string(individual->id()));
+                individual->write_file(directory);
         }
 
         inline void set_mutation_rate (unsigned int mutation_rate ) noexcept { m_mutation_rate  = mutation_rate ; }
@@ -5937,9 +5937,9 @@ namespace shogipp
                 }
                 else if (ga_iteration)
                 {
-                    std::vector<std::string> chromosome_paths;
+                    std::vector<std::filesystem::path> chromosome_paths;
                     for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_chromosome })
-                        chromosome_paths.push_back(entry.path().string());
+                        chromosome_paths.push_back(entry.path());
                     const std::shared_ptr<genetic_algorithm_t> ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
 
                     if (ga_mutation_rate)
@@ -5949,10 +5949,11 @@ namespace shogipp
                     if (ga_selection_rate)
                         ga->set_selection_rate(*ga_selection_rate);
 
+                    unsigned long long uid = 0;
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                     {
-                        ga->run();
-                        ga->write_file(*ga_chromosome);
+                        ga->run(uid);
+                        ga->write_file(*ga_chromosome + "/" + std::to_string(iteration_count));
                     }
                 }
             }

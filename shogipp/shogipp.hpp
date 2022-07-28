@@ -4636,21 +4636,21 @@ namespace shogipp
         {
             static const evaluation_value_t map[]
             {
-                /* empty    */  0,
-                /* fu       */  1,
-                /* kyo      */  3,
-                /* kei      */  4,
-                /* gin      */  5,
-                /* kin      */  6,
-                /* kaku     */  8,
-                /* hi       */ 10,
-                /* ou       */  0,
-                /* tokin    */  7,
-                /* nari_lance */  6,
-                /* nari_knight */  6,
-                /* nari_silver */  6,
-                /* uma      */ 10,
-                /* ryu      */ 12
+                /* empty           */  0,
+                /* pawn            */  1,
+                /* lance           */  3,
+                /* knight          */  4,
+                /* silver          */  5,
+                /* gold            */  6,
+                /* bishop          */  8,
+                /* rook            */ 10,
+                /* king            */  0,
+                /* promoted_pawn   */  7,
+                /* promoted_lance  */  6,
+                /* promoted_knight */  6,
+                /* promoted_silver */  6,
+                /* promoted_bishop */ 10,
+                /* promoted_rook   */ 12
             };
 
             constexpr evaluation_value_t destination_point = 1;

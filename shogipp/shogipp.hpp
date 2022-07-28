@@ -497,12 +497,6 @@ namespace shogipp
          */
         inline color_t to_color() const noexcept;
 
-        /*
-         * @breif 駒が走り駒(香・角・飛・馬・竜)か判定する。
-         * @return 走り駒である場合 true
-         */
-        inline bool is_hashirigoma() const noexcept;
-
         /**
          * @breif 駒が持ち駒として適格であるか判定する。
          * @retval true 持ち駒として適格である
@@ -621,19 +615,6 @@ namespace shogipp
         if (value() <= color_distance)
             return black;
         return white;
-    }
-
-    inline bool colored_piece_t::is_hashirigoma() const noexcept
-    {
-        SHOGIPP_ASSERT(!empty());
-        constexpr bool map[]
-        {
-            false,
-            false, true, false, false, false, true, true, false, false, false, false, false, true, true,
-            false, true, false, false, false, true, true, false, false, false, false, false, true, true,
-        };
-        constexpr std::uint32_t bitmask = details::bool_array_to_32bitmask(map);
-        return details::bitmask_has(bitmask, value());
     }
 
     inline bool colored_piece_t::is_captured() const noexcept
@@ -812,6 +793,17 @@ namespace shogipp
     constexpr position_t file_size = 9;
     constexpr position_t rank_size = 9;
 
+    constexpr position_t front        = -width;
+    constexpr position_t left         = -1;
+    constexpr position_t right        = +1;
+    constexpr position_t back         = +width;
+    constexpr position_t knight_left  = front * 2 + left;
+    constexpr position_t knight_right = front * 2 + right;
+    constexpr position_t front_left   = front + left;
+    constexpr position_t front_right  = front + right;
+    constexpr position_t back_left    = back + left;
+    constexpr position_t back_right   = back + right;
+
     enum position_alias
     {
         X00, P10, P20, P30, P40, P50, P60, P70, P80, P90, XA0,
@@ -867,7 +859,7 @@ namespace shogipp
      * @param a 座標
      * @return 2つの座標間の距離
      */
-    inline const position_t * nrearest_center_side_3(position_t position) noexcept
+    inline const position_t * nearest_center_side_3(position_t position) noexcept
     {
         const position_t map[9][4]
         {
@@ -885,17 +877,6 @@ namespace shogipp
         SHOGIPP_ASSERT(index < std::size(map));
         return map[index];
     }
-
-    constexpr position_t front        = -width;
-    constexpr position_t left         = -1;
-    constexpr position_t right        = +1;
-    constexpr position_t back         = +width;
-    constexpr position_t knight_left  = front * 2 + left;
-    constexpr position_t knight_right = front * 2 + right;
-    constexpr position_t front_left   = front + left;
-    constexpr position_t front_right  = front + right;
-    constexpr position_t back_left    = back + left;
-    constexpr position_t back_right   = back + right;
 
     using position_to_noncolored_piece_pair = std::pair<position_t, std::vector<noncolored_piece_t>>;
 
@@ -2513,6 +2494,13 @@ namespace shogipp
          */
         inline void remove_repetition_of_moves(moves_t & moves) const noexcept;
 
+        /**
+         * @breif 王の座標を取得する。
+         * @param color 手番
+         * @return 座標
+         */
+        inline position_t king_position(color_t color) const noexcept;
+
         board_t board;                                              // 盤
         captured_pieces_t captured_pieces_list[color_t::size()];    // 持ち駒
         move_count_t move_count = 0;                                // 手数
@@ -3443,6 +3431,11 @@ namespace shogipp
                 );
             }
         ), moves.end());
+    }
+
+    inline position_t kyokumen_t::king_position(color_t color) const noexcept
+    {
+        return additional_info.king_position_list[color.value()];
     }
 
     using evaluation_value_t = int;
@@ -4715,11 +4708,12 @@ namespace shogipp
     class chromosome_t
     {
     public:
-        unsigned short board_piece_points[promoted_rook_value - pawn_value]{};
+        unsigned short board_piece_points[promoted_rook_value - pawn_value - 1]{};
         unsigned short captured_piece_points[captured_size]{};
-        unsigned short kiki_point{};
-        unsigned short himo_point{};
+        unsigned char kiki_coefficient[4]{};
+        unsigned char himo_coefficient[4]{};
         unsigned short destination_point{};
+        unsigned char nearest_center_side_3_coefficient{};
 
         inline void generate_template() noexcept
         {
@@ -4731,7 +4725,6 @@ namespace shogipp
                 /* gold            */  600,
                 /* bishop          */  800,
                 /* rook            */ 1000,
-                /* king            */  000,
                 /* promoted_pawn   */  700,
                 /* promoted_lance  */  600,
                 /* promoted_knight */  600,
@@ -4752,8 +4745,7 @@ namespace shogipp
                 /* rook            */ 0, 1000, 1000,
             };
             std::copy(std::begin(captured_piece_points_template), std::end(captured_piece_points_template), std::begin(captured_piece_points));
-            kiki_point = 10;
-            himo_point = 10;
+
             destination_point = 1;
         }
 
@@ -4802,9 +4794,12 @@ namespace shogipp
                 ostream << "captured_piece_points[bishop + " << i << "]: " << captured_piece_points[captured_bishop_offset + i] << std::endl;
             for (std::size_t i = 0; i < captured_rook_size; ++i)
                 ostream << "captured_piece_points[rook   + " << i << "]: " << captured_piece_points[captured_rook_offset + i] << std::endl;
-            ostream << "kiki_point: " << kiki_point << std::endl;
-            ostream << "himo_point: " << himo_point << std::endl;
+            for (std::size_t i = 0; i < std::size(kiki_coefficient); ++i)
+                ostream << "kiki_coefficient[" << i << "]: " << kiki_coefficient[i] << std::endl;
+            for (std::size_t i = 0; i < std::size(himo_coefficient); ++i)
+                ostream << "himo_coefficient[" << i << "]: " << himo_coefficient[i] << std::endl;
             ostream << "destination_point: " << destination_point << std::endl;
+            ostream << "nearest_center_side_3_coefficient: " << nearest_center_side_3_coefficient << std::endl;
         }
 
         inline void clossover(const chromosome_t & chromosome) noexcept
@@ -4834,6 +4829,21 @@ namespace shogipp
             out.write(data, sizeof(*this));
         }
 
+        inline evaluation_value_t evaluate_piece(noncolored_piece_t piece) const noexcept
+        {
+            if (piece == pawn)
+                return 100;
+            else if (piece == king)
+                return 0;
+            std::size_t index = piece.value();
+            if (index >= promoted_pawn_value)
+                index -= pawn_value + 2;
+            else
+                index -= pawn_value + 1;
+            SHOGIPP_ASSERT(index < std::size(board_piece_points));
+            return board_piece_points[index];
+        }
+
         inline evaluation_value_t evaluate(kyokumen_t & kyokumen) const
         {
             evaluation_value_t evaluation_value = 0;
@@ -4842,17 +4852,7 @@ namespace shogipp
             {
                 const colored_piece_t piece = kyokumen.board[position];
                 if (!board_t::out(position) && !piece.empty())
-                {
-                    const noncolored_piece_t noncolored_piece{ piece };
-                    if (noncolored_piece == pawn)
-                        evaluation_value += 100 * reverse(piece.to_color());
-                    else
-                    {
-                        const std::size_t index = noncolored_piece.value() - pawn_value - 1;
-                        SHOGIPP_ASSERT(index < std::size(board_piece));
-                        evaluation_value += board_piece_points[index] * reverse(piece.to_color());
-                    }
-                }
+                    evaluation_value += evaluate_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color());
             }
 
             for (const color_t color : colors)
@@ -4863,6 +4863,16 @@ namespace shogipp
                     SHOGIPP_ASSERT(index < std::size(captured_piece_point));
                     evaluation_value += board_piece_points[index] * reverse(color);
                 }
+
+                const position_t king_position = kyokumen.king_position(color);
+                for (const position_t * offset = nearest_center_side_3(king_position); *offset != 0; ++offset)
+                {
+                    const position_t nearest = king_position + *offset;
+                    const colored_piece_t piece = kyokumen.board[nearest];
+                    SHOGIPP_ASSERT((!board_t::out(nearest)));
+                    if (!piece.empty())
+                        evaluation_value += evaluate_piece(noncolored_piece_t{ piece }) * nearest_center_side_3_coefficient / std::numeric_limits<decltype(nearest_center_side_3_coefficient)>::max() * reverse(piece.to_color());;
+                }
             }
 
             for (position_t position = position_begin; position < position_end; ++position)
@@ -4871,17 +4881,25 @@ namespace shogipp
                 {
                     const color_t color = kyokumen.board[position].to_color();
 
-                    std::vector<kiki_t> kiki_list;
-                    kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
-                    evaluation_value += -1 * kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
+                    {
+                        std::vector<kiki_t> kiki_list;
+                        kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
+                        const std::size_t offset = std::min(kiki_list.size(), std::size(kiki_coefficient) - 1);
+                        evaluation_value += kiki_coefficient[offset] * reverse(color);
+                    }
 
-                    std::vector<position_t> himo_list;
-                    kyokumen.search_himo(std::back_inserter(himo_list), position, color);
-                    evaluation_value += himo_point * static_cast<evaluation_value_t>(himo_list.size()) * reverse(color);
+                    {
+                        std::vector<position_t> himo_list;
+                        kyokumen.search_himo(std::back_inserter(himo_list), position, color);
+                        const std::size_t offset = std::min(himo_list.size(), std::size(himo_coefficient) - 1);
+                        evaluation_value += himo_coefficient[offset] * reverse(color);
+                    }
 
-                    std::vector<position_t> destination_list;
-                    kyokumen.search_destination(std::back_inserter(destination_list), position, color);
-                    evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
+                    {
+                        std::vector<position_t> destination_list;
+                        kyokumen.search_destination(std::back_inserter(destination_list), position, color);
+                        evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
+                    }
                 }
             }
 
@@ -5890,6 +5908,7 @@ namespace shogipp
             std::optional<unsigned int> ga_crossover_rate;
             std::optional<unsigned int> ga_selection_rate;
             std::optional<std::string> ga_dump_chromosome;
+            std::optional<unsigned int> ga_mutation_number;
 
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {
@@ -6008,6 +6027,17 @@ namespace shogipp
                 {
                     ga_dump_chromosome = params[0];
                 }
+                else if (option == "ga-mutation-number" && !params.empty())
+                {
+                    try
+                    {
+                        ga_mutation_number = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid ga-mutation-number parameter" << std::endl;
+                    }
+                }
             };
             parse_program_options(argc, argv, callback);
 
@@ -6015,6 +6045,7 @@ namespace shogipp
             {
                 if (ga_create_chromosome && ga_create_mode)
                 {
+                    const unsigned int mutation_number = ga_mutation_number ? *ga_mutation_number : 0;
                     for (unsigned int i = 0; i < *ga_create_chromosome; ++i)
                     {
                         const std::filesystem::path path = *ga_chromosome + "/" + std::to_string(i) + "_0";
@@ -6023,6 +6054,8 @@ namespace shogipp
                             chromosome->generate_random();
                         else if (*ga_create_mode == "template")
                             chromosome->generate_template();
+                        for (unsigned int mutation_count = 0; mutation_count < mutation_number; ++mutation_count)
+                            chromosome->mutate();
                         chromosome->write_file(path);
                     }
                 }

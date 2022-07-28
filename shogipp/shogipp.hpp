@@ -848,10 +848,10 @@ namespace shogipp
     }
 
     /**
-     * @breif 2つの座標間のマンハッタン距離を計算する。
+     * @breif 2つの座標間の距離を計算する。
      * @param a 座標A
      * @param b 座標B
-     * @return 2つの座標間のマンハッタン距離
+     * @return 2つの座標間の距離
      */
     inline position_t distance(position_t a, position_t b) noexcept
     {
@@ -859,7 +859,7 @@ namespace shogipp
         const position_t rank_a = position_to_rank(a);
         const position_t file_b = position_to_file(b);
         const position_t  rank_b = position_to_rank(b);
-        return static_cast<position_t>(std::abs(file_a - file_b) + std::abs(rank_a - rank_b));
+        return static_cast<position_t>(std::max((file_a - file_b), (rank_a - rank_b)));
     }
 
     constexpr position_t front        = -width;

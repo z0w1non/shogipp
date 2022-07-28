@@ -5777,12 +5777,12 @@ namespace shogipp
             return individuals.back();
         }
 
-        inline static std::vector<move_t> make_kifu
+        inline std::vector<move_t> make_kifu
         (
             const std::shared_ptr<chromosome_evaluator_t> & black,
             const std::shared_ptr<chromosome_evaluator_t> & white,
             std::ostream & ostream
-        )
+        ) const
         {
             const std::shared_ptr<abstract_kishi_t> black_kishi{ std::make_shared<computer_kishi_t>(black) };
             const std::shared_ptr<abstract_kishi_t> white_kishi{ std::make_shared<computer_kishi_t>(white) };
@@ -5791,7 +5791,7 @@ namespace shogipp
             while (true)
             {
                 taikyoku.print(ostream);
-                if (!taikyoku.procedure(ostream))
+                if (!taikyoku.procedure(ostream) || taikyoku.kyokumen.move_count >= m_max_move_count)
                     break;
             }
 
@@ -5866,10 +5866,13 @@ namespace shogipp
 
                             {
                                 std::lock_guard<decltype(mutex)> lock{ mutex };
-                                if (kifu.size() % 2 == 1)
-                                    fitness_table[arguments.i] += 1;
-                                else
-                                    fitness_table[arguments.j] += 1;
+                                if (kifu.size() < m_max_move_count)
+                                {
+                                    if (kifu.size() % 2 == 1)
+                                        fitness_table[arguments.i] += 1;
+                                    else
+                                        fitness_table[arguments.j] += 1;
+                                }
                             }
                         }
                     }
@@ -5947,12 +5950,14 @@ namespace shogipp
         inline void set_mutation_rate (unsigned int mutation_rate ) noexcept { m_mutation_rate  = mutation_rate ; }
         inline void set_crossover_rate(unsigned int crossover_rate) noexcept { m_crossover_rate = crossover_rate; }
         inline void set_selection_rate(unsigned int selection_rate) noexcept { m_selection_rate = selection_rate; }
+        inline void set_max_move_count(unsigned int max_move_count) noexcept { m_max_move_count = max_move_count; }
 
     private:
         std::vector<std::shared_ptr<chromosome_evaluator_t>> individuals;
         unsigned int m_mutation_rate  = 10;
         unsigned int m_crossover_rate = 800;
         unsigned int m_selection_rate = 190;
+        move_count_t m_max_move_count = 300;
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept
@@ -5968,6 +5973,7 @@ namespace shogipp
             std::optional<unsigned int> ga_mutation_rate;
             std::optional<unsigned int> ga_crossover_rate;
             std::optional<unsigned int> ga_selection_rate;
+            std::optional<unsigned int> ga_max_move_count;
             std::optional<std::string> ga_dump_chromosome;
             std::optional<unsigned int> ga_mutation_number;
             std::optional<unsigned int> ga_thread_number;
@@ -6085,6 +6091,17 @@ namespace shogipp
                         std::cerr << "invalid ga-selection-rate parameter" << std::endl;
                     }
                 }
+                else if (option == "ga-max-move-count" && !params.empty())
+                {
+                try
+                {
+                    ga_max_move_count = std::stoi(params[0]);
+                }
+                catch (...)
+                {
+                    std::cerr << "invalid ga-selection-rate parameter" << std::endl;
+                }
+                }
                 else if (option == "ga-dump-chromosome" && !params.empty())
                 {
                     ga_dump_chromosome = params[0];
@@ -6147,6 +6164,8 @@ namespace shogipp
                         ga->set_crossover_rate(*ga_crossover_rate);
                     if (ga_selection_rate)
                         ga->set_selection_rate(*ga_selection_rate);
+                    if (ga_max_move_count)
+                        ga->set_max_move_count(*ga_max_move_count);
 
                     unsigned long long uid = 0;
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)

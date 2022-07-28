@@ -862,6 +862,30 @@ namespace shogipp
         return static_cast<position_t>(std::max((file_a - file_b), (rank_a - rank_b)));
     }
 
+    /**
+     * @breif 指定された座標の8近傍のうち中央に近い3近傍の相対座標を取得する。
+     * @param a 座標
+     * @return 2つの座標間の距離
+     */
+    inline const position_t * nrearest_center_side_3(position_t position) noexcept
+    {
+        const position_t map[9][4]
+        {
+            { right, back, back_right, 0 },
+            { back_left, back, back_right, 0 },
+            { left, back_left, back, 0 },
+            { front_right, right, back_right, 0 },
+            { 0 },
+            { front_left, left, back_left, 0 },
+            { front, front_right, right, 0 },
+            { front_left, front, front_right, 0 },
+            { front_left, front, left, 0 },
+        };
+        const std::size_t index = position_to_file(position) / 3 * position_to_rank(position) / 3 * 3;
+        SHOGIPP_ASSERT(index < std::size(map));
+        return map[index];
+    }
+
     constexpr position_t front        = -width;
     constexpr position_t left         = -1;
     constexpr position_t right        = +1;

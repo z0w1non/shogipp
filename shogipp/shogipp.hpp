@@ -5873,6 +5873,8 @@ namespace shogipp
                                 std::lock_guard<decltype(mutex)> lock{ mutex };
                                 if (kifu.size() % 2 == 1)
                                     fitness_table[i] += 1;
+                                else
+                                    fitness_table[j] += 1;
                             }
                         }
                     }

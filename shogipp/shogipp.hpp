@@ -5781,33 +5781,32 @@ namespace shogipp
         (
             const std::shared_ptr<chromosome_evaluator_t> & black,
             const std::shared_ptr<chromosome_evaluator_t> & white,
-            const std::filesystem::path & log
+            std::ostream & ostream
         )
         {
-            std::ofstream log_stream{ log };
             const std::shared_ptr<abstract_kishi_t> black_kishi{ std::make_shared<computer_kishi_t>(black) };
             const std::shared_ptr<abstract_kishi_t> white_kishi{ std::make_shared<computer_kishi_t>(white) };
 
             taikyoku_t taikyoku{ black_kishi, white_kishi };
             while (true)
             {
-                taikyoku.print(log_stream);
-                if (!taikyoku.procedure(log_stream))
+                taikyoku.print(ostream);
+                if (!taikyoku.procedure(ostream))
                     break;
             }
 
-            taikyoku.print(log_stream); // 詰んだ局面を標準出力に出力する。
+            taikyoku.print(ostream); // 詰んだ局面を標準出力に出力する。
 
-            log_stream << std::endl;
-            details::timer.print_elapsed_time(log_stream);
+            ostream << std::endl;
+            details::timer.print_elapsed_time(ostream);
 
-            taikyoku.kyokumen.print_kifu(log_stream);
-            log_stream.flush();
+            taikyoku.kyokumen.print_kifu(ostream);
+            ostream.flush();
 
             return taikyoku.kyokumen.kifu;
         }
 
-        inline void run(const std::string & directory, unsigned long long & uid)
+        inline void run(const std::string & directory, unsigned long long & uid, unsigned int thread_number)
         {
             std::vector<fitness_type> fitness_table;
             fitness_table.resize(individuals.size(), 0);
@@ -5815,19 +5814,73 @@ namespace shogipp
             std::filesystem::create_directories(directory);
 
             // 総当りで対局させる。
+            std::mutex mutex;
+
+            class thread_arguments_t
+            {
+            public:
+                std::size_t i{};
+                std::size_t j{};
+                std::filesystem::path log_path;
+            };
+            std::deque<thread_arguments_t> thread_arguments_queue;
+
             for (std::size_t i = 0; i < individuals.size(); ++i)
             {
                 for (std::size_t j = 0; j < individuals.size(); ++j)
                 {
                     if (i != j)
                     {
-                        const std::filesystem::path log{ directory + "/" + std::to_string(i) + "_" + std::to_string(j) + ".txt" };
-                        const std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j], log);
-                        if (kifu.size() % 2 == 1) // 棋譜の長さが奇数の場合、先手の勝利
-                            fitness_table[i] += 1;
+                        thread_arguments_t thread_arguments;
+                        thread_arguments.i = i;
+                        thread_arguments.j = j;
+                        thread_arguments.log_path = directory + "/" + std::to_string(i) + "_" + std::to_string(j) + ".txt";
+                        thread_arguments_queue.push_back(thread_arguments);
                     }
                 }
             }
+
+            std::vector<std::thread> threads;
+            for (unsigned int thread_id = 0; thread_id < thread_number; ++thread_id)
+            {
+                threads.emplace_back
+                (
+                    [this, &thread_arguments_queue, &fitness_table, &mutex]
+                    {
+                        while (true)
+                        {
+                            std::size_t i;
+                            std::size_t j;
+                            std::filesystem::path log_path;
+
+                            {
+                                std::lock_guard<decltype(mutex)> lock{ mutex };
+                                if (thread_arguments_queue.empty())
+                                    return;
+                                const thread_arguments_t & arguments = thread_arguments_queue.front();
+                                i = arguments.i;
+                                j = arguments.j;
+                                log_path = arguments.log_path;
+                                thread_arguments_queue.pop_front();
+                            }
+
+                            std::ostringstream temp_stream;
+                            const std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j], temp_stream);
+                            std::ofstream log_stream{ log_path };
+                            log_stream << temp_stream.str() << std::flush;
+
+                            {
+                                std::lock_guard<decltype(mutex)> lock{ mutex };
+                                if (kifu.size() % 2 == 1)
+                                    fitness_table[i] += 1;
+                            }
+                        }
+                    }
+                );
+            }
+            for (std::thread & thread : threads)
+                thread.join();
+            threads.clear();
 
             // 次世代を作成する。
             std::vector<std::shared_ptr<chromosome_evaluator_t>> next_individuals;
@@ -5920,6 +5973,7 @@ namespace shogipp
             std::optional<unsigned int> ga_selection_rate;
             std::optional<std::string> ga_dump_chromosome;
             std::optional<unsigned int> ga_mutation_number;
+            std::optional<unsigned int> ga_thread_number;
 
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {
@@ -6049,6 +6103,17 @@ namespace shogipp
                         std::cerr << "invalid ga-mutation-number parameter" << std::endl;
                     }
                 }
+                else if (option == "ga-thread-number" && !params.empty())
+                {
+                    try
+                    {
+                        ga_thread_number = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid ga-thread-number parameter" << std::endl;
+                    }
+                } 
             };
             parse_program_options(argc, argv, callback);
 
@@ -6072,6 +6137,7 @@ namespace shogipp
                 }
                 else if (ga_iteration)
                 {
+                    const unsigned int thread_number = ga_thread_number ? *ga_thread_number : 1;
                     std::vector<std::filesystem::path> chromosome_paths;
                     for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_chromosome })
                         if (entry.is_regular_file())
@@ -6089,7 +6155,7 @@ namespace shogipp
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                     {
                         const std::string directory = *ga_chromosome + "/" + std::to_string(iteration_count);
-                        ga->run(directory, uid);
+                        ga->run(directory, uid, thread_number);
                         ga->write_file(directory);
                     }
                 }

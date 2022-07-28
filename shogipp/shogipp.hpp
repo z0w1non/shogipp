@@ -5849,32 +5849,27 @@ namespace shogipp
                     {
                         while (true)
                         {
-                            std::size_t i;
-                            std::size_t j;
-                            std::filesystem::path log_path;
+                            thread_arguments_t arguments;
 
                             {
                                 std::lock_guard<decltype(mutex)> lock{ mutex };
                                 if (thread_arguments_queue.empty())
                                     return;
-                                const thread_arguments_t & arguments = thread_arguments_queue.front();
-                                i = arguments.i;
-                                j = arguments.j;
-                                log_path = arguments.log_path;
+                                arguments = thread_arguments_queue.front();
                                 thread_arguments_queue.pop_front();
                             }
 
-                            std::ostringstream temp_stream;
-                            const std::vector<move_t> kifu = make_kifu(individuals[i], individuals[j], temp_stream);
-                            std::ofstream log_stream{ log_path };
-                            log_stream << temp_stream.str() << std::flush;
+                            std::ofstream log_stream{ arguments.log_path };
+                            const std::shared_ptr<chromosome_evaluator_t> black = individuals[arguments.i];
+                            const std::shared_ptr<chromosome_evaluator_t> white = individuals[arguments.j];
+                            const std::vector<move_t> kifu = make_kifu(black, white, log_stream);
 
                             {
                                 std::lock_guard<decltype(mutex)> lock{ mutex };
                                 if (kifu.size() % 2 == 1)
-                                    fitness_table[i] += 1;
+                                    fitness_table[arguments.i] += 1;
                                 else
-                                    fitness_table[j] += 1;
+                                    fitness_table[arguments.j] += 1;
                             }
                         }
                     }

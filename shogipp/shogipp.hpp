@@ -4773,13 +4773,12 @@ namespace shogipp
             ostream << "board_piece_points[gold           ]: " << board_piece_points[gold_value            - pawn_value - 1] << std::endl;
             ostream << "board_piece_points[bishop         ]: " << board_piece_points[bishop_value          - pawn_value - 1] << std::endl;
             ostream << "board_piece_points[rook           ]: " << board_piece_points[rook_value            - pawn_value - 1] << std::endl;
-            ostream << "board_piece_points[king           ]: " << board_piece_points[king_value            - pawn_value - 1] << std::endl;
-            ostream << "board_piece_points[promoted_pawn  ]: " << board_piece_points[promoted_pawn_value   - pawn_value - 1] << std::endl;
-            ostream << "board_piece_points[promoted_lance ]: " << board_piece_points[promoted_lance_value  - pawn_value - 1] << std::endl;
-            ostream << "board_piece_points[promoted_knight]: " << board_piece_points[promoted_knight_value - pawn_value - 1] << std::endl;
-            ostream << "board_piece_points[promoted_silver]: " << board_piece_points[promoted_silver_value - pawn_value - 1] << std::endl;
-            ostream << "board_piece_points[promoted_bishop]: " << board_piece_points[promoted_bishop_value - pawn_value - 1] << std::endl;
-            ostream << "board_piece_points[promoted_rook  ]: " << board_piece_points[promoted_rook_value   - pawn_value - 1] << std::endl;
+            ostream << "board_piece_points[promoted_pawn  ]: " << board_piece_points[promoted_pawn_value   - pawn_value - 2] << std::endl;
+            ostream << "board_piece_points[promoted_lance ]: " << board_piece_points[promoted_lance_value  - pawn_value - 2] << std::endl;
+            ostream << "board_piece_points[promoted_knight]: " << board_piece_points[promoted_knight_value - pawn_value - 2] << std::endl;
+            ostream << "board_piece_points[promoted_silver]: " << board_piece_points[promoted_silver_value - pawn_value - 2] << std::endl;
+            ostream << "board_piece_points[promoted_bishop]: " << board_piece_points[promoted_bishop_value - pawn_value - 2] << std::endl;
+            ostream << "board_piece_points[promoted_rook  ]: " << board_piece_points[promoted_rook_value   - pawn_value - 2] << std::endl;
             for (std::size_t i = 0; i < captured_pawn_size; ++i)
                 ostream << "captured_piece_points[pawn   + " << i << "]: " << captured_piece_points[captured_pawn_offset + i] << std::endl;
             for (std::size_t i = 0; i < captured_lance_size; ++i)

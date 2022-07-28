@@ -5847,33 +5847,44 @@ namespace shogipp
                 (
                     [this, &thread_arguments_queue, &fitness_table, &mutex]
                     {
-                        while (true)
+                        try
                         {
-                            thread_arguments_t arguments;
-
+                            while (true)
                             {
-                                std::lock_guard<decltype(mutex)> lock{ mutex };
-                                if (thread_arguments_queue.empty())
-                                    return;
-                                arguments = thread_arguments_queue.front();
-                                thread_arguments_queue.pop_front();
-                            }
+                                thread_arguments_t arguments;
 
-                            std::ofstream log_stream{ arguments.log_path };
-                            const std::shared_ptr<chromosome_evaluator_t> black = individuals[arguments.i];
-                            const std::shared_ptr<chromosome_evaluator_t> white = individuals[arguments.j];
-                            const std::vector<move_t> kifu = make_kifu(black, white, log_stream);
-
-                            {
-                                std::lock_guard<decltype(mutex)> lock{ mutex };
-                                if (kifu.size() < m_max_move_count)
                                 {
-                                    if (kifu.size() % 2 == 1)
-                                        fitness_table[arguments.i] += 1;
-                                    else
-                                        fitness_table[arguments.j] += 1;
+                                    std::lock_guard<decltype(mutex)> lock{ mutex };
+                                    if (thread_arguments_queue.empty())
+                                        return;
+                                    arguments = thread_arguments_queue.front();
+                                    thread_arguments_queue.pop_front();
+                                }
+
+                                std::ostringstream temp_stream;
+                                const std::shared_ptr<chromosome_evaluator_t> black = individuals[arguments.i];
+                                const std::shared_ptr<chromosome_evaluator_t> white = individuals[arguments.j];
+                                const std::vector<move_t> kifu = make_kifu(black, white, temp_stream);
+
+                                {
+                                    std::lock_guard<decltype(mutex)> lock{ mutex };
+
+                                    std::ofstream log_stream{ arguments.log_path };
+                                    log_stream << temp_stream.str() << std::flush;
+
+                                    if (kifu.size() < m_max_move_count)
+                                    {
+                                        if (kifu.size() % 2 == 1)
+                                            fitness_table[arguments.i] += 1;
+                                        else
+                                            fitness_table[arguments.j] += 1;
+                                    }
                                 }
                             }
+                        }
+                        catch (const std::exception &)
+                        {
+                            ;
                         }
                     }
                 );

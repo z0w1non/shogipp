@@ -4829,7 +4829,7 @@ namespace shogipp
             out.write(data, sizeof(*this));
         }
 
-        inline evaluation_value_t evaluate_piece(noncolored_piece_t piece) const noexcept
+        inline evaluation_value_t evaluate_board_piece(noncolored_piece_t piece) const noexcept
         {
             if (piece == pawn)
                 return 100;
@@ -4844,6 +4844,13 @@ namespace shogipp
             return board_piece_points[index];
         }
 
+        inline evaluation_value_t evaluate_captured_piece(captured_piece_t piece, captured_pieces_t::size_type count) const noexcept
+        {
+            const std::size_t index = captured_offsets[piece.value()] + count;
+            SHOGIPP_ASSERT(index < std::size(captured_piece_points));
+            return captured_piece_points[index];
+        }
+
         inline evaluation_value_t evaluate(kyokumen_t & kyokumen) const
         {
             evaluation_value_t evaluation_value = 0;
@@ -4852,17 +4859,13 @@ namespace shogipp
             {
                 const colored_piece_t piece = kyokumen.board[position];
                 if (!board_t::out(position) && !piece.empty())
-                    evaluation_value += evaluate_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color());
+                    evaluation_value += evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color());
             }
 
             for (const color_t color : colors)
             {
                 for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                {
-                    const std::size_t index = captured_offsets[piece] + kyokumen.captured_pieces_list[color.value()][piece];
-                    SHOGIPP_ASSERT(index < std::size(captured_piece_point));
-                    evaluation_value += board_piece_points[index] * reverse(color);
-                }
+                    evaluation_value += evaluate_captured_piece(captured_piece_t{ piece }, kyokumen.captured_pieces_list[color.value()][piece]) * reverse(color);
 
                 const position_t king_position = kyokumen.king_position(color);
                 for (const position_t * offset = nearest_center_side_3(king_position); *offset != 0; ++offset)
@@ -4871,34 +4874,43 @@ namespace shogipp
                     const colored_piece_t piece = kyokumen.board[nearest];
                     SHOGIPP_ASSERT((!board_t::out(nearest)));
                     if (!piece.empty())
-                        evaluation_value += evaluate_piece(noncolored_piece_t{ piece }) * nearest_center_side_3_coefficient / std::numeric_limits<decltype(nearest_center_side_3_coefficient)>::max() * reverse(piece.to_color());;
+                    {
+                        evaluation_value += evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
+                            * nearest_center_side_3_coefficient / std::numeric_limits<decltype(nearest_center_side_3_coefficient)>::max();
+                    }
                 }
             }
 
             for (position_t position = position_begin; position < position_end; ++position)
             {
-                if (!board_t::out(position) && !kyokumen.board[position].empty())
+                if (!board_t::out(position))
                 {
-                    const color_t color = kyokumen.board[position].to_color();
-
+                    const colored_piece_t piece = kyokumen.board[position];
+                    if (!piece.empty())
                     {
-                        std::vector<kiki_t> kiki_list;
-                        kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
-                        const std::size_t offset = std::min(kiki_list.size(), std::size(kiki_coefficient) - 1);
-                        evaluation_value += kiki_coefficient[offset] * reverse(color);
-                    }
+                        const color_t color = piece.to_color();
 
-                    {
-                        std::vector<position_t> himo_list;
-                        kyokumen.search_himo(std::back_inserter(himo_list), position, color);
-                        const std::size_t offset = std::min(himo_list.size(), std::size(himo_coefficient) - 1);
-                        evaluation_value += himo_coefficient[offset] * reverse(color);
-                    }
+                        {
+                            std::vector<kiki_t> kiki_list;
+                            kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
+                            const std::size_t offset = std::min(kiki_list.size(), std::size(kiki_coefficient) - 1);
+                            evaluation_value += evaluate_board_piece(piece) * reverse(color)
+                                * kiki_coefficient[offset] / std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max();
+                        }
 
-                    {
-                        std::vector<position_t> destination_list;
-                        kyokumen.search_destination(std::back_inserter(destination_list), position, color);
-                        evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
+                        {
+                            std::vector<position_t> himo_list;
+                            kyokumen.search_himo(std::back_inserter(himo_list), position, color);
+                            const std::size_t offset = std::min(himo_list.size(), std::size(himo_coefficient) - 1);
+                            evaluation_value += evaluate_board_piece(piece) * reverse(color)
+                                * himo_coefficient[offset] / std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max();
+                        }
+
+                        {
+                            std::vector<position_t> destination_list;
+                            kyokumen.search_destination(std::back_inserter(destination_list), position, color);
+                            evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
+                        }
                     }
                 }
             }

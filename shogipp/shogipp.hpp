@@ -4894,7 +4894,7 @@ namespace shogipp
                             std::vector<kiki_t> kiki_list;
                             kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
                             const std::size_t offset = std::min(kiki_list.size(), std::size(kiki_coefficient) - 1);
-                            evaluation_value += evaluate_board_piece(piece) * reverse(color)
+                            evaluation_value -= evaluate_board_piece(piece) * reverse(color)
                                 * kiki_coefficient[offset] / std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max();
                         }
 

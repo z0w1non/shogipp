@@ -4766,7 +4766,7 @@ namespace shogipp
         unsigned short captured_piece_points[captured_size]{};
         unsigned char kiki_coefficient[4]{};
         unsigned char himo_coefficient[4]{};
-        unsigned short destination_point{};
+        unsigned char destination_points[16]{};
         unsigned char nearest_center_side_3_coefficient{};
 
         inline void generate_template() noexcept
@@ -4800,7 +4800,7 @@ namespace shogipp
             };
             std::copy(std::begin(captured_piece_points_template), std::end(captured_piece_points_template), std::begin(captured_piece_points));
 
-            destination_point = 1;
+            std::fill(std::begin(destination_points), std::end(destination_points), std::numeric_limits<std::decay_t<decltype(*destination_points)>>::max());
         }
 
         inline void generate_random() noexcept
@@ -4851,7 +4851,8 @@ namespace shogipp
                 ostream << "kiki_coefficient-" << i << ": " << static_cast<unsigned int>(kiki_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(himo_coefficient); ++i)
                 ostream << "himo_coefficient-" << i << ": " << static_cast<unsigned int>(himo_coefficient[i]) << std::endl;
-            ostream << "destination-point: " << static_cast<unsigned int>(destination_point) << std::endl;
+            for (std::size_t i = 0; i < std::size(destination_points); ++i)
+                ostream << "destination-points-" << i << ": " << static_cast<unsigned int>(destination_points[i]) << std::endl;
             ostream << "nearest-center-side-3-coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
         }
 
@@ -4977,7 +4978,9 @@ namespace shogipp
                         {
                             std::vector<position_t> destination_list;
                             kyokumen.search_destination(std::back_inserter(destination_list), position, color);
-                            evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
+                            const std::size_t offset = std::min(destination_list.size(), std::size(destination_points) - 1);
+                            evaluation_value += (static_cast<evaluation_value_t>(destination_list.size()) * reverse(color)
+                                * destination_points[offset]) >> (sizeof(*destination_points) * CHAR_BIT);
                         }
                     }
                 }
@@ -5979,6 +5982,19 @@ namespace shogipp
             for (std::thread & thread : threads)
                 thread.join();
             threads.clear();
+
+            // ëŒã«ÇÃåãâ ÇèoóÕÇ∑ÇÈÅB
+            {
+                const std::filesystem::path log_path = log_directory / "summary.txt";
+                std::ofstream log_stream{ log_path };
+                unsigned int div = individuals.size() * (individuals.size() - 1) * 2;
+                for (std::size_t i = 0; i < individuals.size(); ++i)
+                {
+                    const std::string name = individuals[i]->name() + "_" + std::to_string(individuals[i]->id());
+                    double wp = 100.0 * fitness_table[i] / div;
+                    log_stream << name << ": " << wp << "% (" << fitness_table[i] << "/" << div << ")" << std::endl;
+                }
+            }
 
             std::vector<std::shared_ptr<chromosome_evaluator_t>> next_individuals;
 

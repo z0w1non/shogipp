@@ -315,6 +315,23 @@ namespace shogipp
             return count;
         }
 
+        template<typename Integer>
+        std::optional<Integer> cast_to(const std::string & s) noexcept
+        {
+            try
+            {
+                Integer integer;
+                std::istringstream stream{ s };
+                stream >> integer;
+                return integer;
+            }
+            catch (...)
+            {
+                ;
+            }
+            return std::nullopt;
+        }
+
         namespace program_options
         {
             bool print_moves = false;
@@ -5884,8 +5901,6 @@ namespace shogipp
             std::vector<fitness_type> fitness_table;
             fitness_table.resize(individuals.size(), 0);
 
-            std::filesystem::create_directories(log_directory);
-
             std::mutex mutex;
 
             // ëçìñÇËÇÃëŒêÌï\ÇçÏê¨Ç∑ÇÈÅB
@@ -6158,25 +6173,17 @@ namespace shogipp
                 }
                 else if (option == "limit-time" && !params.empty())
                 {
-                    try
-                    {
-                        limit_time = std::stoull(params[0]);
-                    }
-                    catch (...)
-                    {
+                    const std::optional<milli_second_time_t> opt_limit_time = details::cast_to< milli_second_time_t>(params[0]);
+                    if (opt_limit_time)
+                        limit_time = *opt_limit_time;
+                    else
                         std::cerr << "invalid limit-time parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-iteration" && !params.empty())
                 {
-                    try
-                    {
-                        ga_iteration = std::stoull(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_iteration = details::cast_to<unsigned long long>(params[0]);
+                    if (!ga_iteration)
                         std::cerr << "invalid ga-iteration parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-chromosome" && !params.empty())
                 {
@@ -6184,14 +6191,9 @@ namespace shogipp
                 }
                 else if (option == "ga-create-chromosome" && !params.empty())
                 {
-                    try
-                    {
-                        ga_create_chromosome = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_create_chromosome = details::cast_to<unsigned int>(params[0]);
+                    if (!ga_create_chromosome)
                         std::cerr << "invalid ga-create-chromosome parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-create-mode" && !params.empty())
                 {
@@ -6202,69 +6204,39 @@ namespace shogipp
                 }
                 else if (option == "ga-mutation-rate" && !params.empty())
                 {
-                    try
-                    {
-                        ga_mutation_rate = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_mutation_rate = details::cast_to<unsigned int>(params[0]);
+                    if  (!ga_mutation_rate)
                         std::cerr << "invalid ga-mutation-rate parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-crossover-rate" && !params.empty())
                 {
-                    try
-                    {
-                        ga_crossover_rate = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_crossover_rate = details::cast_to<unsigned int>(params[0]);
+                    if (!ga_crossover_rate)
                         std::cerr << "invalid ga-crossover-rate parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-selection-rate" && !params.empty())
                 {
-                    try
-                    {
-                        ga_selection_rate = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_selection_rate = details::cast_to<unsigned int>(params[0]);
+                    if (!ga_selection_rate)
                         std::cerr << "invalid ga-selection-rate parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-max-move-count" && !params.empty())
                 {
-                    try
-                    {
-                        ga_max_move_count = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_max_move_count = details::cast_to<unsigned int>(params[0]);
+                    if (!ga_max_move_count)
                         std::cerr << "invalid ga-selection-rate parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-min-chromosome-distance" && !params.empty())
                 {
-                    try
-                    {
-                        ga_min_chromosome_distance = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_min_chromosome_distance = details::cast_to<unsigned int>(params[0]);
+                    if  (!ga_min_chromosome_distance)
                         std::cerr << "invalid ga-min-chromosome-distance parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-elite-number" && !params.empty())
                 {
-                    try
-                    {
-                        ga_elite_number = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_elite_number = details::cast_to<unsigned int>(params[0]);
+                    if (!ga_elite_number)
                         std::cerr << "invalid ga-elite-number parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-dump-chromosome" && !params.empty())
                 {
@@ -6272,20 +6244,15 @@ namespace shogipp
                 }
                 else if (option == "ga-mutation-number" && !params.empty())
                 {
-                    try
-                    {
-                        ga_mutation_number = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    ga_mutation_number = details::cast_to<unsigned int>(params[0]);
+                    if (!ga_mutation_number)
                         std::cerr << "invalid ga-mutation-number parameter" << std::endl;
-                    }
                 }
                 else if (option == "ga-thread-number" && !params.empty())
                 {
                     try
                     {
-                        ga_thread_number = std::stoi(params[0]);
+                        ga_thread_number = details::cast_to<unsigned int>(params[0]);
                         if (ga_thread_number && *ga_thread_number == 0)
                         {
                             std::cerr << "invalid ga-thread-number parameter" << std::endl;
@@ -6302,6 +6269,8 @@ namespace shogipp
 
             if (ga_chromosome)
             {
+                std::filesystem::create_directories(*ga_chromosome);
+
                 if (ga_create_chromosome && ga_create_mode)
                 {
                     const unsigned int mutation_number = ga_mutation_number ? *ga_mutation_number : 0;
@@ -6344,6 +6313,7 @@ namespace shogipp
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                     {
                         const std::filesystem::path log_directory = std::filesystem::path{ "logs" } / std::to_string(iteration_count);
+                        std::filesystem::create_directories(log_directory);
                         ga->run(log_directory, uid, thread_number);
                         ga->write_file(*ga_chromosome);
                     }

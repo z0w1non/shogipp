@@ -290,6 +290,27 @@ namespace shogipp
             result |= (b & (~random_byte));
             return result;
         }
+
+        /**
+         * @breif 文字列を bool 値に変換する。
+         * @param s 文字列
+         * @return bool 値
+         */
+        inline std::optional<bool> to_bool(std::string_view s) noexcept
+        {
+            if (s == "true" || s == "enable" || s == "1")
+                return true;
+            if (s == "false" || s == "disable" || s == "0")
+                return false;
+            return std::nullopt;
+        }
+
+        namespace program_options
+        {
+            bool print_moves = false;
+            bool print_check = true;
+            bool print_board = true;
+        } // program_options
     } // namespace details
 
     class file_format_error
@@ -2418,13 +2439,13 @@ namespace shogipp
          * @param ostream 出力ストリーム
          */
         template<typename InputIterator>
-        inline void print_move(InputIterator first, InputIterator last, std::ostream & ostream = std::cout) const;
+        inline void print_moves(InputIterator first, InputIterator last, std::ostream & ostream = std::cout) const;
 
         /**
          * @breif 合法手を出力ストリームに出力する。
          * @param ostream 出力ストリーム
          */
-        inline void print_move(std::ostream & ostream = std::cout) const;
+        inline void print_moves(std::ostream & ostream = std::cout) const;
 
         /**
          * @breif 王手を出力ストリームに出力する。
@@ -3249,7 +3270,7 @@ namespace shogipp
     }
 
     template<typename InputIterator>
-    inline void kyokumen_t::print_move(InputIterator first, InputIterator last, std::ostream & ostream) const
+    inline void kyokumen_t::print_moves(InputIterator first, InputIterator last, std::ostream & ostream) const
     {
         for (std::size_t i = 0; first != last; ++i)
         {
@@ -3261,37 +3282,43 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::print_move(std::ostream & ostream) const
+    inline void kyokumen_t::print_moves(std::ostream & ostream) const
     {
-        kyokumen_t temp = *this;
+        const kyokumen_t temp = *this;
         const moves_t moves = temp.strict_search_moves();
-        print_move(moves.begin(), moves.end(), ostream);
+        print_moves(moves.begin(), moves.end(), ostream);
     }
 
     inline void kyokumen_t::print_check(std::ostream & ostream) const
     {
-        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
-        auto & check_list = additional_info.check_list_stack[move_count];
-        if (!check_list.empty())
+        if (details::program_options::print_check)
         {
-            ostream << "王手：";
-            for (std::size_t i = 0; i < check_list.size(); ++i)
+            SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
+            auto & check_list = additional_info.check_list_stack[move_count];
+            if (!check_list.empty())
             {
-                const kiki_t & kiki = check_list[i];
-                if (i > 0)
-                    ostream << "　";
-                ostream << position_to_string(kiki.position) << noncolored_piece_t{ board[kiki.position] }.to_string() << std::endl;
+                ostream << "王手：";
+                for (std::size_t i = 0; i < check_list.size(); ++i)
+                {
+                    const kiki_t & kiki = check_list[i];
+                    if (i > 0)
+                        ostream << "　";
+                    ostream << position_to_string(kiki.position) << noncolored_piece_t{ board[kiki.position] }.to_string() << std::endl;
+                }
             }
         }
     }
 
     inline void kyokumen_t::print(std::ostream & ostream) const
     {
-        ostream << "後手持ち駒：";
-        captured_pieces_list[white.value()].print(ostream);
-        board.print(ostream);
-        ostream << "先手持ち駒：";
-        captured_pieces_list[black.value()].print(ostream);
+        if (details::program_options::print_board)
+        {
+            ostream << "後手持ち駒：";
+            captured_pieces_list[white.value()].print(ostream);
+            board.print(ostream);
+            ostream << "先手持ち駒：";
+            captured_pieces_list[black.value()].print(ostream);
+        }
     }
 
     inline void kyokumen_t::print_kifu(std::ostream & ostream) const
@@ -5188,6 +5215,13 @@ namespace shogipp
          * @return 棋士の名前
          */
         virtual std::string name() const = 0;
+
+        /**
+         * @breif 棋士がコンピュータであるか判定する。
+         * @retval true 棋士がコンピュータである場合
+         * @retval false 棋士が人間である場合
+         */
+        virtual bool is_computer() const = 0;
     };
 
     /**
@@ -5199,6 +5233,7 @@ namespace shogipp
     public:
         command_t get_command(taikyoku_t & taikyoku) override;
         std::string name() const override;
+        bool is_computer() const override;
     };
 
     /**
@@ -5214,6 +5249,7 @@ namespace shogipp
 
         command_t get_command(taikyoku_t & taikyoku) override;
         std::string name() const override;
+        bool is_computer() const override;
 
     private:
         std::shared_ptr<abstract_evaluator_t> ptr;
@@ -5229,6 +5265,11 @@ namespace shogipp
         return "stdin";
     }
 
+    bool stdin_kishi_t::is_computer() const
+    {
+        return false;
+    }
+
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
         context_t context{ program_option_max_depth, program_option_max_selective_depth, limit_time };
@@ -5241,6 +5282,11 @@ namespace shogipp
         return ptr->name();
     }
 
+    bool computer_kishi_t::is_computer() const
+    {
+        return true;
+    }
+
     inline taikyoku_t::taikyoku_t(const std::shared_ptr<abstract_kishi_t> & a, const std::shared_ptr<abstract_kishi_t> & b)
         : kishi_list{ a, b }
         , black_win{ false }
@@ -5250,7 +5296,7 @@ namespace shogipp
 
     inline bool taikyoku_t::procedure(std::ostream & ostream)
     {
-        auto & kishi = kishi_list[kyokumen.color().value()];
+        const std::shared_ptr<abstract_kishi_t> & kishi = kishi_list[kyokumen.color().value()];
 
         kyokumen_t temp_kyokumen = kyokumen;
 
@@ -5320,10 +5366,11 @@ namespace shogipp
         }
         else
         {
+            const bool is_computer = kishi_list[kyokumen.color().value()]->is_computer();
             ostream << (kyokumen.move_count + 1) << "手目" << color_to_string(kyokumen.color()) << "番" << std::endl;
             kyokumen.print(ostream);
-            ostream << hash_to_string(kyokumen.hash()) << std::endl;
-            kyokumen.print_move(ostream);
+            if (!is_computer || details::program_options::print_moves)
+                kyokumen.print_moves(ostream);
             kyokumen.print_check(ostream);
         }
     }
@@ -5994,6 +6041,30 @@ namespace shogipp
                 if (option == "help")
                 {
                     print_help();
+                }
+                else if (option == "print-board" && !params.empty())
+                {
+                    const std::optional<bool> value = details::to_bool(params[0]);
+                    if (value)
+                        details::program_options::print_board = *value;
+                    else
+                        std::cerr << "invalid print-board parameter" << std::endl;
+                }
+                else if (option == "print-moves" && !params.empty())
+                {
+                    const std::optional<bool> value = details::to_bool(params[0]);
+                    if (value)
+                        details::program_options::print_moves = *value;
+                    else
+                        std::cerr << "invalid print-moves parameter" << std::endl;
+                }
+                else if (option == "print-check" && !params.empty())
+                {
+                    const std::optional<bool> value = details::to_bool(params[0]);
+                    if (value)
+                        details::program_options::print_check = *value;
+                    else
+                        std::cerr << "invalid print-check parameter" << std::endl;
                 }
                 else if (option == "black" && !params.empty())
                 {

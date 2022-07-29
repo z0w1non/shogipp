@@ -6134,6 +6134,11 @@ namespace shogipp
                     try
                     {
                         ga_thread_number = std::stoi(params[0]);
+                        if (ga_thread_number && *ga_thread_number == 0)
+                        {
+                            std::cerr << "invalid ga-thread-number parameter" << std::endl;
+                            ga_thread_number = std::nullopt;
+                        }
                     }
                     catch (...)
                     {

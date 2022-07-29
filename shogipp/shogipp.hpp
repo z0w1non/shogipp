@@ -305,6 +305,16 @@ namespace shogipp
             return std::nullopt;
         }
 
+        template<typename T>
+        inline std::size_t count_bit(T value) noexcept
+        {
+            std::size_t count = 0;
+            for (std::size_t i = 0; i < sizeof(value) * CHAR_BIT; ++i)
+                if (value & (1 << i))
+                    ++count;
+            return count;
+        }
+
         namespace program_options
         {
             bool print_moves = false;
@@ -4855,6 +4865,21 @@ namespace shogipp
             out.write(data, sizeof(*this));
         }
 
+        inline std::size_t distance(const chromosome_t chromosome) const noexcept
+        {
+            std::size_t result = 0;
+            const unsigned char * first = reinterpret_cast<const unsigned char *>(this);
+            const unsigned char * last = reinterpret_cast<const unsigned char *>(this) + sizeof(*this);
+            const unsigned char * input = reinterpret_cast<const unsigned char *>(&chromosome);
+            while (first != last)
+            {
+                result += details::count_bit(static_cast<unsigned char>(*first ^ *input));
+                ++first;
+                ++input;
+            }
+            return result;
+        }
+
         inline evaluation_value_t evaluate_board_piece(noncolored_piece_t piece) const noexcept
         {
             if (piece == pawn)
@@ -5854,16 +5879,16 @@ namespace shogipp
             return taikyoku.kyokumen.kifu;
         }
 
-        inline void run(const std::string & directory, unsigned long long & uid, unsigned int thread_number)
+        inline void run(const std::filesystem::path & log_directory, unsigned long long & uid, unsigned int thread_number)
         {
             std::vector<fitness_type> fitness_table;
             fitness_table.resize(individuals.size(), 0);
 
-            std::filesystem::create_directories(directory);
+            std::filesystem::create_directories(log_directory);
 
-            // 総当りで対局させる。
             std::mutex mutex;
 
+            // 総当りの対戦表を作成する。
             class thread_arguments_t
             {
             public:
@@ -5871,7 +5896,6 @@ namespace shogipp
                 std::size_t j{};
             };
             std::deque<thread_arguments_t> thread_arguments_queue;
-
             for (std::size_t i = 0; i < individuals.size(); ++i)
             {
                 for (std::size_t j = 0; j < individuals.size(); ++j)
@@ -5886,12 +5910,13 @@ namespace shogipp
                 }
             }
 
+            // スレッドを作成する。
             std::vector<std::thread> threads;
             for (unsigned int thread_id = 0; thread_id < thread_number; ++thread_id)
             {
                 threads.emplace_back
                 (
-                    [this, &thread_arguments_queue, &fitness_table, &directory, &mutex]
+                    [this, &thread_arguments_queue, &fitness_table, &log_directory, &mutex]
                     {
                         try
                         {
@@ -5915,7 +5940,7 @@ namespace shogipp
                                 {
                                     std::lock_guard<decltype(mutex)> lock{ mutex };
 
-                                    const std::filesystem::path log_path = directory + "/" + std::to_string(arguments.i) + "_" + std::to_string(arguments.j) + ".txt";
+                                    const std::filesystem::path log_path = log_directory / (std::to_string(arguments.i) + "_" + std::to_string(arguments.j) + ".txt");
                                     std::ofstream log_stream{ log_path };
                                     log_stream << temp_stream.str() << std::flush;
 
@@ -5934,14 +5959,34 @@ namespace shogipp
                             ;
                         }
                     }
-                );
+                    );
             }
             for (std::thread & thread : threads)
                 thread.join();
             threads.clear();
 
-            // 次世代を作成する。
             std::vector<std::shared_ptr<chromosome_evaluator_t>> next_individuals;
+
+            // 次世代に現世代のエリートを複製する。
+            if (m_elite_number > 0)
+            {
+                using evaluated_individual_t = std::pair<chromosome_evaluator_t *, evaluation_value_t>;
+                std::vector<evaluated_individual_t> evaluated_individuals;
+                for (std::size_t i = 0; i < individuals.size(); ++i)
+                    evaluated_individuals.emplace_back(individuals[i].get(), fitness_table[i]);
+                std::sort(evaluated_individuals.begin(), evaluated_individuals.end(), [](const evaluated_individual_t & a, const evaluated_individual_t & b) -> bool { return a.second > b.second; });
+
+                for (std::size_t i = 0; i < m_elite_number; ++i)
+                {
+                    if (next_individuals.size() < individuals.size())
+                    {
+                        const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*evaluated_individuals[i].first->chromosome());
+                        const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, evaluated_individuals[i].first->name(), uid++);
+                    }
+                }
+            }
+
+            // 次世代が現世代と同数になるまで変異・交叉・複製を繰り返す。
             while (next_individuals.size() < individuals.size())
             {
                 const action_t action = random_action();
@@ -5957,8 +6002,17 @@ namespace shogipp
                 {
                     const std::shared_ptr<chromosome_evaluator_t> & base = select_individual(fitness_table);
                     const std::shared_ptr<chromosome_evaluator_t> & sub = select_individual(fitness_table);
+                    const std::size_t chromosome_distance = base->chromosome()->distance(*sub->chromosome());
                     const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*base->chromosome());
                     chromosome->clossover(*sub->chromosome());
+                    
+                    if (chromosome_distance < m_min_chromosome_distance)
+                    {
+                        const std::size_t chromosome_distance_diff = m_min_chromosome_distance - chromosome_distance;
+                        for (std::size_t i = 0; i < chromosome_distance_diff; ++i)
+                            chromosome->mutate();
+                    }
+                    
                     const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, base->name(), uid++);
                     next_individuals.push_back(next_individual);
                 }
@@ -6009,6 +6063,8 @@ namespace shogipp
         inline void set_crossover_rate(unsigned int crossover_rate) noexcept { m_crossover_rate = crossover_rate; }
         inline void set_selection_rate(unsigned int selection_rate) noexcept { m_selection_rate = selection_rate; }
         inline void set_max_move_count(unsigned int max_move_count) noexcept { m_max_move_count = max_move_count; }
+        inline void set_min_chromosome_distance(unsigned int min_chromosome_distance) noexcept { m_min_chromosome_distance = min_chromosome_distance; }
+        inline void set_elite_number(unsigned int elite_number) noexcept { m_elite_number = elite_number; }
 
     private:
         std::vector<std::shared_ptr<chromosome_evaluator_t>> individuals;
@@ -6016,6 +6072,8 @@ namespace shogipp
         unsigned int m_crossover_rate = 800;
         unsigned int m_selection_rate = 190;
         move_count_t m_max_move_count = 300;
+        unsigned int m_min_chromosome_distance = 1;
+        unsigned int m_elite_number = 1;
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept
@@ -6032,6 +6090,8 @@ namespace shogipp
             std::optional<unsigned int> ga_crossover_rate;
             std::optional<unsigned int> ga_selection_rate;
             std::optional<unsigned int> ga_max_move_count;
+            std::optional<unsigned int> ga_min_chromosome_distance;
+            std::optional<unsigned int> ga_elite_number;
             std::optional<std::string> ga_dump_chromosome;
             std::optional<unsigned int> ga_mutation_number;
             std::optional<unsigned int> ga_thread_number;
@@ -6175,14 +6235,36 @@ namespace shogipp
                 }
                 else if (option == "ga-max-move-count" && !params.empty())
                 {
-                try
-                {
-                    ga_max_move_count = std::stoi(params[0]);
+                    try
+                    {
+                        ga_max_move_count = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid ga-selection-rate parameter" << std::endl;
+                    }
                 }
-                catch (...)
+                else if (option == "ga-min-chromosome-distance" && !params.empty())
                 {
-                    std::cerr << "invalid ga-selection-rate parameter" << std::endl;
+                    try
+                    {
+                        ga_min_chromosome_distance = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid ga-min-chromosome-distance parameter" << std::endl;
+                    }
                 }
+                else if (option == "ga-elite-number" && !params.empty())
+                {
+                    try
+                    {
+                        ga_elite_number = std::stoi(params[0]);
+                    }
+                    catch (...)
+                    {
+                        std::cerr << "invalid ga-elite-number parameter" << std::endl;
+                    }
                 }
                 else if (option == "ga-dump-chromosome" && !params.empty())
                 {
@@ -6225,7 +6307,7 @@ namespace shogipp
                     const unsigned int mutation_number = ga_mutation_number ? *ga_mutation_number : 0;
                     for (unsigned int i = 0; i < *ga_create_chromosome; ++i)
                     {
-                        const std::filesystem::path path = *ga_chromosome + "/" + std::to_string(i) + "_0";
+                        const std::filesystem::path path = std::filesystem::path{ *ga_chromosome } / (std::to_string(i) + "_0");
                         const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>();
                         if (*ga_create_mode == "random")
                             chromosome->generate_random();
@@ -6253,13 +6335,17 @@ namespace shogipp
                         ga->set_selection_rate(*ga_selection_rate);
                     if (ga_max_move_count)
                         ga->set_max_move_count(*ga_max_move_count);
+                    if (ga_min_chromosome_distance)
+                        ga->set_min_chromosome_distance(*ga_min_chromosome_distance);
+                    if (ga_elite_number)
+                        ga->set_elite_number(*ga_elite_number);
 
                     unsigned long long uid = 0;
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                     {
-                        const std::string directory = *ga_chromosome + "/" + std::to_string(iteration_count);
-                        ga->run(directory, uid, thread_number);
-                        ga->write_file(directory);
+                        const std::filesystem::path log_directory = std::filesystem::path{ "logs" } / std::to_string(iteration_count);
+                        ga->run(log_directory, uid, thread_number);
+                        ga->write_file(*ga_chromosome);
                     }
                 }
             }

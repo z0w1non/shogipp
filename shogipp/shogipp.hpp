@@ -5767,12 +5767,13 @@ namespace shogipp
             fitness_type div = 0;
             for (const fitness_type fitness : fitness_table)
                 div += fitness;
+            fitness_type value = details::random<fitness_type>(0, div - 1);
             for (std::size_t i = 0; i < fitness_table.size(); ++i)
             {
                 const fitness_type fitness = fitness_table[i];
-                if (div < fitness)
+                if (value < fitness)
                     return individuals[i];
-                div -= fitness;
+                value -= fitness;
             }
             return individuals.back();
         }

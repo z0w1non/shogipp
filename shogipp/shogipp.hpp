@@ -1922,9 +1922,9 @@ namespace shogipp
     class kiki_t
     {
     public:
-        position_t position;      // 利いている駒の座標
-        position_t offset;   // 利かされている駒の座標を基準とする利きの相対座標
-        bool aigoma;    // 合駒が可能か
+        position_t position;    // 利いている駒の座標
+        position_t offset;      // 利かされている駒の座標を基準とする利きの相対座標
+        bool aigoma;            // 合駒が可能か
     };
 
     class aigoma_info_t

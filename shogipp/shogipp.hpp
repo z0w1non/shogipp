@@ -5822,7 +5822,6 @@ namespace shogipp
             public:
                 std::size_t i{};
                 std::size_t j{};
-                std::filesystem::path log_path;
             };
             std::deque<thread_arguments_t> thread_arguments_queue;
 
@@ -5835,7 +5834,6 @@ namespace shogipp
                         thread_arguments_t thread_arguments;
                         thread_arguments.i = i;
                         thread_arguments.j = j;
-                        thread_arguments.log_path = directory + "/" + std::to_string(i) + "_" + std::to_string(j) + ".txt";
                         thread_arguments_queue.push_back(thread_arguments);
                     }
                 }
@@ -5846,7 +5844,7 @@ namespace shogipp
             {
                 threads.emplace_back
                 (
-                    [this, &thread_arguments_queue, &fitness_table, &mutex]
+                    [this, &thread_arguments_queue, &fitness_table, &directory, &mutex]
                     {
                         try
                         {
@@ -5870,7 +5868,8 @@ namespace shogipp
                                 {
                                     std::lock_guard<decltype(mutex)> lock{ mutex };
 
-                                    std::ofstream log_stream{ arguments.log_path };
+                                    const std::filesystem::path log_path = directory + "/" + std::to_string(arguments.i) + "_" + std::to_string(arguments.j) + ".txt";
+                                    std::ofstream log_stream{ log_path };
                                     log_stream << temp_stream.str() << std::flush;
 
                                     if (kifu.size() < m_max_move_count)

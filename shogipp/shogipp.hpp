@@ -4848,11 +4848,11 @@ namespace shogipp
             for (std::size_t i = 0; i < captured_rook_size; ++i)
                 ostream << "captured_piece_points[rook   + " << i << "]: " << captured_piece_points[captured_rook_offset + i] << std::endl;
             for (std::size_t i = 0; i < std::size(kiki_coefficient); ++i)
-                ostream << "kiki_coefficient[" << i << "]: " << kiki_coefficient[i] << std::endl;
+                ostream << "kiki_coefficient[" << i << "]: " << static_cast<unsigned int>(kiki_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(himo_coefficient); ++i)
-                ostream << "himo_coefficient[" << i << "]: " << himo_coefficient[i] << std::endl;
+                ostream << "himo_coefficient[" << i << "]: " << static_cast<unsigned int>(himo_coefficient[i]) << std::endl;
             ostream << "destination_point: " << destination_point << std::endl;
-            ostream << "nearest_center_side_3_coefficient: " << nearest_center_side_3_coefficient << std::endl;
+            ostream << "nearest_center_side_3_coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
         }
 
         inline void clossover(const chromosome_t & chromosome) noexcept

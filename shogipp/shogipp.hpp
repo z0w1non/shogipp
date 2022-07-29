@@ -4943,8 +4943,8 @@ namespace shogipp
                     SHOGIPP_ASSERT((!board_t::out(nearest)));
                     if (!piece.empty())
                     {
-                        evaluation_value += evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
-                            * nearest_center_side_3_coefficient / std::numeric_limits<decltype(nearest_center_side_3_coefficient)>::max();
+                        evaluation_value += (evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
+                            * nearest_center_side_3_coefficient) >> (sizeof(nearest_center_side_3_coefficient) * CHAR_BIT);
                     }
                 }
             }
@@ -4962,16 +4962,16 @@ namespace shogipp
                             std::vector<kiki_t> kiki_list;
                             kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
                             const std::size_t offset = std::min(kiki_list.size(), std::size(kiki_coefficient) - 1);
-                            evaluation_value -= evaluate_board_piece(piece) * reverse(color)
-                                * kiki_coefficient[offset] / std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max();
+                            evaluation_value -= (evaluate_board_piece(piece) * reverse(color)
+                                * kiki_coefficient[offset]) >> (sizeof(*kiki_coefficient) * CHAR_BIT);
                         }
 
                         {
                             std::vector<position_t> himo_list;
                             kyokumen.search_himo(std::back_inserter(himo_list), position, color);
                             const std::size_t offset = std::min(himo_list.size(), std::size(himo_coefficient) - 1);
-                            evaluation_value += evaluate_board_piece(piece) * reverse(color)
-                                * himo_coefficient[offset] / std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max();
+                            evaluation_value += (evaluate_board_piece(piece) * reverse(color)
+                                * himo_coefficient[offset]) >> (sizeof(*himo_coefficient) * CHAR_BIT);
                         }
 
                         {

@@ -868,6 +868,32 @@ namespace shogipp
     };
 
     /**
+     * @breif 段を文字列に変換する。
+     * @param rank 段
+     * @return 文字列
+     */
+    inline const char * rank_to_string(position_t rank) noexcept
+    {
+        static const char * map[]{ "一", "二", "三", "四", "五", "六", "七", "八", "九" };
+        SHOGIPP_ASSERT(rank >= 0);
+        SHOGIPP_ASSERT(rank < static_cast<position_t>(std::size(map)));
+        return map[rank];
+    }
+
+    /**
+     * @breif 筋を文字列に変換する。
+     * @param rank 筋
+     * @return 文字列
+     */
+    inline const char * file_to_string(position_t file) noexcept
+    {
+        static const char * map[]{ "９", "８", "７", "６", "５", "４", "３", "２", "１" };
+        SHOGIPP_ASSERT(file >= 0);
+        SHOGIPP_ASSERT(file < static_cast<position_t>(std::size(map)));
+        return map[file];
+    }
+
+    /**
      * @breif 座標から段を抽出する。
      * @param position 座標
      * @return 段
@@ -886,6 +912,48 @@ namespace shogipp
     {
         return position % width - padding_width;
     }
+
+    /**
+     * @breif 座標を文字列に変換する。
+     * @param position 座標
+     * @return 文字列
+     */
+    inline std::string position_to_string(position_t position)
+    {
+        return std::string{}.append(file_to_string(position_to_file(position))).append(rank_to_string(position_to_rank(position)));
+    }
+
+    /**
+     * @breif 座標をSFEN表記法に準拠した文字列に変換する。
+     * @param position 座標
+     * @return SFEN表記法に準拠した文字列
+     */
+    inline std::string position_to_sfen_string(position_t position)
+    {
+        std::string sfen_string;
+        const char file = static_cast<char>(file_size - 1 - position_to_file(position) + '1');
+        const char rank = static_cast<char>(position_to_rank(position) + 'a');
+        sfen_string += file;
+        sfen_string += rank;
+        return sfen_string;
+    }
+
+    /**
+     * @breif 筋と段から座標を取得する。
+     * @param file 筋
+     * @param rank 段
+     * @return 座標
+     */
+    inline position_t file_rank_to_position(position_t file, position_t rank) noexcept
+    {
+        return width * (rank + padding_height) + padding_width + file;
+    }
+
+    static const position_t default_king_pos_list[]
+    {
+        file_rank_to_position(4, 8),
+        file_rank_to_position(4, 0)
+    };
 
     /**
      * @breif 2つの座標間の距離を計算する。
@@ -924,6 +992,23 @@ namespace shogipp
         const std::size_t index = position_to_rank(position) / 3 * 3 + position_to_file(position) / 3;
         SHOGIPP_ASSERT(index < std::size(map));
         return map[index];
+    }
+
+    /**
+     * @breif 入玉の進捗の最大値
+     * @sa nyugyoku_progress
+     */
+    constexpr unsigned int max_nyugyoku_progress = 12;
+
+    /**
+     * @breif 入玉の進捗を返す。
+     * @param king_position 王の座標
+     * @param color 王を所有する手番
+     * @return 入玉の進捗
+     */
+    inline unsigned int nyugyoku_progress(position_t king_position, color_t color) noexcept
+    {
+        return distance(king_position, default_king_pos_list[color.value()]);
     }
 
     using position_to_noncolored_piece_pair = std::pair<position_t, std::vector<noncolored_piece_t>>;
@@ -1365,74 +1450,6 @@ namespace shogipp
         SHOGIPP_ASSERT(piece.value() <= std::size(map));
         return map[piece.value()].data();
     }
-
-    /**
-     * @breif 段を文字列に変換する。
-     * @param rank 段
-     * @return 文字列
-     */
-    inline const char * rank_to_string(position_t rank) noexcept
-    {
-        static const char * map[]{ "一", "二", "三", "四", "五", "六", "七", "八", "九" };
-        SHOGIPP_ASSERT(rank >= 0);
-        SHOGIPP_ASSERT(rank < static_cast<position_t>(std::size(map)));
-        return map[rank];
-    }
-
-    /**
-     * @breif 筋を文字列に変換する。
-     * @param rank 筋
-     * @return 文字列
-     */
-    inline const char * file_to_string(position_t file) noexcept
-    {
-        static const char * map[]{ "９", "８", "７", "６", "５", "４", "３", "２", "１" };
-        SHOGIPP_ASSERT(file >= 0);
-        SHOGIPP_ASSERT(file < static_cast<position_t>(std::size(map)));
-        return map[file];
-    }
-
-    /**
-     * @breif 座標を文字列に変換する。
-     * @param position 座標
-     * @return 文字列
-     */
-    inline std::string position_to_string(position_t position)
-    {
-        return std::string{}.append(file_to_string(position_to_file(position))).append(rank_to_string(position_to_rank(position)));
-    }
-
-    /**
-     * @breif 座標をSFEN表記法に準拠した文字列に変換する。
-     * @param position 座標
-     * @return SFEN表記法に準拠した文字列
-     */
-    inline std::string position_to_sfen_string(position_t position)
-    {
-        std::string sfen_string;
-        const char file = static_cast<char>(file_size - 1 - position_to_file(position) + '1');
-        const char rank = static_cast<char>(position_to_rank(position) + 'a');
-        sfen_string += file;
-        sfen_string += rank;
-        return sfen_string;
-    }
-
-    /**
-     * @breif 筋と段から座標を取得する。
-     * @param file 筋
-     * @param rank 段
-     * @return 座標
-     */
-    inline position_t file_rank_to_position(position_t file, position_t rank) noexcept
-    {
-        return width * (rank + padding_height) + padding_width + file;
-    }
-
-    static const position_t default_king_pos_list[]
-    {
-        file_rank_to_position(4, 8),
-        file_rank_to_position(4, 0)
-    };
 
     /**
      * @breif SFEN表記法に準拠した座標の文字列から座標を取得する。
@@ -4826,6 +4843,7 @@ namespace shogipp
         unsigned char himo_coefficient[4]{};
         unsigned char destination_points[16]{};
         unsigned char nearest_center_side_3_coefficient{};
+        unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
 
         inline void generate_template() noexcept
         {
@@ -4860,25 +4878,28 @@ namespace shogipp
 
             constexpr unsigned char kiki_coefficient_template[]
             {
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 2 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 3 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 4 / 8
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 1 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 2 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 3 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 4 / 8
             };
             std::copy(std::begin(kiki_coefficient_template), std::end(kiki_coefficient_template), std::begin(kiki_coefficient));
 
             constexpr unsigned char himo_coefficient_template[]
             {
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 2 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 3 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 4 / 8
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 1 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 2 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 3 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 4 / 8
             };
             std::copy(std::begin(himo_coefficient_template), std::end(himo_coefficient_template), std::begin(himo_coefficient));
 
             std::fill(std::begin(destination_points), std::end(destination_points), std::numeric_limits<std::decay_t<decltype(*destination_points)>>::max());
 
             nearest_center_side_3_coefficient = std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8;
+
+            for (unsigned short i = 0; i < static_cast<unsigned short>(std::size(nyugyoku_coefficient)); ++i)
+                nyugyoku_coefficient[i] = i;
         }
 
         inline void generate_random() noexcept
@@ -4932,6 +4953,8 @@ namespace shogipp
             for (std::size_t i = 0; i < std::size(destination_points); ++i)
                 ostream << "destination-points-" << i << ": " << static_cast<unsigned int>(destination_points[i]) << std::endl;
             ostream << "nearest-center-side-3-coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
+            for (std::size_t i = 0; i < std::size(nyugyoku_coefficient); ++i)
+                ostream << "nyugyoku_coefficient-" << i << ": " << static_cast<unsigned int>(nyugyoku_coefficient[i]) << std::endl;
         }
 
         inline void clossover(const chromosome_t & chromosome) noexcept
@@ -5026,6 +5049,12 @@ namespace shogipp
                             * nearest_center_side_3_coefficient) >> (sizeof(nearest_center_side_3_coefficient) * CHAR_BIT);
                     }
                 }
+
+                {
+                    const unsigned int offset = nyugyoku_progress(kyokumen.additional_info.king_position_list[color.value()], color);
+                    SHOGIPP_ASSERT(offset < std::size(nyugyoku_coefficient));
+                    evaluation_value += nyugyoku_coefficient[offset];
+                }
             }
 
             for (position_t position = position_begin; position < position_end; ++position)
@@ -5062,6 +5091,12 @@ namespace shogipp
                         }
                     }
                 }
+            }
+
+            std::optional<move_t> last_move = kyokumen.last_move();
+            if (last_move)
+            {
+                ;
             }
 
             return evaluation_value;

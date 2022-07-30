@@ -370,13 +370,6 @@ namespace shogipp
         using std::runtime_error::runtime_error;
     };
 
-    class no_best_move_exception
-        : public std::runtime_error
-    {
-        using std::runtime_error::runtime_error;
-    };
-
-
     class color_t
     {
     public:
@@ -3661,19 +3654,22 @@ namespace shogipp
         virtual move_t best_move_iddfs(kyokumen_t & kyokumen, context_t & context)
         {
             std::optional<move_t> opt_best_move;
-            context_t temp_context;
             try
             {
                 for (depth_t depth = 1; depth <= context.get_max_depth(); depth += 2)
                 {
-                    temp_context = context;
+                    context_t temp_context{ context };
                     temp_context.set_max_depth(depth);
                     opt_best_move = best_move(kyokumen, temp_context);
                 }
             }
-            catch (const timeout_exception &)
+            catch (const timeout_exception & e)
             {
                 ;
+            }
+            catch (...)
+            {
+                std::cerr << "best_move_iddfs failed" << std::endl;
             }
 
             // 最善手を取得できなかった場合適当な合法手を選択する。
@@ -4220,7 +4216,7 @@ namespace shogipp
         }
 
         if (!candidate_move)
-            throw no_best_move_exception{ "best_move failed" };
+            throw timeout_exception{ "best_move failed" };
 
         return *candidate_move;
     }
@@ -4366,7 +4362,7 @@ namespace shogipp
         }
 
         if (!candidate_move)
-            throw no_best_move_exception{ "best_move failed" };
+            throw timeout_exception{ "best_move failed" };
 
         return *candidate_move;
     }
@@ -4548,7 +4544,7 @@ namespace shogipp
         }
 
         if (!candidate_move)
-            throw no_best_move_exception{ "best_move failed" };
+            throw timeout_exception{ "best_move failed" };
 
         return *candidate_move;
     }
@@ -5958,7 +5954,7 @@ namespace shogipp
             std::vector<std::thread> threads;
             for (unsigned int thread_id = 0; thread_id < thread_number; ++thread_id)
             {
-                threads.emplace_back([this, &thread_arguments_queue, &fitness_table, &log_directory, &mutex]
+                threads.emplace_back([this, thread_id, &thread_arguments_queue, &fitness_table, &log_directory, &mutex]
                     {
                         while (true)
                         {
@@ -5999,6 +5995,10 @@ namespace shogipp
                             catch (const std::exception & e)
                             {
                                 std::cerr << e.what() << std::endl;
+                            }
+                            catch (...)
+                            {
+                                std::cerr << "unkown error at thread (" << thread_id << ")" << std::endl;
                             }
                         }
                     }

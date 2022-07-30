@@ -6142,7 +6142,7 @@ namespace shogipp
                 log_stream << std::endl;
                 
                 log_stream << "best chromosome:" << std::endl;
-                evaluated_individuals.front().first->chromosome()->print();
+                evaluated_individuals.front().first->chromosome()->print(log_stream);
             }
 
             std::vector<std::shared_ptr<chromosome_evaluator_t>> next_individuals;

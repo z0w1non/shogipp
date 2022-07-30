@@ -6436,6 +6436,14 @@ namespace shogipp
             }
             else if (ga_iteration)
             {
+                try
+                {
+                    std::filesystem::remove_all(details::program_options::ga_logs_directory);
+                }
+                catch (const std::filesystem::filesystem_error &)
+                {
+                    ;
+                }
                 const unsigned int thread_number = ga_thread_number ? *ga_thread_number : 1;
                 std::vector<std::filesystem::path> chromosome_paths;
                 for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ details::program_options::ga_chromosomes_directory })
@@ -6460,15 +6468,7 @@ namespace shogipp
                 for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                 {
                     const std::filesystem::path log_directory = std::filesystem::path{ details::program_options::ga_logs_directory } / std::to_string(iteration_count);
-                    try
-                    {
-                        std::filesystem::remove_all(log_directory);
-                        std::filesystem::create_directories(log_directory);
-                    }
-                    catch (const std::filesystem::filesystem_error &)
-                    {
-                        ;
-                    }
+                    std::filesystem::create_directories(log_directory);
                     ga->run(log_directory, uid, thread_number);
                     ga->write_file(details::program_options::ga_chromosomes_directory);
                 }

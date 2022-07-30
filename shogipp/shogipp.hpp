@@ -6354,7 +6354,15 @@ namespace shogipp
                     for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                     {
                         const std::filesystem::path log_directory = std::filesystem::path{ "logs" } / std::to_string(iteration_count);
-                        std::filesystem::create_directories(log_directory);
+                        try
+                        {
+                            std::filesystem::remove_all(log_directory);
+                            std::filesystem::create_directories(log_directory);
+                        }
+                        catch (const std::filesystem::filesystem_error &)
+                        {
+                            ;
+                        }
                         ga->run(log_directory, uid, thread_number);
                         ga->write_file(*ga_chromosome);
                     }

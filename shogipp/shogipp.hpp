@@ -3642,6 +3642,7 @@ namespace shogipp
         /**
          * @breif 局面に対して合法手を選択する。
          * @param kyokumen 局面
+         * @param context 評価関数オブジェクトが呼び出された文脈
          * @return 選択された合法手
          */
         virtual move_t best_move(kyokumen_t & kyokumen, context_t & context) = 0;
@@ -3649,6 +3650,7 @@ namespace shogipp
         /**
          * @breif 反復深化深さ優先探索で局面に対して合法手を選択する。
          * @param kyokumen 局面
+         * @param context 評価関数オブジェクトが呼び出された文脈
          * @return 選択された合法手
          */
         virtual move_t best_move_iddfs(kyokumen_t & kyokumen, context_t & context)

@@ -349,7 +349,12 @@ namespace shogipp
 
             constexpr depth_t default_max_selective_depth = std::numeric_limits<depth_t>::max();
             depth_t max_selective_depth = default_max_selective_depth;
+            
+            const std::string default_ga_logs_directory = "logs";
+            std::string ga_logs_directory = default_ga_logs_directory;
 
+            const std::string default_ga_chromosomes_directory = "chromosomes";
+            std::string ga_chromosomes_directory = default_ga_chromosomes_directory;
         } // program_options
     } // namespace details
 
@@ -6246,7 +6251,6 @@ namespace shogipp
             std::optional<std::string> black_name;
             std::optional<std::string> white_name;
             std::optional<unsigned long long> ga_iteration;
-            std::optional<std::string> ga_chromosome;
             std::optional<unsigned int> ga_create_chromosome;
             std::optional<std::string> ga_create_mode;
             std::optional<unsigned int> ga_mutation_rate;
@@ -6327,9 +6331,13 @@ namespace shogipp
                     if (!ga_iteration)
                         std::cerr << "invalid ga-iteration parameter" << std::endl;
                 }
-                else if (option == "ga-chromosome" && !params.empty())
+                else if (option == "ga-chromosomes-directory" && !params.empty())
                 {
-                    ga_chromosome = params[0];
+                    details::program_options::ga_chromosomes_directory = params[0];
+                }
+                else if (option == "ga-logs-directory" && !params.empty())
+                {
+                    details::program_options::ga_logs_directory = params[0];
                 }
                 else if (option == "ga-create-chromosome" && !params.empty())
                 {
@@ -6409,64 +6417,61 @@ namespace shogipp
             };
             parse_program_options(argc, argv, callback);
 
-            if (ga_chromosome)
+
+            if (ga_create_chromosome && ga_create_mode)
             {
-                std::filesystem::create_directories(*ga_chromosome);
-
-                if (ga_create_chromosome && ga_create_mode)
+                std::filesystem::create_directories(details::program_options::ga_chromosomes_directory);
+                const unsigned int mutation_number = ga_mutation_number ? *ga_mutation_number : 0;
+                for (unsigned int i = 0; i < *ga_create_chromosome; ++i)
                 {
-                    const unsigned int mutation_number = ga_mutation_number ? *ga_mutation_number : 0;
-                    for (unsigned int i = 0; i < *ga_create_chromosome; ++i)
-                    {
-                        const std::filesystem::path path = std::filesystem::path{ *ga_chromosome } / (std::to_string(i) + "_0");
-                        const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>();
-                        if (*ga_create_mode == "random")
-                            chromosome->generate_random();
-                        else if (*ga_create_mode == "template")
-                            chromosome->generate_template();
-                        for (unsigned int mutation_count = 0; mutation_count < mutation_number; ++mutation_count)
-                            chromosome->mutate();
-                        chromosome->write_file(path);
-                    }
+                    const std::filesystem::path path = std::filesystem::path{ details::program_options::ga_chromosomes_directory } / (std::to_string(i) + "_0");
+                    const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>();
+                    if (*ga_create_mode == "random")
+                        chromosome->generate_random();
+                    else if (*ga_create_mode == "template")
+                        chromosome->generate_template();
+                    for (unsigned int mutation_count = 0; mutation_count < mutation_number; ++mutation_count)
+                        chromosome->mutate();
+                    chromosome->write_file(path);
                 }
-                else if (ga_iteration)
+            }
+            else if (ga_iteration)
+            {
+                const unsigned int thread_number = ga_thread_number ? *ga_thread_number : 1;
+                std::vector<std::filesystem::path> chromosome_paths;
+                for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ details::program_options::ga_chromosomes_directory })
+                    if (entry.is_regular_file())
+                        chromosome_paths.push_back(entry.path());
+                const std::shared_ptr<genetic_algorithm_t> ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
+
+                if (ga_mutation_rate)
+                    ga->set_mutation_rate(*ga_mutation_rate);
+                if (ga_crossover_rate)
+                    ga->set_crossover_rate(*ga_crossover_rate);
+                if (ga_selection_rate)
+                    ga->set_selection_rate(*ga_selection_rate);
+                if (ga_max_move_count)
+                    ga->set_max_move_count(*ga_max_move_count);
+                if (ga_min_chromosome_distance)
+                    ga->set_min_chromosome_distance(*ga_min_chromosome_distance);
+                if (ga_elite_number)
+                    ga->set_elite_number(*ga_elite_number);
+
+                unsigned long long uid = 0;
+                for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
                 {
-                    const unsigned int thread_number = ga_thread_number ? *ga_thread_number : 1;
-                    std::vector<std::filesystem::path> chromosome_paths;
-                    for (const std::filesystem::directory_entry & entry : std::filesystem::directory_iterator{ *ga_chromosome })
-                        if (entry.is_regular_file())
-                            chromosome_paths.push_back(entry.path());
-                    const std::shared_ptr<genetic_algorithm_t> ga = std::make_shared<genetic_algorithm_t>(chromosome_paths);
-
-                    if (ga_mutation_rate)
-                        ga->set_mutation_rate(*ga_mutation_rate);
-                    if (ga_crossover_rate)
-                        ga->set_crossover_rate(*ga_crossover_rate);
-                    if (ga_selection_rate)
-                        ga->set_selection_rate(*ga_selection_rate);
-                    if (ga_max_move_count)
-                        ga->set_max_move_count(*ga_max_move_count);
-                    if (ga_min_chromosome_distance)
-                        ga->set_min_chromosome_distance(*ga_min_chromosome_distance);
-                    if (ga_elite_number)
-                        ga->set_elite_number(*ga_elite_number);
-
-                    unsigned long long uid = 0;
-                    for (unsigned long long iteration_count = 0; iteration_count < *ga_iteration; ++iteration_count)
+                    const std::filesystem::path log_directory = std::filesystem::path{ details::program_options::ga_logs_directory } / std::to_string(iteration_count);
+                    try
                     {
-                        const std::filesystem::path log_directory = std::filesystem::path{ "logs" } / std::to_string(iteration_count);
-                        try
-                        {
-                            std::filesystem::remove_all(log_directory);
-                            std::filesystem::create_directories(log_directory);
-                        }
-                        catch (const std::filesystem::filesystem_error &)
-                        {
-                            ;
-                        }
-                        ga->run(log_directory, uid, thread_number);
-                        ga->write_file(*ga_chromosome);
+                        std::filesystem::remove_all(log_directory);
+                        std::filesystem::create_directories(log_directory);
                     }
+                    catch (const std::filesystem::filesystem_error &)
+                    {
+                        ;
+                    }
+                    ga->run(log_directory, uid, thread_number);
+                    ga->write_file(details::program_options::ga_chromosomes_directory);
                 }
             }
             else if (ga_dump_chromosome)

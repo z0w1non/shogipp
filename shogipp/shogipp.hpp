@@ -91,7 +91,6 @@
 namespace shogipp
 {
     using search_count_t = unsigned long long;
-    using milli_second_time_t = unsigned long long;
 
     namespace details
     {
@@ -252,13 +251,13 @@ namespace shogipp
         }
 
         template<typename Function>
-        inline milli_second_time_t test_time_performance(Function && func, std::size_t n)
+        inline std::chrono::milliseconds test_time_performance(Function && func, std::size_t n)
         {
             const std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();
             for (std::size_t i = 0; i < n; ++i)
                 func();
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+            return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
         }
 
         /**
@@ -340,8 +339,8 @@ namespace shogipp
             constexpr bool default_print_board = true;
             bool print_board = default_print_board;
 
-            constexpr milli_second_time_t default_limit_time = 1000 * 1000;
-            milli_second_time_t limit_time = default_limit_time;
+            constexpr std::chrono::milliseconds default_limit_time{ 1000 * 1000 };
+            std::chrono::milliseconds limit_time = default_limit_time;
         } // program_options
     } // namespace details
 
@@ -3584,7 +3583,7 @@ namespace shogipp
         constexpr inline context_t(
             depth_t max_depth,
             depth_t max_selective_depth,
-            milli_second_time_t limit_time
+            std::chrono::milliseconds limit_time
         ) noexcept
             : m_max_depth{ max_depth }
             , m_max_selective_depth{ max_selective_depth }
@@ -3626,7 +3625,7 @@ namespace shogipp
     private:
         depth_t m_max_depth{};
         depth_t m_max_selective_depth{};
-        milli_second_time_t m_limit_time{};
+        std::chrono::milliseconds m_limit_time{};
         std::chrono::system_clock::time_point begin;
     };
 
@@ -3916,7 +3915,7 @@ namespace shogipp
         std::optional<move_t> best_move;
         search_count_t cache_rookt_count{};
         state_t state = state_t::not_ready;
-        milli_second_time_t limit_time{};
+        std::chrono::milliseconds limit_time{};
         std::map<std::string, std::string> options;
         bool ponder = false;
 
@@ -3926,11 +3925,11 @@ namespace shogipp
          * @breif begin Ç∆åªç›éûä‘ÇÃç∑ï™ÇÉ~ÉäïbíPà Ç≈ï‘Ç∑ÅB
          * @return begin Ç∆åªç›éûä‘ÇÃç∑ï™
          */
-        inline milli_second_time_t time() const
+        inline std::chrono::milliseconds time() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            return static_cast<milli_second_time_t>(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
+            return static_cast<std::chrono::milliseconds>(std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count());
         }
 
         /**
@@ -3952,10 +3951,10 @@ namespace shogipp
         inline search_count_t nps() const
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
-            const milli_second_time_t milli_second_time = time();
-            if (milli_second_time == 0)
+            const std::chrono::milliseconds milli_second_time = time();
+            if (milli_second_time.count() == 0)
                 return 0;
-            return nodes * 1000 / milli_second_time;
+            return nodes * 1000 / milli_second_time.count();
         }
 
         /**
@@ -3986,7 +3985,7 @@ namespace shogipp
             std::cout << "info"
                 << " depth " << depth
                 << " seldepth " << seldepth
-                << " time " << time()
+                << " time " << time().count()
                 << " nodes " << nodes
                 << " hashfull " << hashfull()
                 << " nps " << nps()
@@ -5395,10 +5394,10 @@ namespace shogipp
             case command_t::id_t::perft:
             {
                 search_count_t node;
-                const milli_second_time_t time = details::test_time_performance([&] { node = kyokumen.count_node(*cmd.opt_depth); }, 1);
-                const search_count_t nps = time != 0 ? node * 1000 / time : 0;
+                const std::chrono::milliseconds time = details::test_time_performance([&] { node = kyokumen.count_node(*cmd.opt_depth); }, 1);
+                const search_count_t nps = time.count() != 0 ? node * 1000 / time.count() : 0;
                 ostream << "node: " << node << std::endl;
-                ostream << "time[ms]: " << time << std::endl;
+                ostream << "time[ms]: " << time.count() << std::endl;
                 ostream << "nps[n/s]: " << nps << std::endl;
                 break;
             }
@@ -5589,9 +5588,9 @@ namespace shogipp
                 {
                     ++current;
                  
-                    std::optional<unsigned long> opt_time[color_t::size()];
-                    std::optional<unsigned long> opt_byoyomi;
-                    std::optional<unsigned long> opt_inc[color_t::size()];
+                    std::optional<std::chrono::milliseconds> opt_time[color_t::size()];
+                    std::optional<std::chrono::milliseconds> opt_byoyomi;
+                    std::optional<std::chrono::milliseconds> opt_inc[color_t::size()];
                     bool ponder = false;
                     bool infinite = false;
                     bool mate = false;
@@ -5607,50 +5606,50 @@ namespace shogipp
                         {
                             ++current;
                             if (current >= tokens.size())
-                            {
                                 throw invalid_usi_input{ "btime value not found" };
-                            }
-                            opt_time[black.value()] = std::stoul(tokens[current]);
+                            const std::optional<std::chrono::milliseconds::rep> opt_rep = details::cast_to<std::chrono::milliseconds::rep>(tokens[current]);
+                            if (opt_rep)
+                                opt_time[black.value()] = std::chrono::milliseconds{ *opt_rep };
                             ++current;
                         }
                         else if (tokens[current] == "wtime")
                         {
                             ++current;
                             if (current >= tokens.size())
-                            {
                                 throw invalid_usi_input{ "wtime value not found" };
-                            }
-                            opt_time[white.value()] = std::stoul(tokens[current]);
+                            const std::optional<std::chrono::milliseconds::rep> opt_rep = details::cast_to<std::chrono::milliseconds::rep>(tokens[current]);
+                            if (opt_rep)
+                                opt_time[white.value()] = std::chrono::milliseconds{ *opt_rep };
                             ++current;
                         }
                         else if (tokens[current] == "byoyomi")
                         {
                             ++current;
                             if (current >= tokens.size())
-                            {
                                 throw invalid_usi_input{ "byoyomi value not found" };
-                            }
-                            opt_byoyomi = std::stoul(tokens[current]);
+                            const std::optional<std::chrono::milliseconds::rep> opt_rep = details::cast_to<std::chrono::milliseconds::rep>(tokens[current]);
+                            if (opt_rep)
+                                opt_byoyomi = std::chrono::milliseconds{ *opt_rep };
                             ++current;
                         }
                         else if (tokens[current] == "binc")
                         {
                             ++current;
                             if (current >= tokens.size())
-                            {
                                 throw invalid_usi_input{ "binc value not found" };
-                            }
-                            opt_inc[black.value()] = std::stoul(tokens[current]);
+                            const std::optional<std::chrono::milliseconds::rep> opt_rep = details::cast_to<std::chrono::milliseconds::rep>(tokens[current]);
+                            if (opt_rep)
+                                opt_inc[black.value()] = std::chrono::milliseconds{ *opt_rep };
                             ++current;
                         }
                         else if (tokens[current] == "winc")
                         {
                             ++current;
                             if (current >= tokens.size())
-                            {
                                 throw invalid_usi_input{ "winc value not found" };
-                            }
-                            opt_inc[white.value()] = std::stoul(tokens[current]);
+                            const std::optional<std::chrono::milliseconds::rep> opt_rep = details::cast_to<std::chrono::milliseconds::rep>(tokens[current]);
+                            if (opt_rep)
+                                opt_inc[white.value()] = std::chrono::milliseconds{ *opt_rep };
                             ++current;
                         }
                         else if (tokens[current] == "infinite")
@@ -5683,7 +5682,7 @@ namespace shogipp
                             {
                                 if (!opt_time[kyokumen.color().value()])
                                     throw invalid_usi_input{ "limit time not specified" };
-                                milli_second_time_t limit_time = *opt_time[kyokumen.color().value()];
+                                std::chrono::milliseconds limit_time = *opt_time[kyokumen.color().value()];
                                 if (opt_byoyomi)
                                     limit_time += *opt_byoyomi;
                                 usi_info->limit_time = limit_time;
@@ -6213,9 +6212,9 @@ namespace shogipp
                 }
                 else if (option == "limit-time" && !params.empty())
                 {
-                    const std::optional<milli_second_time_t> opt_limit_time = details::cast_to< milli_second_time_t>(params[0]);
-                    if (opt_limit_time)
-                        details::program_options::limit_time = *opt_limit_time;
+                    const std::optional<std::chrono::milliseconds::rep> opt_rep = details::cast_to< std::chrono::milliseconds::rep>(params[0]);
+                    if (opt_rep)
+                        details::program_options::limit_time = std::chrono::milliseconds{ *opt_rep };
                     else
                         std::cerr << "invalid limit-time parameter" << std::endl;
                 }

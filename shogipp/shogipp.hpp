@@ -5953,13 +5953,11 @@ namespace shogipp
             std::vector<std::thread> threads;
             for (unsigned int thread_id = 0; thread_id < thread_number; ++thread_id)
             {
-                threads.emplace_back
-                (
-                    [this, &thread_arguments_queue, &fitness_table, &log_directory, &mutex]
+                threads.emplace_back([this, &thread_arguments_queue, &fitness_table, &log_directory, &mutex]
                     {
-                        try
+                        while (true)
                         {
-                            while (true)
+                            try
                             {
                                 thread_arguments_t arguments;
 
@@ -5993,13 +5991,13 @@ namespace shogipp
                                     }
                                 }
                             }
-                        }
-                        catch (const std::exception &)
-                        {
-                            ;
+                            catch (const std::exception &)
+                            {
+                                ;
+                            }
                         }
                     }
-                    );
+                );
             }
             for (std::thread & thread : threads)
                 thread.join();

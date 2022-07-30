@@ -923,7 +923,7 @@ namespace shogipp
             { front_left, front, front_right, 0 },
             { front_left, front, left, 0 },
         };
-        const std::size_t index = position_to_file(position) / 3 + position_to_rank(position) / 3 * 3;
+        const std::size_t index = position_to_rank(position) / 3 * 3 + position_to_file(position) / 3;
         SHOGIPP_ASSERT(index < std::size(map));
         return map[index];
     }

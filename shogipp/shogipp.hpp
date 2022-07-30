@@ -3644,8 +3644,36 @@ namespace shogipp
          * @param kyokumen 局面
          * @param context 評価関数オブジェクトが呼び出された文脈
          * @return 選択された合法手
+         * @details 制限時間内に探索が終了しなかった場合、 timeout_exception を送出する。
          */
-        virtual move_t best_move(kyokumen_t & kyokumen, context_t & context) = 0;
+        virtual move_t query_best_move(kyokumen_t & kyokumen, context_t & context) = 0;
+
+        virtual move_t best_move(kyokumen_t & kyokumen, context_t & context)
+        {
+            std::optional<move_t> opt_best_move;
+
+            try
+            {
+                opt_best_move = query_best_move(kyokumen, context);
+            }
+            catch (const timeout_exception &)
+            {
+                ;
+            }
+            catch (...)
+            {
+                std::cerr << "best_move failed" << std::endl;
+            }
+
+            // 最善手を取得できなかった場合適当な合法手を選択する。
+            if (!opt_best_move)
+            {
+                const moves_t moves = kyokumen.strict_search_moves();
+                return moves.front();
+            }
+
+            return *opt_best_move;
+        }
 
         /**
          * @breif 反復深化深さ優先探索で局面に対して合法手を選択する。
@@ -3662,7 +3690,7 @@ namespace shogipp
                 {
                     context_t temp_context{ context };
                     temp_context.set_max_depth(depth);
-                    opt_best_move = best_move(kyokumen, temp_context);
+                    opt_best_move = query_best_move(kyokumen, temp_context);
                 }
             }
             catch (const timeout_exception &)
@@ -3698,7 +3726,7 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        move_t best_move(kyokumen_t & kyokumen, context_t & context) override
+        move_t query_best_move(kyokumen_t & kyokumen, context_t & context) override
         {
             bool selected = false;
 
@@ -4102,7 +4130,7 @@ namespace shogipp
             context_t & context
         );
 
-        move_t best_move(kyokumen_t & kyokumen, context_t & context) override;
+        move_t query_best_move(kyokumen_t & kyokumen, context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
     };
@@ -4188,7 +4216,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t negamax_evaluator_t::best_move(kyokumen_t & kyokumen, context_t & context)
+    move_t negamax_evaluator_t::query_best_move(kyokumen_t & kyokumen, context_t & context)
     {
         if (usi_info)
         {
@@ -4218,7 +4246,7 @@ namespace shogipp
         }
 
         if (!candidate_move)
-            throw timeout_exception{ "best_move failed" };
+            throw timeout_exception{ "query_best_move failed" };
 
         return *candidate_move;
     }
@@ -4241,7 +4269,7 @@ namespace shogipp
             context_t & context
         );
 
-        move_t best_move(kyokumen_t & kyokumen, context_t & context) override;
+        move_t query_best_move(kyokumen_t & kyokumen, context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
     };
@@ -4334,7 +4362,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, context_t & context)
+    move_t alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, context_t & context)
     {
         if (usi_info)
         {
@@ -4364,7 +4392,7 @@ namespace shogipp
         }
 
         if (!candidate_move)
-            throw timeout_exception{ "best_move failed" };
+            throw timeout_exception{ "query_best_move failed" };
 
         return *candidate_move;
     }
@@ -4389,7 +4417,7 @@ namespace shogipp
             context_t & context
         );
 
-        move_t best_move(kyokumen_t & kyokumen, context_t & context) override;
+        move_t query_best_move(kyokumen_t & kyokumen, context_t & context) override;
 
         std::shared_ptr<usi_info_t> usi_info;
     };
@@ -4516,7 +4544,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t extendable_alphabeta_evaluator_t::best_move(kyokumen_t & kyokumen, context_t & context)
+    move_t extendable_alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, context_t & context)
     {
         if (usi_info)
         {
@@ -4546,7 +4574,7 @@ namespace shogipp
         }
 
         if (!candidate_move)
-            throw timeout_exception{ "best_move failed" };
+            throw timeout_exception{ "query_best_move failed" };
 
         return *candidate_move;
     }
@@ -4563,7 +4591,7 @@ namespace shogipp
          * @param kyokumen 局面
          * @return 選択された合法手
          */
-        move_t best_move(kyokumen_t & kyokumen, context_t & context) override
+        move_t query_best_move(kyokumen_t & kyokumen, context_t & context) override
         {
             moves_t moves = kyokumen.search_moves();
 

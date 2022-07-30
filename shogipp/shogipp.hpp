@@ -91,6 +91,8 @@
 namespace shogipp
 {
     using search_count_t = unsigned long long;
+    using move_count_t = unsigned int;
+    using depth_t = unsigned int;
 
     namespace details
     {
@@ -341,6 +343,13 @@ namespace shogipp
 
             constexpr std::chrono::milliseconds default_limit_time{ 1000 * 1000 };
             std::chrono::milliseconds limit_time = default_limit_time;
+
+            constexpr depth_t default_max_depth = 3;
+            depth_t max_depth = default_max_depth;
+
+            constexpr depth_t default_max_selective_depth = std::numeric_limits<depth_t>::max();
+            depth_t max_selective_depth = default_max_selective_depth;
+
         } // program_options
     } // namespace details
 
@@ -982,15 +991,6 @@ namespace shogipp
             throw parse_error{ "parse 1-2" };
         rest.remove_prefix(s.size());
     }
-
-    using move_count_t = unsigned int;
-    using depth_t = unsigned int;
-
-    constexpr depth_t default_max_depth = 3;
-    constexpr depth_t default_max_selective_depth = std::numeric_limits<depth_t>::max();
-
-    depth_t program_option_max_depth = default_max_depth;
-    depth_t program_option_max_selective_depth = default_max_selective_depth;
 
     /**
      * @breif ŒãŽè‚Ìê‡‚É -1 ‚ðAæŽè‚Ìê‡‚É 1 ‚ð•Ô‚·B
@@ -5336,7 +5336,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        context_t context{ program_option_max_depth, program_option_max_selective_depth, details::program_options::limit_time };
+        context_t context{ details::program_options::max_depth, details::program_options::max_selective_depth, details::program_options::limit_time };
         context.start();
         return command_t{ command_t::id_t::move, ptr->best_move_iddfs(taikyoku.kyokumen, context) };
     }
@@ -5697,7 +5697,7 @@ namespace shogipp
                         {
                             try
                             {
-                                context_t context(program_option_max_depth, program_option_max_selective_depth, usi_info->limit_time);
+                                context_t context(details::program_options::max_depth, details::program_options::max_selective_depth, usi_info->limit_time);
                                 context.start();
                                 evaluator->best_move_iddfs(kyokumen, context);
                             }
@@ -6192,7 +6192,7 @@ namespace shogipp
                 {
                     try
                     {
-                        program_option_max_depth = std::stoi(params[0]);
+                        details::program_options::max_depth = std::stoi(params[0]);
                     }
                     catch (...)
                     {
@@ -6203,7 +6203,7 @@ namespace shogipp
                 {
                     try
                     {
-                        program_option_max_selective_depth = std::stoi(params[0]);
+                        details::program_options::max_selective_depth = std::stoi(params[0]);
                     }
                     catch (...)
                     {

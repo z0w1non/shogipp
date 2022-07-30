@@ -2510,6 +2510,12 @@ namespace shogipp
         inline void undo_move(const move_t & move);
 
         /**
+         * @breif 最後に指された合法手を返す。
+         * @return 最後に指された合法手
+         */
+        inline std::optional<move_t> last_move() const noexcept;
+
+        /**
          * @breif 手番を取得する。
          * @return 手番
          */
@@ -3428,6 +3434,13 @@ namespace shogipp
         }
         kifu.pop_back();
         pop_additional_info();
+    }
+
+    inline std::optional<move_t> kyokumen_t::last_move() const noexcept
+    {
+        if (kifu.empty())
+            return std::nullopt;
+        return kifu.back();
     }
 
     inline color_t kyokumen_t::color() const

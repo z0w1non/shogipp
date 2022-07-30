@@ -56,9 +56,9 @@
 #endif
 
 #ifdef NDEBUG
-#define VALIDATE_kyokumen_ROLLBACK(kyokumen)
+#define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen)
 #else
-#define VALIDATE_kyokumen_ROLLBACK(kyokumen) kyokumen_rollback_validator_t kyokumen_rollback_validator{ kyokumen }
+#define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen) kyokumen_rollback_validator_t kyokumen_rollback_validator{ kyokumen }
 #endif
 
 #if __cplusplus >= 202002L
@@ -2557,6 +2557,7 @@ namespace shogipp
         bool anti_repetition_of_moves = true;                       // 耐千日手
     };
 
+#ifndef NDEBUG
     /**
      * @breif コピーコンストラクトされてからデストラクトされるまでに局面が変更されていないことを検証する。
      */
@@ -2582,12 +2583,16 @@ namespace shogipp
 
     inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t() noexcept
     {
-        for (std::size_t i = 0; i < std::size(data); ++i)
-            SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
-        for (const color_t color : colors)
-            for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                SHOGIPP_ASSERT(captured_pieces_list[color.value()][captured_piece_t{ piece }] == kyokumen.captured_pieces_list[color.value()][captured_piece_t{ piece }]);
+        if (std::uncaught_exceptions() == 0)
+        {
+            for (std::size_t i = 0; i < std::size(data); ++i)
+                SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
+            for (const color_t color : colors)
+                for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
+                    SHOGIPP_ASSERT(captured_pieces_list[color.value()][captured_piece_t{ piece }] == kyokumen.captured_pieces_list[color.value()][captured_piece_t{ piece }]);
+        }
     }
+#endif
 
     inline kyokumen_t::kyokumen_t()
     {
@@ -2831,7 +2836,7 @@ namespace shogipp
                 const move_t move{ destination, piece };
                 moves_t moves;
                 {
-                    VALIDATE_kyokumen_ROLLBACK(*this);
+                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
                     const_cast<kyokumen_t &>(*this).do_move(move);
                     moves = search_moves();
                     const_cast<kyokumen_t &>(*this).undo_move(move);
@@ -3039,7 +3044,7 @@ namespace shogipp
                 const move_t move{ source, destination, board[source], board[destination], false };
                 std::vector<kiki_t> kiki;
                 {
-                    VALIDATE_kyokumen_ROLLBACK(*this);
+                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
                     kyokumen_t & nonconst_this = const_cast<kyokumen_t &>(*this);
                     const colored_piece_t captured = board[destination];
                     nonconst_this.board[destination] = board[source];
@@ -3445,7 +3450,7 @@ namespace shogipp
         search_count_t count = 0;
         for (const move_t & move : search_moves())
         {
-            VALIDATE_kyokumen_ROLLBACK(*this);
+            VALIDATE_KYOKUMEN_ROLLBACK(*this);
             const_cast<kyokumen_t &>(*this).do_move(move);
             count += count_node(depth - 1);
             const_cast<kyokumen_t &>(*this).undo_move(move);
@@ -4163,7 +4168,7 @@ namespace shogipp
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_kyokumen_ROLLBACK(kyokumen);
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -negamax(kyokumen, depth + 1, cache, nested_candidate_move, context);
                 kyokumen.undo_move(move);
@@ -4305,7 +4310,7 @@ namespace shogipp
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_kyokumen_ROLLBACK(kyokumen);
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, context);
                 kyokumen.undo_move(move);
@@ -4429,7 +4434,7 @@ namespace shogipp
                         std::optional<move_t> nested_candidate_move;
                         evaluation_value_t evaluation_value;
                         {
-                            VALIDATE_kyokumen_ROLLBACK(kyokumen);
+                            VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                             kyokumen.do_move(move);
                             evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move, previous_destination, context);
                             kyokumen.undo_move(move);
@@ -4487,7 +4492,7 @@ namespace shogipp
             position_t destination = (!move.put() && !move.destination_piece().empty()) ? move.destination() : npos;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_kyokumen_ROLLBACK(kyokumen);
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, destination, context);
                 kyokumen.undo_move(move);
@@ -4568,7 +4573,7 @@ namespace shogipp
             auto back_inserter = std::back_inserter(scores);
             for (const move_t & move : moves)
             {
-                VALIDATE_kyokumen_ROLLBACK(kyokumen);
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 *back_inserter++ = { &move, evaluate(kyokumen) };
                 kyokumen.undo_move(move);

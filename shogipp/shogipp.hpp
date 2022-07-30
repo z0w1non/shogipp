@@ -966,8 +966,23 @@ namespace shogipp
         const position_t file_a = position_to_file(a);
         const position_t rank_a = position_to_rank(a);
         const position_t file_b = position_to_file(b);
-        const position_t  rank_b = position_to_rank(b);
+        const position_t rank_b = position_to_rank(b);
         return static_cast<position_t>(std::max((file_a - file_b), (rank_a - rank_b)));
+    }
+
+    /**
+     * @breif 2つの座標間のマンハッタン距離を計算する。
+     * @param a 座標A
+     * @param b 座標B
+     * @return 2つの座標間のマンハッタン距離
+     */
+    inline position_t manhattan_distance(position_t a, position_t b) noexcept
+    {
+        const position_t file_a = position_to_file(a);
+        const position_t rank_a = position_to_rank(a);
+        const position_t file_b = position_to_file(b);
+        const position_t rank_b = position_to_rank(b);
+        return static_cast<position_t>(std::abs(file_a - file_b) + std::abs(rank_a - rank_b));
     }
 
     /**
@@ -1008,7 +1023,7 @@ namespace shogipp
      */
     inline unsigned int nyugyoku_progress(position_t king_position, color_t color) noexcept
     {
-        return distance(king_position, default_king_pos_list[color.value()]);
+        return manhattan_distance(king_position, default_king_pos_list[color.value()]);
     }
 
     using position_to_noncolored_piece_pair = std::pair<position_t, std::vector<noncolored_piece_t>>;

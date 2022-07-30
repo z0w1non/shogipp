@@ -6120,10 +6120,18 @@ namespace shogipp
                 thread.join();
             threads.clear();
 
+            // 勝率により降順に個体を並び替える。
+            using evaluated_individual_t = std::pair<chromosome_evaluator_t *, evaluation_value_t>;
+            std::vector<evaluated_individual_t> evaluated_individuals;
+            for (std::size_t i = 0; i < individuals.size(); ++i)
+                evaluated_individuals.emplace_back(individuals[i].get(), fitness_table[i]);
+            std::sort(evaluated_individuals.begin(), evaluated_individuals.end(), [](const evaluated_individual_t & a, const evaluated_individual_t & b) -> bool { return a.second > b.second; });
+
             // 対局の結果を出力する。
             {
                 const std::filesystem::path log_path = log_directory / "summary.txt";
                 std::ofstream log_stream{ log_path };
+                
                 unsigned int div = (individuals.size() - 1) * 2;
                 for (std::size_t i = 0; i < individuals.size(); ++i)
                 {
@@ -6131,6 +6139,10 @@ namespace shogipp
                     double wp = 100.0 * fitness_table[i] / div;
                     log_stream << name << ": " << wp << "% (" << fitness_table[i] << "/" << div << ")" << std::endl;
                 }
+                log_stream << std::endl;
+                
+                log_stream << "best chromosome:" << std::endl;
+                evaluated_individuals.front().first->chromosome()->print();
             }
 
             std::vector<std::shared_ptr<chromosome_evaluator_t>> next_individuals;
@@ -6138,12 +6150,6 @@ namespace shogipp
             // 次世代に現世代のエリートを複製する。
             if (m_elite_number > 0)
             {
-                using evaluated_individual_t = std::pair<chromosome_evaluator_t *, evaluation_value_t>;
-                std::vector<evaluated_individual_t> evaluated_individuals;
-                for (std::size_t i = 0; i < individuals.size(); ++i)
-                    evaluated_individuals.emplace_back(individuals[i].get(), fitness_table[i]);
-                std::sort(evaluated_individuals.begin(), evaluated_individuals.end(), [](const evaluated_individual_t & a, const evaluated_individual_t & b) -> bool { return a.second > b.second; });
-
                 for (std::size_t i = 0; i < m_elite_number; ++i)
                 {
                     if (next_individuals.size() < individuals.size())

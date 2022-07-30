@@ -3645,72 +3645,28 @@ namespace shogipp
          * @param context 評価関数オブジェクトが呼び出された文脈
          * @return 選択された合法手
          * @details 制限時間内に探索が終了しなかった場合、 timeout_exception を送出する。
+         * @sa best_move
+         * @sa best_move_iddfs
          */
         virtual move_t query_best_move(kyokumen_t & kyokumen, context_t & context) = 0;
 
-        virtual move_t best_move(kyokumen_t & kyokumen, context_t & context)
-        {
-            std::optional<move_t> opt_best_move;
-
-            try
-            {
-                opt_best_move = query_best_move(kyokumen, context);
-            }
-            catch (const timeout_exception &)
-            {
-                ;
-            }
-            catch (...)
-            {
-                std::cerr << "best_move failed" << std::endl;
-            }
-
-            // 最善手を取得できなかった場合適当な合法手を選択する。
-            if (!opt_best_move)
-            {
-                const moves_t moves = kyokumen.strict_search_moves();
-                return moves.front();
-            }
-
-            return *opt_best_move;
-        }
+        /**
+         * @breif 局面に対して合法手を選択する。
+         * @param kyokumen 局面
+         * @param context 評価関数オブジェクトが呼び出された文脈
+         * @return 選択された合法手
+         * @details この関数は timeout_exception を送出しない。
+         */
+        virtual move_t best_move(kyokumen_t & kyokumen, context_t & context);
 
         /**
          * @breif 反復深化深さ優先探索で局面に対して合法手を選択する。
          * @param kyokumen 局面
          * @param context 評価関数オブジェクトが呼び出された文脈
          * @return 選択された合法手
+         * @details この関数は timeout_exception を送出しない。
          */
-        virtual move_t best_move_iddfs(kyokumen_t & kyokumen, context_t & context)
-        {
-            std::optional<move_t> opt_best_move;
-            try
-            {
-                for (depth_t depth = 1; depth <= context.get_max_depth(); depth += 2)
-                {
-                    context_t temp_context{ context };
-                    temp_context.set_max_depth(depth);
-                    opt_best_move = query_best_move(kyokumen, temp_context);
-                }
-            }
-            catch (const timeout_exception &)
-            {
-                ;
-            }
-            catch (...)
-            {
-                std::cerr << "best_move_iddfs failed" << std::endl;
-            }
-
-            // 最善手を取得できなかった場合適当な合法手を選択する。
-            if (!opt_best_move)
-            {
-                const moves_t moves = kyokumen.strict_search_moves();
-                return moves.front();
-            }
-
-            return *opt_best_move;
-        }
+        virtual move_t best_move_iddfs(kyokumen_t & kyokumen, context_t & context);
 
         /**
          * @breif 評価関数オブジェクトの名前を返す。
@@ -3718,6 +3674,64 @@ namespace shogipp
          */
         virtual std::string name() const = 0;
     };
+
+    move_t abstract_evaluator_t::best_move(kyokumen_t & kyokumen, context_t & context)
+    {
+        std::optional<move_t> opt_best_move;
+
+        try
+        {
+            opt_best_move = query_best_move(kyokumen, context);
+        }
+        catch (const timeout_exception &)
+        {
+            ;
+        }
+        catch (...)
+        {
+            std::cerr << "best_move failed" << std::endl;
+        }
+
+        // 最善手を取得できなかった場合適当な合法手を選択する。
+        if (!opt_best_move)
+        {
+            const moves_t moves = kyokumen.strict_search_moves();
+            return moves.front();
+        }
+
+        return *opt_best_move;
+    }
+
+    move_t abstract_evaluator_t::best_move_iddfs(kyokumen_t & kyokumen, context_t & context)
+    {
+        std::optional<move_t> opt_best_move;
+        try
+        {
+            for (depth_t depth = 1; depth <= context.get_max_depth(); depth += 2)
+            {
+                context_t temp_context{ context };
+                temp_context.set_max_depth(depth);
+                opt_best_move = query_best_move(kyokumen, temp_context);
+            }
+        }
+        catch (const timeout_exception &)
+        {
+            ;
+        }
+        catch (...)
+        {
+            std::cerr << "best_move_iddfs failed" << std::endl;
+        }
+
+        // 最善手を取得できなかった場合適当な合法手を選択する。
+        if (!opt_best_move)
+        {
+            const moves_t moves = kyokumen.strict_search_moves();
+            return moves.front();
+        }
+
+        return *opt_best_move;
+    }
 
     /**
      * @breif 標準入力により合法手を選択する評価関数オブジェクト

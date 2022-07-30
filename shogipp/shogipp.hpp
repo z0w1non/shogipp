@@ -93,7 +93,7 @@ namespace shogipp
     using search_count_t = unsigned long long;
     using milli_second_time_t = unsigned long long;
 
-    constexpr milli_second_time_t default_limit_time = 10 * 1000;
+    constexpr milli_second_time_t default_limit_time = 1000 * 1000;
     milli_second_time_t limit_time = default_limit_time;
 
     namespace details
@@ -339,12 +339,6 @@ namespace shogipp
             bool print_board = true;
         } // program_options
     } // namespace details
-
-    class file_format_error
-        : public std::runtime_error
-    {
-        using std::runtime_error::runtime_error;
-    };
 
     class parse_error
         : public std::runtime_error

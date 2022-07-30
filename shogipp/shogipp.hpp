@@ -44,8 +44,6 @@
 #define SHOGIPP_SEED
 #endif
 
-#undef NDEBUG
-
 #ifdef NDEBUG
 #define SHOGIPP_ASSERT(expr) (void)0
 #else

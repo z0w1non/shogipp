@@ -44,6 +44,8 @@
 #define SHOGIPP_SEED
 #endif
 
+#undef NDEBUG
+
 #ifdef NDEBUG
 #define SHOGIPP_ASSERT(expr) (void)0
 #else
@@ -188,7 +190,7 @@ namespace shogipp
         {
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
-            const search_count_t nps = m_search_count * 1000 / duration;
+            const search_count_t nps = duration != 0 ? m_search_count * 1000 / duration : 0;
 
             ostream
                 << std::endl
@@ -909,7 +911,7 @@ namespace shogipp
      */
     inline const position_t * nearest_center_side_3(position_t position) noexcept
     {
-        const position_t map[9][4]
+        constexpr position_t map[9][4]
         {
             { right, back, back_right, 0 },
             { back_left, back, back_right, 0 },
@@ -921,7 +923,7 @@ namespace shogipp
             { front_left, front, front_right, 0 },
             { front_left, front, left, 0 },
         };
-        const std::size_t index = position_to_file(position) / 3 * position_to_rank(position) / 3 * 3;
+        const std::size_t index = position_to_file(position) / 3 + position_to_rank(position) / 3 * 3;
         SHOGIPP_ASSERT(index < std::size(map));
         return map[index];
     }
@@ -5376,9 +5378,10 @@ namespace shogipp
             {
                 search_count_t node;
                 const milli_second_time_t time = details::test_time_performance([&] { node = kyokumen.count_node(*cmd.opt_depth); }, 1);
+                const search_count_t nps = time != 0 ? node * 1000 / time : 0;
                 ostream << "node: " << node << std::endl;
                 ostream << "time[ms]: " << time << std::endl;
-                ostream << "nps[n/s]: " << (node * 1000 / time) << std::endl;
+                ostream << "nps[n/s]: " << nps << std::endl;
                 break;
             }
             case command_t::id_t::hash:
@@ -5958,7 +5961,8 @@ namespace shogipp
                                 {
                                     std::lock_guard<decltype(mutex)> lock{ mutex };
 
-                                    const std::filesystem::path log_path = log_directory / (std::to_string(arguments.i) + "_" + std::to_string(arguments.j) + ".txt");
+                                    const std::string log_file_name = std::to_string(arguments.i) + "_" + std::to_string(arguments.j) + ".txt";
+                                    const std::filesystem::path log_path = log_directory / log_file_name;
                                     std::ofstream log_stream{ log_path };
                                     log_stream << temp_stream.str() << std::flush;
 

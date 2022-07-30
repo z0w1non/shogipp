@@ -6009,7 +6009,7 @@ namespace shogipp
             {
                 const std::filesystem::path log_path = log_directory / "summary.txt";
                 std::ofstream log_stream{ log_path };
-                unsigned int div = individuals.size() * (individuals.size() - 1) * 2;
+                unsigned int div = (individuals.size() - 1) * 2;
                 for (std::size_t i = 0; i < individuals.size(); ++i)
                 {
                     const std::string name = individuals[i]->name() + "_" + std::to_string(individuals[i]->id());

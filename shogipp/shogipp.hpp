@@ -3663,7 +3663,7 @@ namespace shogipp
                     opt_best_move = best_move(kyokumen, temp_context);
                 }
             }
-            catch (const timeout_exception & e)
+            catch (const timeout_exception &)
             {
                 ;
             }

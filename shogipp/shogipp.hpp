@@ -6417,7 +6417,6 @@ namespace shogipp
             };
             parse_program_options(argc, argv, callback);
 
-
             if (ga_create_chromosome && ga_create_mode)
             {
                 std::filesystem::create_directories(details::program_options::ga_chromosomes_directory);

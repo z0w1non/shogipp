@@ -2574,6 +2574,8 @@ namespace shogipp
 
     inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t() noexcept
     {
+        // 最善手を探索している間に例外が送出された場合、 do_move と対応する undo_move が呼び出されない。
+        // 捕捉されていない例外が存在しない場合のみ、不整合がないか検証する。
         if (std::uncaught_exceptions() == 0)
         {
             for (std::size_t i = 0; i < std::size(data); ++i)

@@ -5996,9 +5996,9 @@ namespace shogipp
                                     }
                                 }
                             }
-                            catch (const std::exception &)
+                            catch (const std::exception & e)
                             {
-                                ;
+                                std::cerr << e.what() << std::endl;
                             }
                         }
                     }

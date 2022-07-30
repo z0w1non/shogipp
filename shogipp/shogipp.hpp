@@ -4800,7 +4800,27 @@ namespace shogipp
             };
             std::copy(std::begin(captured_piece_points_template), std::end(captured_piece_points_template), std::begin(captured_piece_points));
 
+            constexpr unsigned char kiki_coefficient_template[]
+            {
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 2 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 3 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 4 / 8
+            };
+            std::copy(std::begin(kiki_coefficient_template), std::end(kiki_coefficient_template), std::begin(kiki_coefficient));
+
+            constexpr unsigned char himo_coefficient_template[]
+            {
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 2 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 3 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 4 / 8
+            };
+            std::copy(std::begin(himo_coefficient_template), std::end(himo_coefficient_template), std::begin(himo_coefficient));
+
             std::fill(std::begin(destination_points), std::end(destination_points), std::numeric_limits<std::decay_t<decltype(*destination_points)>>::max());
+
+            nearest_center_side_3_coefficient = std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8;
         }
 
         inline void generate_random() noexcept

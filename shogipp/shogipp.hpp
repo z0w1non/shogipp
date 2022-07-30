@@ -6190,25 +6190,19 @@ namespace shogipp
                 }
                 else if (option == "max-depth" && !params.empty())
                 {
-                    try
-                    {
-                        details::program_options::max_depth = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    const std::optional<depth_t> opt_max_depth = details::cast_to<depth_t>(params[0]);
+                    if (opt_max_depth)
+                        details::program_options::max_depth = *opt_max_depth;
+                    else
                         std::cerr << "invalid max-depth parameter" << std::endl;
-                    }
                 }
                 else if (option == "max-selective-depth" && !params.empty())
                 {
-                    try
-                    {
-                        details::program_options::max_selective_depth = std::stoi(params[0]);
-                    }
-                    catch (...)
-                    {
+                    const std::optional<depth_t> opt_max_selective_depth = details::cast_to<depth_t>(params[0]);
+                    if (opt_max_selective_depth)
+                        details::program_options::max_selective_depth = *opt_max_selective_depth;
+                    else
                         std::cerr << "invalid max-selective-depth parameter" << std::endl;
-                    }
                 }
                 else if (option == "limit-time" && !params.empty())
                 {

@@ -269,7 +269,7 @@ namespace shogipp
         template<typename T>
         inline T random(int min = std::numeric_limits<T>::min(), int max = std::numeric_limits<T>::max())
         {
-            static std::minstd_rand random_impl{ SHOGIPP_SEED };
+            static std::mt19937 random_impl{ SHOGIPP_SEED };
             std::uniform_int_distribution<> uid{ min, max };
             return uid(random_impl);
         }

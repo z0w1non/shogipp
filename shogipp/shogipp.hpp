@@ -93,9 +93,6 @@ namespace shogipp
     using search_count_t = unsigned long long;
     using milli_second_time_t = unsigned long long;
 
-    constexpr milli_second_time_t default_limit_time = 1000 * 1000;
-    milli_second_time_t limit_time = default_limit_time;
-
     namespace details
     {
         SHOGIPP_STRING_LITERAL(split_tokens_literal, R"(\s+)");
@@ -334,9 +331,17 @@ namespace shogipp
 
         namespace program_options
         {
-            bool print_moves = false;
-            bool print_check = true;
-            bool print_board = true;
+            constexpr bool default_print_move = false;
+            bool print_moves = default_print_move;
+
+            constexpr bool default_print_check = true;
+            bool print_check = default_print_check;
+
+            constexpr bool default_print_board = true;
+            bool print_board = default_print_board;
+
+            constexpr milli_second_time_t default_limit_time = 1000 * 1000;
+            milli_second_time_t limit_time = default_limit_time;
         } // program_options
     } // namespace details
 
@@ -5332,7 +5337,7 @@ namespace shogipp
 
     command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
     {
-        context_t context{ program_option_max_depth, program_option_max_selective_depth, limit_time };
+        context_t context{ program_option_max_depth, program_option_max_selective_depth, details::program_options::limit_time };
         context.start();
         return command_t{ command_t::id_t::move, ptr->best_move_iddfs(taikyoku.kyokumen, context) };
     }
@@ -6210,7 +6215,7 @@ namespace shogipp
                 {
                     const std::optional<milli_second_time_t> opt_limit_time = details::cast_to< milli_second_time_t>(params[0]);
                     if (opt_limit_time)
-                        limit_time = *opt_limit_time;
+                        details::program_options::limit_time = *opt_limit_time;
                     else
                         std::cerr << "invalid limit-time parameter" << std::endl;
                 }

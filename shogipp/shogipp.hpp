@@ -1555,12 +1555,24 @@ namespace shogipp
     class move_t
     {
     public:
+        using tag_t = unsigned char;
+        enum : tag_t
+        {
+            none_tag    = 0x00,
+            put_tag     = 0x01,
+            promote_tag = 0x02,
+            check_tag   = 0x04,
+            escape_tag  = 0x08,
+            capture_tag = 0x10,
+            aigoma_tag  = 0x20,
+        };
+
         /**
          * @breif 打ち手を構築する。
          * @param destination 打つ座標
          * @param source_piece 打つ駒
          */
-        inline move_t(position_t destination, captured_piece_t captured_piece) noexcept;
+        inline move_t(position_t destination, captured_piece_t captured_piece, tag_t tag = put_tag) noexcept;
 
         /**
          * @breif 移動する手を構築する。
@@ -1570,7 +1582,7 @@ namespace shogipp
          * @param captured_piece 移動先の駒
          * @param promote 成か不成か
          */
-        inline move_t(position_t source, position_t destination, colored_piece_t source_piece, colored_piece_t captured_piece, bool promote) noexcept;
+        inline move_t(position_t source, position_t destination, colored_piece_t source_piece, colored_piece_t captured_piece, bool promote, tag_t tag = none_tag) noexcept;
 
         /**
          * @breif SFEN表記法に準拠した moves の後に続く文字列から手を構築する。
@@ -1635,31 +1647,35 @@ namespace shogipp
          */
         inline std::string sfen_string() const;
 
+
     private:
         position_t      m_source;           // 移動元の座標(source == npos の場合、持ち駒を打つ)
         position_t      m_destination;      // 移動先の座標(source == npos の場合、 destination は打つ座標)
         colored_piece_t m_source_piece;     // 移動元の駒(source == npos の場合、 source_piece() は打つ持ち駒)
-        colored_piece_t m_destination_piece;   // 移動先の駒(source == npos の場合、 captured_piece は未定義)
+        colored_piece_t m_destination_piece;// 移動先の駒(source == npos の場合、 captured_piece は未定義)
         bool            m_promote;          // 成る場合 true
+        tag_t           m_tag;              // タグ
     };
 
-    inline move_t::move_t(position_t destination, captured_piece_t captured_piece) noexcept
+    inline move_t::move_t(position_t destination, captured_piece_t captured_piece, tag_t tag) noexcept
         : m_source{ npos }
         , m_destination{ destination }
         , m_source_piece{ captured_piece.value() }
         , m_destination_piece{ empty.value() }
         , m_promote{ false }
+        , m_tag{ tag }
     {
         SHOGIPP_ASSERT(captured_piece.value() >= captured_pawn.value());
         SHOGIPP_ASSERT(captured_piece.value() <= captured_rook.value());
     }
 
-    inline move_t::move_t(position_t source, position_t destination, colored_piece_t source_piece, colored_piece_t captured_piece, bool promote) noexcept
+    inline move_t::move_t(position_t source, position_t destination, colored_piece_t source_piece, colored_piece_t captured_piece, bool promote, tag_t tag) noexcept
         : m_source{ source }
         , m_destination{ destination }
         , m_source_piece{ source_piece }
         , m_destination_piece{ captured_piece }
         , m_promote{ promote }
+        , m_tag{ tag }
     {
     }
 
@@ -1999,6 +2015,7 @@ namespace shogipp
     }
 
     inline move_t::move_t(std::string_view sfen_move, const board_t & board)
+        : m_tag{ none_tag }
     {
         if (sfen_move.size() < 4)
             throw invalid_usi_input{ "invalid sfen move" };
@@ -2444,9 +2461,10 @@ namespace shogipp
          * @param result 合法手の出力イテレータ
          * @param source 移動元の座標
          * @param destination 移動先の座標
+         * @param tag タグ
          */
         template<typename OutputIterator>
-        inline void search_moves_from_positions(OutputIterator result, position_t source, position_t destination) const;
+        inline void search_moves_from_positions(OutputIterator result, position_t source, position_t destination, move_t::tag_t tag) const;
 
         /**
          * @breif 合法手のうち王手を外さない手を検索する。
@@ -2454,28 +2472,28 @@ namespace shogipp
          * @details 王手されていない場合、この関数により生成される手の集合は合法手全体と完全に一致する。
          */
         template<typename OutputIterator>
-        inline void search_moves_nonevasions(OutputIterator result) const;
+        inline void search_moves_nonescapes(OutputIterator result) const;
 
         /**
          * @breif 王手を外す手のうち王を移動する手を検索する。
          * @param result 合法手の出力イテレータ
          */
         template<typename OutputIterator>
-        inline void search_moves_evasions_king_move(OutputIterator result) const;
+        inline void search_moves_escapes_king_move(OutputIterator result) const;
 
         /**
          * @breif 王手を外す手のうち合駒する手を検索する。
          * @param result 合法手の出力イテレータ
          */
         template<typename OutputIterator>
-        inline void search_moves_evasions_aigoma(OutputIterator result) const;
+        inline void search_moves_escapes_aigoma(OutputIterator result) const;
 
         /**
          * @breif 合法手のうち王手を外す手を検索する。
          * @param result 合法手の出力イテレータ
          */
         template<typename OutputIterator>
-        inline void search_moves_evasions(OutputIterator result) const;
+        inline void search_moves_escapes(OutputIterator result) const;
 
         /**
          * @breif 王手を外さない手のうち駒を動かす手を検索する。
@@ -3106,23 +3124,23 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_from_positions(OutputIterator result, position_t source, position_t destination) const
+    inline void kyokumen_t::search_moves_from_positions(OutputIterator result, position_t source, position_t destination, move_t::tag_t tag) const
     {
         if (promotable(board[source], source, destination))
-            *result++ = { source, destination, board[source], board[destination], true };
+            *result++ = { source, destination, board[source], board[destination], true, static_cast<move_t::tag_t>(tag | move_t::promote_tag) };
         if (!must_promote(board[source], destination))
-            *result++ = { source, destination, board[source], board[destination], false };
+            *result++ = { source, destination, board[source], board[destination], false, tag };
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_nonevasions(OutputIterator result) const
+    inline void kyokumen_t::search_moves_nonescapes(OutputIterator result) const
     {
         search_moves_moves(result);
         search_moves_puts(result);
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_evasions_king_move(OutputIterator result) const
+    inline void kyokumen_t::search_moves_escapes_king_move(OutputIterator result) const
     {
         const position_t source = additional_info.king_position_list[color().value()];
         for (const position_t * ptr = near_move_offsets(king); *ptr; ++ptr)
@@ -3131,7 +3149,7 @@ namespace shogipp
             if (!board_t::out(destination)
                 && (board[destination].empty() || board[destination].to_color() != color()))
             {
-                const move_t move{ source, destination, board[source], board[destination], false };
+                const move_t move{ source, destination, board[source], board[destination], false, move_t::escape_tag };
                 std::vector<kiki_t> kiki;
                 {
                     VALIDATE_KYOKUMEN_ROLLBACK(*this);
@@ -3150,7 +3168,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_evasions_aigoma(OutputIterator result) const
+    inline void kyokumen_t::search_moves_escapes_aigoma(OutputIterator result) const
     {
         const aigoma_info_t aigoma_info = search_aigoma(color());
         const position_t king_pos = additional_info.king_position_list[color().value()];
@@ -3176,7 +3194,7 @@ namespace shogipp
                             const auto aigoma_iter = aigoma_info.find(kiki.position);
                             const bool is_aigoma = aigoma_iter != aigoma_info.end();
                             if (!is_aigoma)
-                                search_moves_from_positions(result, kiki.position, destination);
+                                search_moves_from_positions(result, kiki.position, destination, move_t::escape_tag | move_t::capture_tag);
                         }
                     }
 
@@ -3184,7 +3202,7 @@ namespace shogipp
                     for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
                         if (captured_pieces_list[color().value()][piece])
                             if (puttable(piece, destination))
-                                *result++ = { destination, piece };
+                                *result++ = { destination, piece, move_t::escape_tag | move_t::aigoma_tag | move_t::put_tag };
                 }
             }
 
@@ -3201,17 +3219,17 @@ namespace shogipp
                     const auto aigoma_iter = aigoma_info.find(kiki.position);
                     const bool is_aigoma = aigoma_iter != aigoma_info.end();
                     if (!is_aigoma)
-                        search_moves_from_positions(result, kiki.position, destination);
+                        search_moves_from_positions(result, kiki.position, destination, move_t::escape_tag | move_t::capture_tag);
                 }
             }
         }
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_evasions(OutputIterator result) const
+    inline void kyokumen_t::search_moves_escapes(OutputIterator result) const
     {
-        search_moves_evasions_king_move(result);
-        search_moves_evasions_aigoma(result);
+        search_moves_escapes_king_move(result);
+        search_moves_escapes_aigoma(result);
     }
 
     /**
@@ -3265,7 +3283,7 @@ namespace shogipp
                         continue;
                 }
 
-                search_moves_from_positions(result, source, destination);
+                search_moves_from_positions(result, source, destination, move_t::none_tag);
             }
         }
     }
@@ -3286,9 +3304,9 @@ namespace shogipp
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         auto & check_list = additional_info.check_list_stack[move_count];
         if (check_list.empty())
-            search_moves_nonevasions(result);
+            search_moves_nonescapes(result);
         else
-            search_moves_evasions(result);
+            search_moves_escapes(result);
     }
 
     inline moves_t kyokumen_t::search_moves() const
@@ -4916,6 +4934,17 @@ namespace shogipp
         unsigned char destination_points[16]{};
         unsigned char nearest_center_side_3_coefficient{};
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
+        unsigned char depth_pack;
+
+        depth_t max_depth() const noexcept
+        {
+            return depth_pack & 0x0f;
+        }
+
+        depth_t max_selective_depth() const noexcept
+        {
+            return (depth_pack >> 4) & 0x0f;
+        }
 
         inline void generate_template() noexcept
         {

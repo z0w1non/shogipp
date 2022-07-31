@@ -94,6 +94,7 @@ namespace shogipp
     using move_count_t = unsigned int;
     using depth_t = unsigned int;
     using evaluation_value_t = int;
+    using pruning_threshold_t = unsigned int;
 
     namespace details
     {
@@ -1559,12 +1560,12 @@ namespace shogipp
         enum : tag_t
         {
             none_tag    = 0x00,
-            put_tag     = 0x01,
-            promote_tag = 0x02,
-            check_tag   = 0x04,
-            escape_tag  = 0x08,
+            check_tag   = 0x01,
+            escape_tag  = 0x02,
+            aigoma_tag  = 0x04,
+            promote_tag = 0x08,
             capture_tag = 0x10,
-            aigoma_tag  = 0x20,
+            put_tag     = 0x20,
         };
 
         /**
@@ -4926,6 +4927,19 @@ namespace shogipp
      */
     class chromosome_t
     {
+    private:
+        enum : std::size_t
+        {
+            check_offset,
+            escape_offset,
+            aigoma_offset,
+            promote_offset,
+            capture_offset,
+            put_offset,
+            none_offset,
+            pruning_coefficient_size
+        };
+
     public:
         unsigned short board_piece_points[promoted_rook_value - pawn_value - 1]{};
         unsigned short captured_piece_points[captured_size]{};
@@ -4934,16 +4948,31 @@ namespace shogipp
         unsigned char destination_points[16]{};
         unsigned char nearest_center_side_3_coefficient{};
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
-        unsigned char depth_pack;
+        unsigned char max_depth{};
+        unsigned char max_selective_depth{};
+        unsigned short pruning_parameters[pruning_coefficient_size]{};
+        unsigned short pruning_threshold{};
 
-        depth_t max_depth() const noexcept
+        inline pruning_threshold_t pruning_parameter(move_t::tag_t tag) const noexcept
         {
-            return depth_pack & 0x0f;
+            if (tag & move_t::check_tag)
+                return pruning_parameters[check_offset];
+            if (tag & move_t::escape_tag)
+                return pruning_parameters[escape_offset];
+            if (tag & move_t::aigoma_tag)
+                return pruning_parameters[aigoma_offset];
+            if (tag & move_t::promote_tag)
+                return pruning_parameters[promote_offset];
+            if (tag & move_t::capture_tag)
+                return pruning_parameters[capture_offset];
+            if (tag & move_t::put_tag)
+                return pruning_parameters[put_offset];
+            return pruning_parameters[none_offset];
         }
 
-        depth_t max_selective_depth() const noexcept
+        inline bool pruning(pruning_threshold_t pruning_threshold) const noexcept
         {
-            return (depth_pack >> 4) & 0x0f;
+            return pruning_threshold >= this->pruning_threshold;
         }
 
         inline void generate_template() noexcept
@@ -5068,6 +5097,9 @@ namespace shogipp
             ostream << "nearest-center-side-3-coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
             for (std::size_t i = 0; i < std::size(nyugyoku_coefficient); ++i)
                 ostream << "nyugyoku-coefficient-" << i << ": " << static_cast<unsigned int>(nyugyoku_coefficient[i]) << std::endl;
+            for (std::size_t i = 0; i < std::size(pruning_parameters); ++i)
+                ostream << "pruning-parameter-" << i << ": " << static_cast<unsigned int>(pruning_parameters[i]) << std::endl;
+            ostream << "pruning-threshold: " << static_cast<unsigned int>(pruning_threshold) << std::endl;
         }
 
         inline void clossover(const chromosome_t & chromosome) noexcept

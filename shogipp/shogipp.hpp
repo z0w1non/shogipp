@@ -67,32 +67,33 @@
     #define SHOGIPP_STRING_LITERAL_IMPL_U8
 #endif
 
-#define SHOGIPP_STRING_LITERAL_IMPL(name, s, CharT, prefix) \
-    template<>                                              \
-    struct name ## _impl<CharT>                             \
-    {                                                       \
-        inline const CharT * operator()() const             \
-        {                                                   \
-            return prefix ## s;                             \
-        }                                                   \
-    };                                                      \
+# define    SHOGIPP_STRING_LITERAL_IMPL(name, s, CharT, prefix)         \
+/*define*/      template<>                                              \
+/*define*/      struct name ## _impl<CharT>                             \
+/*define*/      {                                                       \
+/*define*/          inline const CharT * operator()() const             \
+/*define*/          {                                                   \
+/*define*/              return prefix ## s;                             \
+/*define*/          }                                                   \
+/*define*/      };                                                      \
 
-#define SHOGIPP_STRING_LITERAL(name, s)                              \
-    template<typename CharT>                                         \
-    struct name ## _impl;                                            \
-    SHOGIPP_STRING_LITERAL_IMPL(name, s, char, )                     \
-    SHOGIPP_STRING_LITERAL_IMPL_U8                                   \
-    SHOGIPP_STRING_LITERAL_IMPL(name, s, char16_t, u)                \
-    SHOGIPP_STRING_LITERAL_IMPL(name, s, char32_t, U)                \
-    SHOGIPP_STRING_LITERAL_IMPL(name, s, wchar_t, L)                 \
-    template<typename CharT>                                         \
-    inline const CharT * name() { return name ## _impl<CharT>{}(); } \
+# define    SHOGIPP_STRING_LITERAL(name, s)                                      \
+/*define*/      template<typename CharT>                                         \
+/*define*/      struct name ## _impl;                                            \
+/*define*/      SHOGIPP_STRING_LITERAL_IMPL(name, s, char, )                     \
+/*define*/      SHOGIPP_STRING_LITERAL_IMPL_U8                                   \
+/*define*/      SHOGIPP_STRING_LITERAL_IMPL(name, s, char16_t, u)                \
+/*define*/      SHOGIPP_STRING_LITERAL_IMPL(name, s, char32_t, U)                \
+/*define*/      SHOGIPP_STRING_LITERAL_IMPL(name, s, wchar_t, L)                 \
+/*define*/      template<typename CharT>                                         \
+/*define*/      inline const CharT * name() { return name ## _impl<CharT>{}(); } \
 
 namespace shogipp
 {
     using search_count_t = unsigned long long;
     using move_count_t = unsigned int;
     using depth_t = unsigned int;
+    using evaluation_value_t = int;
 
     namespace details
     {
@@ -237,7 +238,7 @@ namespace shogipp
         }
 
         template<std::size_t N>
-        constexpr inline std::uint32_t bool_array_to_32bitmask(const bool (&bool_array)[N]) noexcept
+        constexpr inline std::uint32_t bool_array_to_32bitmask(const bool(&bool_array)[N]) noexcept
         {
             static_assert(N < 32);
             std::uint32_t bitmask = 0;
@@ -330,6 +331,15 @@ namespace shogipp
             return std::nullopt;
         }
 
+        constexpr double power(double x, unsigned int y) noexcept
+        {
+            if (y == 0)
+                return 1.0;
+            else if (y == 1)
+                return x;
+            return x * power(x, y - 1);
+        }
+
         namespace program_options
         {
             constexpr bool default_print_move = false;
@@ -349,7 +359,7 @@ namespace shogipp
 
             constexpr depth_t default_max_selective_depth = std::numeric_limits<depth_t>::max();
             depth_t max_selective_depth = default_max_selective_depth;
-            
+
             const std::string default_ga_logs_directory = "logs";
             std::string ga_logs_directory = default_ga_logs_directory;
 
@@ -373,6 +383,33 @@ namespace shogipp
             constexpr unsigned int default_ga_thread_number = 1;
             unsigned int ga_thread_number = default_ga_thread_number;
         } // program_options
+
+        namespace evaluation_value_template
+        {
+            constexpr evaluation_value_t board_pawn            =  100;
+            constexpr evaluation_value_t board_lance           =  300;
+            constexpr evaluation_value_t board_knight          =  400;
+            constexpr evaluation_value_t board_silver          =  500;
+            constexpr evaluation_value_t board_gold            =  600;
+            constexpr evaluation_value_t board_bishop          =  800;
+            constexpr evaluation_value_t board_rook            = 1000;
+            constexpr evaluation_value_t board_promoted_pawn   =  700;
+            constexpr evaluation_value_t board_promoted_lance  =  600;
+            constexpr evaluation_value_t board_promoted_knight =  600;
+            constexpr evaluation_value_t board_promoted_silver =  600;
+            constexpr evaluation_value_t board_promoted_bishop = 1000;
+            constexpr evaluation_value_t board_promoted_rook   = 1200;
+
+            constexpr double captured_bonus = 1.125;
+
+            constexpr evaluation_value_t captured_pawn   = static_cast<evaluation_value_t>(board_pawn   * captured_bonus);
+            constexpr evaluation_value_t captured_lance  = static_cast<evaluation_value_t>(board_lance  * captured_bonus);
+            constexpr evaluation_value_t captured_knight = static_cast<evaluation_value_t>(board_knight * captured_bonus);
+            constexpr evaluation_value_t captured_silver = static_cast<evaluation_value_t>(board_silver * captured_bonus);
+            constexpr evaluation_value_t captured_gold   = static_cast<evaluation_value_t>(board_gold   * captured_bonus);
+            constexpr evaluation_value_t captured_bishop = static_cast<evaluation_value_t>(board_bishop * captured_bonus);
+            constexpr evaluation_value_t captured_rook   = static_cast<evaluation_value_t>(board_rook   * captured_bonus);
+        }
     } // namespace details
 
     class parse_error
@@ -3557,8 +3594,6 @@ namespace shogipp
         return additional_info.king_position_list[color.value()];
     }
 
-    using evaluation_value_t = int;
-
     template<typename Key, typename Value, typename Hash = std::hash<Key>>
     class lru_cache_t
     {
@@ -4871,6 +4906,9 @@ namespace shogipp
         }
     };
 
+    /**
+     * @breif 染色体
+     */
     class chromosome_t
     {
     public:
@@ -4884,34 +4922,44 @@ namespace shogipp
 
         inline void generate_template() noexcept
         {
+            // 歩の点数は100固定として、染色体の要素として保持しない。
             constexpr unsigned short board_piece_points_template[]
             {
-                /* lance           */  300,
-                /* knight          */  400,
-                /* silver          */  500,
-                /* gold            */  600,
-                /* bishop          */  800,
-                /* rook            */ 1000,
-                /* promoted_pawn   */  700,
-                /* promoted_lance  */  600,
-                /* promoted_knight */  600,
-                /* promoted_silver */  600,
-                /* promoted_bishop */ 1000,
-                /* promoted_rook   */ 1200
+                details::evaluation_value_template::board_lance,
+                details::evaluation_value_template::board_knight,
+                details::evaluation_value_template::board_silver,
+                details::evaluation_value_template::board_gold,
+                details::evaluation_value_template::board_bishop,
+                details::evaluation_value_template::board_rook,
+                details::evaluation_value_template::board_promoted_pawn,
+                details::evaluation_value_template::board_promoted_lance,
+                details::evaluation_value_template::board_promoted_knight,
+                details::evaluation_value_template::board_promoted_silver,
+                details::evaluation_value_template::board_promoted_bishop,
+                details::evaluation_value_template::board_promoted_rook,
             };
             std::copy(std::begin(board_piece_points_template), std::end(board_piece_points_template), std::begin(board_piece_points));
 
-            constexpr unsigned short captured_piece_points_template[]
             {
-                /* pawn            */ 0, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-                /* lance           */ 0, 300, 300, 300, 300,
-                /* knight          */ 0, 400, 400, 400, 400,
-                /* silver          */ 0, 500, 500, 500, 500,
-                /* gold            */ 0, 600, 600, 600, 600,
-                /* bishop          */ 0, 800, 800,
-                /* rook            */ 0, 1000, 1000,
-            };
-            std::copy(std::begin(captured_piece_points_template), std::end(captured_piece_points_template), std::begin(captured_piece_points));
+                constexpr double coefficient = 3.0 / 4;
+# define        SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(piece)                                                                                                                                            \
+/*define*/          for (std::size_t i = 0; i < captured_##piece##_size; ++i)                                                                                                                              \
+/*define*/          {                                                                                                                                                                                      \
+/*define*/              if (i == 0)                                                                                                                                                                        \
+/*define*/                  captured_piece_points[captured_##piece##_offset + i] = 0;                                                                                                                      \
+/*define*/              else                                                                                                                                                                               \
+/*define*/                  captured_piece_points[captured_##piece##_offset + i] = static_cast<unsigned short>(captured_piece_points[captured_##piece##_offset + i - 1] + details::power(coefficient, i)); \
+/*define*/          }                                                                                                                                                                                      \
+
+                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(pawn);
+                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(lance);
+                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(knight);
+                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(silver);
+                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(gold);
+                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(bishop);
+                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(rook);
+# undef         SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS
+            }
 
             constexpr unsigned char kiki_coefficient_template[]
             {
@@ -5176,10 +5224,14 @@ namespace shogipp
             return m_name;
         }
 
+        std::string file_name() const
+        {
+            return m_name + "_" + std::to_string(m_id);
+        }
+
         inline void write_file(const std::filesystem::path & directory) const
         {
-            const std::string file_name = m_name + "_" + std::to_string(m_id);
-            m_chromosome->write_file(directory / file_name);
+            m_chromosome->write_file(directory / file_name());
         }
 
         inline const std::shared_ptr<chromosome_t> & chromosome() const noexcept
@@ -5283,18 +5335,12 @@ namespace shogipp
                     {
                         if (tokens.size() != 2)
                             throw invalid_command_line_input{ "unknown command line input" };
-                        move_count_t depth;
-                        try
-                        {
-                            depth = std::stol(tokens[1]);
-                        }
-                        catch (...)
-                        {
+                        std::optional<move_count_t> depth = details::cast_to<move_count_t>(tokens[1]);
+                        if (!depth)
                             throw invalid_command_line_input{ "unknown command line input" };
-                        }
                         command_t command;
                         command.id = command_t::id_t::perft;
-                        command.opt_depth = depth;
+                        command.opt_depth = *depth;
                         return command;
                     }
 

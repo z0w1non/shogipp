@@ -4942,14 +4942,16 @@ namespace shogipp
 
             {
                 constexpr double coefficient = 3.0 / 4;
-# define        SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(piece)                                                                                                                                            \
-/*define*/          for (std::size_t i = 0; i < captured_##piece##_size; ++i)                                                                                                                              \
-/*define*/          {                                                                                                                                                                                      \
-/*define*/              if (i == 0)                                                                                                                                                                        \
-/*define*/                  captured_piece_points[captured_##piece##_offset + i] = 0;                                                                                                                      \
-/*define*/              else                                                                                                                                                                               \
-/*define*/                  captured_piece_points[captured_##piece##_offset + i] = static_cast<unsigned short>(captured_piece_points[captured_##piece##_offset + i - 1] + details::power(coefficient, i)); \
-/*define*/          }                                                                                                                                                                                      \
+# define        SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(piece)                                                               \
+/*define*/          for (std::size_t i = 0; i < captured_##piece##_size; ++i)                                                 \
+/*define*/          {                                                                                                         \
+/*define*/              if (i == 0)                                                                                           \
+/*define*/                  captured_piece_points[captured_##piece##_offset + i] = 0;                                         \
+/*define*/              else                                                                                                  \
+/*define*/                  captured_piece_points[captured_##piece##_offset + i]                                              \
+/*define*/                      = static_cast<unsigned short>(captured_piece_points[captured_##piece##_offset + i - 1]        \
+/*define*/                      + details::evaluation_value_template::captured_##piece * details::power(coefficient, i - 1)); \
+/*define*/          }                                                                                                         \
 
                 SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(pawn);
                 SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(lance);

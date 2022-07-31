@@ -1648,6 +1648,11 @@ namespace shogipp
          */
         inline std::string sfen_string() const;
 
+        /**
+         * @breif 合法手のタグを取得する。
+         * @return 合法手のタグ
+         */
+        inline tag_t tag() const noexcept;
 
     private:
         position_t      m_source;           // 移動元の座標(source == npos の場合、持ち駒を打つ)
@@ -1741,6 +1746,11 @@ namespace shogipp
                 result += '+';
         }
         return result;
+    }
+
+    inline move_t::tag_t move_t::tag() const noexcept
+    {
+        return m_tag;
     }
 
     /**
@@ -5109,7 +5119,7 @@ namespace shogipp
         unsigned short pruning_parameters[pruning_coefficient_size]{};
         unsigned short pruning_threshold{};
 
-        inline pruning_threshold_t pruning_parameter(move_t::tag_t tag) const noexcept
+        inline pruning_threshold_t get_pruning_parameter(move_t::tag_t tag) const noexcept
         {
             if (tag & move_t::check_tag)
                 return pruning_parameters[check_offset];
@@ -5126,9 +5136,9 @@ namespace shogipp
             return pruning_parameters[none_offset];
         }
 
-        inline bool pruning(pruning_threshold_t pruning_threshold) const noexcept
+        inline bool get_pruning_threshold() const noexcept
         {
-            return pruning_threshold >= this->pruning_threshold;
+            return pruning_threshold;
         }
 
         inline void generate_template() noexcept
@@ -5452,6 +5462,16 @@ namespace shogipp
         {
             return m_name;
         }
+
+        //pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
+        //{
+        //    return m_chromosome->get_pruning_parameter(move.tag());
+        //}
+
+        //pruning_threshold_t get_pruning_threshold() const override
+        //{
+        //    return m_chromosome->get_pruning_threshold();
+        //}
 
         std::string file_name() const
         {

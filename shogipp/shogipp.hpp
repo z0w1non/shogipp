@@ -4957,41 +4957,41 @@ namespace shogipp
 
         inline void print(std::ostream & ostream = std::cout) const noexcept
         {
-            ostream << "board_piece_points-lance          : " << static_cast<unsigned int>(board_piece_points[lance_value           - pawn_value - 1]) << std::endl;
-            ostream << "board_piece_points-knight         : " << static_cast<unsigned int>(board_piece_points[knight_value          - pawn_value - 1]) << std::endl;
-            ostream << "board_piece_points-silver         : " << static_cast<unsigned int>(board_piece_points[silver_value          - pawn_value - 1]) << std::endl;
-            ostream << "board_piece_points-gold           : " << static_cast<unsigned int>(board_piece_points[gold_value            - pawn_value - 1]) << std::endl;
-            ostream << "board_piece_points-bishop         : " << static_cast<unsigned int>(board_piece_points[bishop_value          - pawn_value - 1]) << std::endl;
-            ostream << "board_piece_points-rook           : " << static_cast<unsigned int>(board_piece_points[rook_value            - pawn_value - 1]) << std::endl;
-            ostream << "board_piece_points-promoted_pawn  : " << static_cast<unsigned int>(board_piece_points[promoted_pawn_value   - pawn_value - 2]) << std::endl;
-            ostream << "board_piece_points-promoted_lance : " << static_cast<unsigned int>(board_piece_points[promoted_lance_value  - pawn_value - 2]) << std::endl;
-            ostream << "board_piece_points-promoted_knight: " << static_cast<unsigned int>(board_piece_points[promoted_knight_value - pawn_value - 2]) << std::endl;
-            ostream << "board_piece_points-promoted_silver: " << static_cast<unsigned int>(board_piece_points[promoted_silver_value - pawn_value - 2]) << std::endl;
-            ostream << "board_piece_points-promoted_bishop: " << static_cast<unsigned int>(board_piece_points[promoted_bishop_value - pawn_value - 2]) << std::endl;
-            ostream << "board_piece_points-promoted_rook  : " << static_cast<unsigned int>(board_piece_points[promoted_rook_value   - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-lance          : " << static_cast<unsigned int>(board_piece_points[lance_value           - pawn_value - 1]) << std::endl;
+            ostream << "board-piece-points-knight         : " << static_cast<unsigned int>(board_piece_points[knight_value          - pawn_value - 1]) << std::endl;
+            ostream << "board-piece-points-silver         : " << static_cast<unsigned int>(board_piece_points[silver_value          - pawn_value - 1]) << std::endl;
+            ostream << "board-piece-points-gold           : " << static_cast<unsigned int>(board_piece_points[gold_value            - pawn_value - 1]) << std::endl;
+            ostream << "board-piece-points-bishop         : " << static_cast<unsigned int>(board_piece_points[bishop_value          - pawn_value - 1]) << std::endl;
+            ostream << "board-piece-points-rook           : " << static_cast<unsigned int>(board_piece_points[rook_value            - pawn_value - 1]) << std::endl;
+            ostream << "board-piece-points-promoted_pawn  : " << static_cast<unsigned int>(board_piece_points[promoted_pawn_value   - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted_lance : " << static_cast<unsigned int>(board_piece_points[promoted_lance_value  - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted_knight: " << static_cast<unsigned int>(board_piece_points[promoted_knight_value - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted_silver: " << static_cast<unsigned int>(board_piece_points[promoted_silver_value - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted_bishop: " << static_cast<unsigned int>(board_piece_points[promoted_bishop_value - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted_rook  : " << static_cast<unsigned int>(board_piece_points[promoted_rook_value   - pawn_value - 2]) << std::endl;
             for (std::size_t i = 0; i < captured_pawn_size; ++i)
-                ostream << "captured_piece_points-pawn-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_pawn_offset + i]) << std::endl;
+                ostream << "captured-piece-points-pawn-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_pawn_offset + i]) << std::endl;
             for (std::size_t i = 0; i < captured_lance_size; ++i)
-                ostream << "captured_piece_points-lance-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_lance_offset + i]) << std::endl;
+                ostream << "captured-piece-points-lance-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_lance_offset + i]) << std::endl;
             for (std::size_t i = 0; i < captured_knight_size; ++i)
-                ostream << "captured_piece_points-knight-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_knight_offset + i]) << std::endl;
+                ostream << "captured-piece-points-knight-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_knight_offset + i]) << std::endl;
             for (std::size_t i = 0; i < captured_silver_size; ++i)
-                ostream << "captured_piece_points-silver-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_silver_offset + i]) << std::endl;
+                ostream << "captured-piece-points-silver-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_silver_offset + i]) << std::endl;
             for (std::size_t i = 0; i < captured_gold_size; ++i)
-                ostream << "captured_piece_points-gold-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_gold_offset + i]) << std::endl;
+                ostream << "captured-piece-points-gold-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_gold_offset + i]) << std::endl;
             for (std::size_t i = 0; i < captured_bishop_size; ++i)
-                ostream << "captured_piece_points-bishop-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_bishop_offset + i]) << std::endl;
+                ostream << "captured-piece-points-bishop-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_bishop_offset + i]) << std::endl;
             for (std::size_t i = 0; i < captured_rook_size; ++i)
-                ostream << "captured_piece_points-rook-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_rook_offset + i]) << std::endl;
+                ostream << "captured-piece-points-rook-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_rook_offset + i]) << std::endl;
             for (std::size_t i = 0; i < std::size(kiki_coefficient); ++i)
-                ostream << "kiki_coefficient-" << i << ": " << static_cast<unsigned int>(kiki_coefficient[i]) << std::endl;
+                ostream << "kiki-coefficient-" << i << ": " << static_cast<unsigned int>(kiki_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(himo_coefficient); ++i)
-                ostream << "himo_coefficient-" << i << ": " << static_cast<unsigned int>(himo_coefficient[i]) << std::endl;
+                ostream << "himo-coefficient-" << i << ": " << static_cast<unsigned int>(himo_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(destination_points); ++i)
                 ostream << "destination-points-" << i << ": " << static_cast<unsigned int>(destination_points[i]) << std::endl;
             ostream << "nearest-center-side-3-coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
             for (std::size_t i = 0; i < std::size(nyugyoku_coefficient); ++i)
-                ostream << "nyugyoku_coefficient-" << i << ": " << static_cast<unsigned int>(nyugyoku_coefficient[i]) << std::endl;
+                ostream << "nyugyoku-coefficient-" << i << ": " << static_cast<unsigned int>(nyugyoku_coefficient[i]) << std::endl;
         }
 
         inline void clossover(const chromosome_t & chromosome) noexcept
@@ -5176,9 +5176,10 @@ namespace shogipp
             return m_name;
         }
 
-        inline void write_file(const std::string & directory) const
+        inline void write_file(const std::filesystem::path & directory) const
         {
-            m_chromosome->write_file(directory + "/" + m_name + "_" + std::to_string(m_id));
+            const std::string file_name = m_name + "_" + std::to_string(m_id);
+            m_chromosome->write_file(directory / file_name);
         }
 
         inline const std::shared_ptr<chromosome_t> & chromosome() const noexcept

@@ -6489,16 +6489,12 @@ namespace shogipp
             {
                 auto black_iter = kishi_map.find(*black_name);
                 if (black_iter == kishi_map.end())
-                {
                     throw invalid_command_line_input{ "invalid black name" };
-                }
                 const std::shared_ptr<abstract_kishi_t> & black_kishi = black_iter->second;
 
                 auto white_iter = kishi_map.find(*white_name);
                 if (white_iter == kishi_map.end())
-                {
                     throw invalid_command_line_input{ "invalid white name" };
-                }
                 const std::shared_ptr<abstract_kishi_t> & white_kishi = white_iter->second;
 
                 do_taikyoku(black_kishi, white_kishi);

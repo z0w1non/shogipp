@@ -4597,7 +4597,7 @@ namespace shogipp
                         {
                             VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                             kyokumen.do_move(move);
-                            evaluation_value = -extendable_alphabeta(kyokumen, depth - 1, -beta, -alpha, cache, nested_candidate_move, previous_destination, context);
+                            evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, previous_destination, context);
                             kyokumen.undo_move(move);
                         }
                         *inserter++ = { &move, evaluation_value };
@@ -4694,6 +4694,162 @@ namespace shogipp
         try
         {
             evaluation_value = extendable_alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, npos, context);
+        }
+        catch (const timeout_exception &)
+        {
+            ;
+        }
+
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            details::timer.search_count() += usi_info->nodes;
+            usi_info->terminate();
+            SHOGIPP_ASSERT(candidate_move.has_value());
+        }
+
+        if (!candidate_move)
+            throw timeout_exception{ "query_best_move failed" };
+
+        return *candidate_move;
+    }
+
+    /**
+     * @breif 枝刈りを含む alphabeta で合法手を選択する評価関数オブジェクトの抽象クラス
+     */
+    class pruning_alphabeta_evaluator_t
+        : public abstract_evaluator_t
+        , public evaluatable_t
+    {
+    public:
+        evaluation_value_t pruning_alphabeta(
+            kyokumen_t & kyokumen,
+            depth_t depth,
+            evaluation_value_t alpha,
+            evaluation_value_t beta,
+            cache_t & cache,
+            std::optional<move_t> & candidate_move,
+            position_t previous_destination,
+            context_t & context,
+            pruning_threshold_t pruning_parameter
+        );
+
+        move_t query_best_move(kyokumen_t & kyokumen, context_t & context) override;
+
+        virtual pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const = 0;
+        virtual pruning_threshold_t get_pruning_threshold() const = 0;
+
+        std::shared_ptr<usi_info_t> usi_info;
+    };
+
+    evaluation_value_t pruning_alphabeta_evaluator_t::pruning_alphabeta(
+        kyokumen_t & kyokumen,
+        depth_t depth,
+        evaluation_value_t alpha,
+        evaluation_value_t beta,
+        cache_t & cache,
+        std::optional<move_t> & candidate_move,
+        position_t previous_destination,
+        context_t & context,
+        pruning_threshold_t pruning_parameter
+    )
+    {
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            if (usi_info->state == usi_info_t::state_t::requested_to_stop)
+                throw timeout_exception{ "requested to stop" };
+            usi_info->depth = depth;
+            usi_info->nodes += 1;
+        }
+
+        // 深度が奇数であり、枝刈りパラメータが閾値以上である場合、局面の評価値を返す。
+        if (depth % 2 == 1 && pruning_parameter >= get_pruning_threshold())
+        {
+            if (context.timeout())
+                throw timeout_exception{ "context.timeout() == true" };
+
+            ++details::timer.search_count();
+            const std::optional<evaluation_value_t> cached_evaluation_value = cache.get(kyokumen.hash());
+            if (cached_evaluation_value)
+            {
+                if (usi_info)
+                {
+                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                    ++usi_info->cache_rookt_count;
+                }
+                return *cached_evaluation_value;
+            }
+            const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
+            cache.push(kyokumen.hash(), evaluation_value);
+            return evaluation_value;
+        }
+
+        moves_t moves = kyokumen.search_moves();
+        sort_moves_by_category(moves.begin(), moves.end());
+
+        if (moves.empty())
+            return -std::numeric_limits<evaluation_value_t>::max();
+
+        std::vector<evaluated_moves> evaluated_moves;
+        auto inserter = std::back_inserter(evaluated_moves);
+        evaluation_value_t max_evaluation_value = -std::numeric_limits<evaluation_value_t>::max();
+
+        for (const move_t & move : moves)
+        {
+            if (usi_info && depth == 0)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                usi_info->currmove = move;
+                usi_info->ondemand_print();
+            }
+
+            const pruning_threshold_t increased_pruning_parameter = pruning_parameter + get_pruning_parameter(kyokumen, move);
+            std::optional<move_t> nested_candidate_move;
+            position_t destination = (!move.put() && !move.destination_piece().empty()) ? move.destination() : npos;
+            evaluation_value_t evaluation_value;
+            {
+                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
+                kyokumen.do_move(move);
+                evaluation_value = -pruning_alphabeta(kyokumen, depth + 1, -beta, -alpha, cache, nested_candidate_move, destination, context, increased_pruning_parameter);
+                kyokumen.undo_move(move);
+            }
+            *inserter++ = { &move, evaluation_value };
+
+            if (usi_info && depth == 0 && evaluation_value > max_evaluation_value)
+            {
+                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+                usi_info->best_move = move;
+                usi_info->cp = evaluation_value;
+            }
+            max_evaluation_value = evaluation_value;
+
+            alpha = std::max(alpha, evaluation_value);
+            if (alpha >= beta)
+                break;
+        }
+
+        SHOGIPP_ASSERT(!moves.empty());
+        sort_moves_by_evaluation_value(evaluated_moves.begin(), evaluated_moves.end());
+        candidate_move = *evaluated_moves.front().first;
+        return evaluated_moves.front().second;
+    }
+
+    move_t pruning_alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, context_t & context)
+    {
+        if (usi_info)
+        {
+            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
+            usi_info->begin = std::chrono::system_clock::now();
+            usi_info->state = usi_info_t::state_t::searching;
+        }
+
+        cache_t cache = usi_info_t::make_cache(usi_info.get());
+        std::optional<move_t> candidate_move;
+        evaluation_value_t evaluation_value;
+        try
+        {
+            evaluation_value = pruning_alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), cache, candidate_move, npos, context, 0);
         }
         catch (const timeout_exception &)
         {
@@ -5042,6 +5198,19 @@ namespace shogipp
 
             for (unsigned short i = 0; i < static_cast<unsigned short>(std::size(nyugyoku_coefficient)); ++i)
                 nyugyoku_coefficient[i] = i;
+
+            max_depth = 3;
+            max_selective_depth = 9;
+
+            pruning_parameters[check_offset]   = 1;
+            pruning_parameters[escape_offset]  = 1;
+            pruning_parameters[aigoma_offset]  = 1;
+            pruning_parameters[promote_offset] = 1;
+            pruning_parameters[capture_offset] = 2;
+            pruning_parameters[put_offset]     = 5;
+            pruning_parameters[none_offset]    = 3;
+
+            pruning_threshold = pruning_parameters[none_offset] * max_depth;
         }
 
         inline void generate_random() noexcept

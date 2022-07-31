@@ -4744,21 +4744,21 @@ namespace shogipp
         {
             static const evaluation_value_t map[]
             {
-                /* empty           */  0,
-                /* pawn            */  1,
-                /* lance           */  3,
-                /* knight          */  4,
-                /* silver          */  5,
-                /* gold            */  6,
-                /* bishop          */  8,
-                /* rook            */ 10,
-                /* king            */  0,
-                /* promoted_pawn   */  7,
-                /* promoted_lance  */  6,
-                /* promoted_knight */  6,
-                /* promoted_silver */  6,
-                /* promoted_bishop */ 10,
-                /* promoted_rook   */ 12
+                /* empty           */ 0,
+                /* pawn            */ details::evaluation_value_template::board_pawn,
+                /* lance           */ details::evaluation_value_template::board_lance,
+                /* knight          */ details::evaluation_value_template::board_knight,
+                /* silver          */ details::evaluation_value_template::board_silver,
+                /* gold            */ details::evaluation_value_template::board_gold,
+                /* bishop          */ details::evaluation_value_template::board_bishop,
+                /* rook            */ details::evaluation_value_template::board_rook,
+                /* king            */ 0,
+                /* promoted_pawn   */ details::evaluation_value_template::board_promoted_pawn,
+                /* promoted_lance  */ details::evaluation_value_template::board_promoted_lance,
+                /* promoted_knight */ details::evaluation_value_template::board_promoted_knight,
+                /* promoted_silver */ details::evaluation_value_template::board_promoted_silver,
+                /* promoted_bishop */ details::evaluation_value_template::board_promoted_bishop,
+                /* promoted_rook   */ details::evaluation_value_template::board_promoted_rook,
             };
 
             evaluation_value_t evaluation_value = kyokumen_map_evaluation_value(kyokumen, map);
@@ -4779,26 +4779,25 @@ namespace shogipp
         {
             static const evaluation_value_t map[]
             {
-                /* empty           */  0,
-                /* pawn            */  1,
-                /* lance           */  3,
-                /* knight          */  4,
-                /* silver          */  5,
-                /* gold            */  6,
-                /* bishop          */  8,
-                /* rook            */ 10,
-                /* king            */  0,
-                /* promoted_pawn   */  7,
-                /* promoted_lance  */  6,
-                /* promoted_knight */  6,
-                /* promoted_silver */  6,
-                /* promoted_bishop */ 10,
-                /* promoted_rook   */ 12
+                /* empty           */ 0,
+                /* pawn            */ details::evaluation_value_template::board_pawn,
+                /* lance           */ details::evaluation_value_template::board_lance,
+                /* knight          */ details::evaluation_value_template::board_knight,
+                /* silver          */ details::evaluation_value_template::board_silver,
+                /* gold            */ details::evaluation_value_template::board_gold,
+                /* bishop          */ details::evaluation_value_template::board_bishop,
+                /* rook            */ details::evaluation_value_template::board_rook,
+                /* king            */ 0,
+                /* promoted_pawn   */ details::evaluation_value_template::board_promoted_pawn,
+                /* promoted_lance  */ details::evaluation_value_template::board_promoted_lance,
+                /* promoted_knight */ details::evaluation_value_template::board_promoted_knight,
+                /* promoted_silver */ details::evaluation_value_template::board_promoted_silver,
+                /* promoted_bishop */ details::evaluation_value_template::board_promoted_bishop,
+                /* promoted_rook   */ details::evaluation_value_template::board_promoted_rook,
             };
 
             evaluation_value_t evaluation_value = 0;
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
-            evaluation_value *= 100;
             return evaluation_value;
         }
 
@@ -4816,26 +4815,25 @@ namespace shogipp
         {
             static const evaluation_value_t map[]
             {
-                /* empty           */  0,
-                /* pawn            */  1,
-                /* lance           */  3,
-                /* knight          */  4,
-                /* silver          */  5,
-                /* gold            */  6,
-                /* bishop          */  8,
-                /* rook            */ 10,
-                /* king            */  0,
-                /* promoted_pawn   */  7,
-                /* promoted_lance  */  6,
-                /* promoted_knight */  6,
-                /* promoted_silver */  6,
-                /* promoted_bishop */ 10,
-                /* promoted_rook   */ 12
+                /* empty           */ 0,
+                /* pawn            */ details::evaluation_value_template::board_pawn,
+                /* lance           */ details::evaluation_value_template::board_lance,
+                /* knight          */ details::evaluation_value_template::board_knight,
+                /* silver          */ details::evaluation_value_template::board_silver,
+                /* gold            */ details::evaluation_value_template::board_gold,
+                /* bishop          */ details::evaluation_value_template::board_bishop,
+                /* rook            */ details::evaluation_value_template::board_rook,
+                /* king            */ 0,
+                /* promoted_pawn   */ details::evaluation_value_template::board_promoted_pawn,
+                /* promoted_lance  */ details::evaluation_value_template::board_promoted_lance,
+                /* promoted_knight */ details::evaluation_value_template::board_promoted_knight,
+                /* promoted_silver */ details::evaluation_value_template::board_promoted_silver,
+                /* promoted_bishop */ details::evaluation_value_template::board_promoted_bishop,
+                /* promoted_rook   */ details::evaluation_value_template::board_promoted_rook,
             };
 
             evaluation_value_t evaluation_value = 0;
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
-            evaluation_value *= 100;
 
             return evaluation_value;
         }
@@ -4854,21 +4852,21 @@ namespace shogipp
         {
             static const evaluation_value_t map[]
             {
-                /* empty           */  0,
-                /* pawn            */  1,
-                /* lance           */  3,
-                /* knight          */  4,
-                /* silver          */  5,
-                /* gold            */  6,
-                /* bishop          */  8,
-                /* rook            */ 10,
-                /* king            */  0,
-                /* promoted_pawn   */  7,
-                /* promoted_lance  */  6,
-                /* promoted_knight */  6,
-                /* promoted_silver */  6,
-                /* promoted_bishop */ 10,
-                /* promoted_rook   */ 12
+                /* empty           */ 0,
+                /* pawn            */ details::evaluation_value_template::board_pawn,
+                /* lance           */ details::evaluation_value_template::board_lance,
+                /* knight          */ details::evaluation_value_template::board_knight,
+                /* silver          */ details::evaluation_value_template::board_silver,
+                /* gold            */ details::evaluation_value_template::board_gold,
+                /* bishop          */ details::evaluation_value_template::board_bishop,
+                /* rook            */ details::evaluation_value_template::board_rook,
+                /* king            */ 0,
+                /* promoted_pawn   */ details::evaluation_value_template::board_promoted_pawn,
+                /* promoted_lance  */ details::evaluation_value_template::board_promoted_lance,
+                /* promoted_knight */ details::evaluation_value_template::board_promoted_knight,
+                /* promoted_silver */ details::evaluation_value_template::board_promoted_silver,
+                /* promoted_bishop */ details::evaluation_value_template::board_promoted_bishop,
+                /* promoted_rook   */ details::evaluation_value_template::board_promoted_rook,
             };
 
             constexpr evaluation_value_t destination_point = 1;
@@ -4877,7 +4875,6 @@ namespace shogipp
 
             evaluation_value_t evaluation_value = 0;
             evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
-            evaluation_value *= 100;
 
             for (position_t position = position_begin; position < position_end; ++position)
             {

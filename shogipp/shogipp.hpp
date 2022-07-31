@@ -5240,7 +5240,7 @@ namespace shogipp
         };
 
         id_t id{ id_t::error };
-        std::optional<move_t> opt_te;
+        std::optional<move_t> opt_move;
         std::optional<move_count_t> opt_depth;
     };
 
@@ -5312,23 +5312,17 @@ namespace shogipp
                         return command_t{ command_t::id_t::eval };
                     }
 
-                    std::size_t move_index;
-                    try
-                    {
-                        move_index = std::stol(tokens[0]);
-                    }
-                    catch (...)
-                    {
+                    std::optional<std::size_t> move_index = details::cast_to<std::size_t>(tokens[0]);
+                    if (!move_index)
                         throw invalid_command_line_input{ "unknown command line input" };
-                    }
-                    if (move_index == 0)
+                    if (*move_index == 0)
                         throw invalid_command_line_input{ "move_index == 0" };
-                    if (move_index > moves.size())
+                    if (*move_index > moves.size())
                         throw invalid_command_line_input{ "move_index > moves.size()" };
-                    const std::size_t raw_move_index = move_index - 1;
+                    const std::size_t raw_move_index = *move_index - 1;
                     command_t command;
                     command.id = command_t::id_t::move;
-                    command.opt_te = moves[raw_move_index];
+                    command.opt_move = moves[raw_move_index];
                     return command;
                 }
             }
@@ -5503,9 +5497,9 @@ namespace shogipp
             case command_t::id_t::error:
                 break;
             case command_t::id_t::move:
-                kyokumen.print_move(*cmd.opt_te, kyokumen.color(), ostream);
+                kyokumen.print_move(*cmd.opt_move, kyokumen.color(), ostream);
                 ostream << std::endl << std::endl;
-                kyokumen.do_move(*cmd.opt_te);
+                kyokumen.do_move(*cmd.opt_move);
                 update_moves();
                 return !moves.empty();
             case command_t::id_t::undo:

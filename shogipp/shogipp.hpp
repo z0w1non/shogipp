@@ -4874,7 +4874,7 @@ namespace shogipp
         cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
         evaluation_value_t evaluation_value;
-        arguments_t arguments{ cache, context, get_pruning_threshold() };
+        arguments_t arguments{ cache, context, get_pruning_threshold() * iddfs_iteration };
 
         try
         {
@@ -5133,8 +5133,6 @@ namespace shogipp
         unsigned char destination_points[16]{};
         unsigned char nearest_center_side_3_coefficient{};
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
-        unsigned char max_depth{};
-        unsigned char max_selective_depth{};
         unsigned short pruning_parameters[pruning_coefficient_size]{};
         unsigned short pruning_threshold{};
 
@@ -5228,9 +5226,6 @@ namespace shogipp
             for (unsigned short i = 0; i < static_cast<unsigned short>(std::size(nyugyoku_coefficient)); ++i)
                 nyugyoku_coefficient[i] = i;
 
-            max_depth = 3;
-            max_selective_depth = 9;
-
             pruning_parameters[check_offset]   = 1;
             pruning_parameters[escape_offset]  = 1;
             pruning_parameters[aigoma_offset]  = 1;
@@ -5239,7 +5234,7 @@ namespace shogipp
             pruning_parameters[put_offset]     = 5;
             pruning_parameters[none_offset]    = 3;
 
-            pruning_threshold = pruning_parameters[none_offset] * max_depth;
+            pruning_threshold = pruning_parameters[none_offset] * pruning_parameters[none_offset] * 2;
         }
 
         inline void generate_random() noexcept

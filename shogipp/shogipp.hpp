@@ -5321,15 +5321,15 @@ namespace shogipp
             for (unsigned short i = 0; i < static_cast<unsigned short>(std::size(nyugyoku_coefficient)); ++i)
                 nyugyoku_coefficient[i] = i;
 
-            pruning_parameters[check_offset]   = 1;
-            pruning_parameters[escape_offset]  = 1;
-            pruning_parameters[aigoma_offset]  = 1;
-            pruning_parameters[promote_offset] = 1;
-            pruning_parameters[capture_offset] = 2;
-            pruning_parameters[put_offset]     = 5;
-            pruning_parameters[none_offset]    = 3;
+            pruning_parameters[check_offset]   = std::numeric_limits<unsigned char>::max() / 2;
+            pruning_parameters[escape_offset]  = std::numeric_limits<unsigned char>::max() / 2;
+            pruning_parameters[aigoma_offset]  = std::numeric_limits<unsigned char>::max() / 2;
+            pruning_parameters[promote_offset] = std::numeric_limits<unsigned char>::max() / 2;
+            pruning_parameters[capture_offset] = std::numeric_limits<unsigned char>::max() / 2;
+            pruning_parameters[put_offset]     = std::numeric_limits<unsigned char>::max() / 2;
+            pruning_parameters[none_offset]    = std::numeric_limits<unsigned char>::max() / 2;
 
-            pruning_threshold = pruning_parameters[none_offset] * pruning_parameters[none_offset] + 1;
+            pruning_threshold = pruning_parameters[none_offset] * 2;
         }
 
         inline void generate_random() noexcept

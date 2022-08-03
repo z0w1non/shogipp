@@ -3843,7 +3843,7 @@ namespace shogipp
         }
         catch (const timeout_exception &)
         {
-            std::cout << "timeout: " << last_iddfs_iteration << std::endl;
+            std::cerr << "timeout: " << last_iddfs_iteration << std::endl;
         }
         catch (...)
         {

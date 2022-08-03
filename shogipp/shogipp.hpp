@@ -353,7 +353,7 @@ namespace shogipp
             constexpr bool default_print_board = true;
             bool print_board = default_print_board;
 
-            constexpr std::chrono::milliseconds default_limit_time{ 1000 * 1000 };
+            constexpr std::chrono::milliseconds default_limit_time{ 1 * 1000 };
             std::chrono::milliseconds limit_time = default_limit_time;
 
             constexpr depth_t default_max_iddfs_iteration = 1;
@@ -5450,7 +5450,7 @@ namespace shogipp
     };
 
     class chromosome_evaluator_t
-        : public extendable_alphabeta_evaluator_t
+        : public pruning_alphabeta_evaluator_t
     {
     public:
         using id_type = unsigned long long;
@@ -5485,15 +5485,15 @@ namespace shogipp
             return m_name;
         }
 
-        //pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
-        //{
-        //    return m_chromosome->get_pruning_parameter(move.tag());
-        //}
+        pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
+        {
+            return m_chromosome->get_pruning_parameter(move.tag());
+        }
 
-        //pruning_threshold_t get_pruning_threshold() const override
-        //{
-        //    return m_chromosome->get_pruning_threshold();
-        //}
+        pruning_threshold_t get_pruning_threshold() const override
+        {
+            return m_chromosome->get_pruning_threshold();
+        }
 
         std::string file_name() const
         {

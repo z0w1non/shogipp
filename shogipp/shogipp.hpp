@@ -4032,10 +4032,9 @@ namespace shogipp
     }
 
     /**
-     * @breif 合法手を区分により並び替える。
+     * @breif 合法手をその区分により並び替える。
      * @param first evaluated_moves の先頭を指すランダムアクセスイテレータ
      * @param last evaluated_moves の末尾を指すランダムアクセスイテレータ
-     * @details 駒取りが発生する手、駒取りが発生しない手、打つ手の順に並び替える。
      */
     template<typename RandomAccessIterator>
     void sort_moves_by_category(RandomAccessIterator first, RandomAccessIterator last)
@@ -4044,9 +4043,9 @@ namespace shogipp
     }
 
     /**
-     * @breif 合法手を得点により並び替える。
-     * @param first scored_te の先頭を指すランダムアクセスイテレータ
-     * @param last scored_te の末尾を指すランダムアクセスイテレータ
+     * @breif 合法手をその評価値により並び替える。
+     * @param first first の先頭を指すランダムアクセスイテレータ
+     * @param last last の末尾を指すランダムアクセスイテレータ
      */
     template<typename RandomAccessIterator>
     void sort_moves_by_evaluation_value(RandomAccessIterator first, RandomAccessIterator last)

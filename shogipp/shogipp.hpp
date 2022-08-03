@@ -1769,11 +1769,19 @@ namespace shogipp
 
     inline int to_category(const move_t & move) noexcept
     {
-        if (move.put())
-            return 0;
-        if (move.destination_piece().empty())
+        if (move.tag() & move_t::check_tag)
+            return 6;
+        if (move.tag() & move_t::escape_tag)
+            return 5;
+        if (move.tag() & move_t::aigoma_tag)
+            return 4;
+        if (move.tag() & move_t::promote_tag)
+            return 3;
+        if (move.tag() & move_t::capture_tag)
+            return 2;
+        if (move.tag() & move_t::put_tag)
             return 1;
-        return 2;
+        return 0;
     };
 
     inline hash_t hash_table_t::move_hash(const move_t & move, color_t color) const noexcept

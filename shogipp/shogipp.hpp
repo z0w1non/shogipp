@@ -353,7 +353,7 @@ namespace shogipp
             constexpr bool default_print_board = true;
             bool print_board = default_print_board;
 
-            constexpr std::chrono::milliseconds default_limit_time{ 1 * 1000 };
+            constexpr std::chrono::milliseconds default_limit_time{ 10 * 1000 };
             std::chrono::milliseconds limit_time = default_limit_time;
 
             constexpr depth_t default_max_iddfs_iteration = 1;
@@ -3806,7 +3806,8 @@ namespace shogipp
 
         try
         {
-            opt_best_move = query_best_move(kyokumen, context, 0);
+            kyokumen_t duplicated{ kyokumen };
+            opt_best_move = query_best_move(duplicated, context, 0);
         }
         catch (const timeout_exception &)
         {
@@ -3830,14 +3831,19 @@ namespace shogipp
     move_t abstract_evaluator_t::best_move_iddfs(kyokumen_t & kyokumen, iddfs_context_t & context)
     {
         std::optional<move_t> opt_best_move;
+        iddfs_iteration_t last_iddfs_iteration = 0;
         try
         {
             for (iddfs_iteration_t iddf_iteration = 0; iddf_iteration <= context.max_iddfs_iteration(); ++iddf_iteration)
-                opt_best_move = query_best_move(kyokumen, context, iddf_iteration);
+            {
+                kyokumen_t duplicated{ kyokumen };
+                opt_best_move = query_best_move(duplicated, context, iddf_iteration);
+                last_iddfs_iteration = iddf_iteration;
+            }
         }
         catch (const timeout_exception &)
         {
-            ;
+            std::cout << "timeout: " << last_iddfs_iteration << std::endl;
         }
         catch (...)
         {
@@ -5115,6 +5121,87 @@ namespace shogipp
         }
     };
 
+    class edagari_evaluator_t
+        : public pruning_alphabeta_evaluator_t
+    {
+    public:
+        evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        {
+            static const evaluation_value_t map[]
+            {
+                /* empty           */ 0,
+                /* pawn            */ details::evaluation_value_template::board_pawn,
+                /* lance           */ details::evaluation_value_template::board_lance,
+                /* knight          */ details::evaluation_value_template::board_knight,
+                /* silver          */ details::evaluation_value_template::board_silver,
+                /* gold            */ details::evaluation_value_template::board_gold,
+                /* bishop          */ details::evaluation_value_template::board_bishop,
+                /* rook            */ details::evaluation_value_template::board_rook,
+                /* king            */ 0,
+                /* promoted_pawn   */ details::evaluation_value_template::board_promoted_pawn,
+                /* promoted_lance  */ details::evaluation_value_template::board_promoted_lance,
+                /* promoted_knight */ details::evaluation_value_template::board_promoted_knight,
+                /* promoted_silver */ details::evaluation_value_template::board_promoted_silver,
+                /* promoted_bishop */ details::evaluation_value_template::board_promoted_bishop,
+                /* promoted_rook   */ details::evaluation_value_template::board_promoted_rook,
+            };
+
+            constexpr evaluation_value_t destination_point = 1;
+            constexpr evaluation_value_t kiki_point = -10;
+            constexpr evaluation_value_t himo_point = 10;
+
+            evaluation_value_t evaluation_value = 0;
+            evaluation_value += kyokumen_map_evaluation_value(kyokumen, map);
+
+            for (position_t position = position_begin; position < position_end; ++position)
+            {
+                if (!board_t::out(position) && !kyokumen.board[position].empty())
+                {
+                    std::vector<kiki_t> kiki_list;
+                    const color_t color = kyokumen.board[position].to_color();
+                    kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
+                    evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
+                    std::vector<position_t> himo_list;
+                    kyokumen.search_himo(std::back_inserter(himo_list), position, color);
+                    evaluation_value += himo_point * static_cast<evaluation_value_t>(himo_list.size()) * reverse(color);
+
+                    std::vector<position_t> destination_list;
+                    kyokumen.search_destination(std::back_inserter(destination_list), position, color);
+                    evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
+                }
+            }
+
+            return evaluation_value;
+        }
+
+        std::string name() const override
+        {
+            return "é}ä†ÇË";
+        }
+
+        pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
+        {
+            if (move.tag() & move_t::check_tag)
+                return 3;
+            if (move.tag() & move_t::escape_tag)
+                return 3;
+            if (move.tag() & move_t::aigoma_tag)
+                return 3;
+            if (move.tag() & move_t::promote_tag)
+                return 3;
+            if (move.tag() & move_t::capture_tag)
+                return 4;
+            if (move.tag() & move_t::put_tag)
+                return 4;
+            return 5;
+        }
+
+        pruning_threshold_t get_pruning_threshold() const override
+        {
+            return 12;
+        }
+    };
+
     /**
      * @breif êıêFëÃ
      */
@@ -6282,6 +6369,7 @@ namespace shogipp
         { "hiyoko"  , std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t  >()) },
         { "niwatori", std::make_shared<computer_kishi_t>(std::make_shared<niwatori_evaluator_t>()) },
         { "fukayomi", std::make_shared<computer_kishi_t>(std::make_shared<fukayomi_evaluator_t>()) },
+        { "edagari" , std::make_shared<computer_kishi_t>(std::make_shared<edagari_evaluator_t >()) },
     };
 
     static const std::map<std::string, std::shared_ptr<abstract_evaluator_t>> evaluator_map
@@ -6291,6 +6379,7 @@ namespace shogipp
         { "hiyoko"  , std::make_shared<hiyoko_evaluator_t  >() },
         { "niwatori", std::make_shared<niwatori_evaluator_t>() },
         { "fukayomi", std::make_shared<fukayomi_evaluator_t>() },
+        { "edagari" , std::make_shared<edagari_evaluator_t>() },
     };
 
     class genetic_algorithm_t

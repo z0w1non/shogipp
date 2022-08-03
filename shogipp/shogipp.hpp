@@ -4035,6 +4035,7 @@ namespace shogipp
      * @breif 合法手をその区分により並び替える。
      * @param first evaluated_moves の先頭を指すランダムアクセスイテレータ
      * @param last evaluated_moves の末尾を指すランダムアクセスイテレータ
+     * @details alpha-beta 法で探索する前に合法手を最善手が期待される順に並び替えることで探索を効率化する。
      */
     template<typename RandomAccessIterator>
     void sort_moves_by_category(RandomAccessIterator first, RandomAccessIterator last)
@@ -4441,12 +4442,12 @@ namespace shogipp
             usi_info->depth = depth;
             usi_info->nodes += 1;
         }
-        
+
         if (depth >= arguments.max_depth)
         {
             if (arguments.context.timeout())
                 throw timeout_exception{ "context.timeout() == true" };
-            
+
             ++details::timer.search_count();
             const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(kyokumen.hash());
             if (cached_evaluation_value)

@@ -4799,7 +4799,7 @@ namespace shogipp
         }
 
         // 深度が奇数であり、枝刈りパラメータが閾値以上である場合、局面の評価値を返す。
-        if (depth % 2 == 1 && pruning_parameter >= get_pruning_threshold())
+        if (depth % 2 == 1 && pruning_parameter >= arguments.pruning_threshold)
         {
             if (arguments.context.timeout())
                 throw timeout_exception{ "context.timeout() == true" };
@@ -5139,7 +5139,7 @@ namespace shogipp
         unsigned char kiki_coefficient[4]{};
         unsigned char himo_coefficient[4]{};
         unsigned char destination_points[16]{};
-        unsigned char nearest_center_side_3_coefficient{};
+        //unsigned char nearest_center_side_3_coefficient{};
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
         unsigned short pruning_parameters[pruning_coefficient_size]{};
         unsigned short pruning_threshold{};
@@ -5229,7 +5229,7 @@ namespace shogipp
 
             std::fill(std::begin(destination_points), std::end(destination_points), std::numeric_limits<std::decay_t<decltype(*destination_points)>>::max());
 
-            nearest_center_side_3_coefficient = std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8;
+            //nearest_center_side_3_coefficient = std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8;
 
             for (unsigned short i = 0; i < static_cast<unsigned short>(std::size(nyugyoku_coefficient)); ++i)
                 nyugyoku_coefficient[i] = i;
@@ -5295,7 +5295,7 @@ namespace shogipp
                 ostream << "himo-coefficient-" << i << ": " << static_cast<unsigned int>(himo_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(destination_points); ++i)
                 ostream << "destination-points-" << i << ": " << static_cast<unsigned int>(destination_points[i]) << std::endl;
-            ostream << "nearest-center-side-3-coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
+            //ostream << "nearest-center-side-3-coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
             for (std::size_t i = 0; i < std::size(nyugyoku_coefficient); ++i)
                 ostream << "nyugyoku-coefficient-" << i << ": " << static_cast<unsigned int>(nyugyoku_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(pruning_parameters); ++i)
@@ -5383,18 +5383,18 @@ namespace shogipp
                 for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
                     evaluation_value += evaluate_captured_piece(captured_piece_t{ piece }, kyokumen.captured_pieces_list[color.value()][piece]) * reverse(color);
 
-                const position_t king_position = kyokumen.king_position(color);
-                for (const position_t * offset = nearest_center_side_3(king_position); *offset != 0; ++offset)
-                {
-                    const position_t nearest = king_position + *offset;
-                    const colored_piece_t piece = kyokumen.board[nearest];
-                    SHOGIPP_ASSERT((!board_t::out(nearest)));
-                    if (!piece.empty())
-                    {
-                        evaluation_value += (evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
-                            * nearest_center_side_3_coefficient) >> (sizeof(nearest_center_side_3_coefficient) * CHAR_BIT);
-                    }
-                }
+                //const position_t king_position = kyokumen.king_position(color);
+                //for (const position_t * offset = nearest_center_side_3(king_position); *offset != 0; ++offset)
+                //{
+                //    const position_t nearest = king_position + *offset;
+                //    const colored_piece_t piece = kyokumen.board[nearest];
+                //    SHOGIPP_ASSERT((!board_t::out(nearest)));
+                //    if (!piece.empty())
+                //    {
+                //        evaluation_value += (evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
+                //            * nearest_center_side_3_coefficient) >> (sizeof(nearest_center_side_3_coefficient) * CHAR_BIT);
+                //    }
+                //}
 
                 {
                     const unsigned int offset = nyugyoku_progress(kyokumen.additional_info.king_position_list[color.value()], color);

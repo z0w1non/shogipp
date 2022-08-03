@@ -5242,7 +5242,7 @@ namespace shogipp
             pruning_parameters[put_offset]     = 5;
             pruning_parameters[none_offset]    = 3;
 
-            pruning_threshold = pruning_parameters[none_offset] * pruning_parameters[none_offset] * 2;
+            pruning_threshold = pruning_parameters[none_offset] * pruning_parameters[none_offset];
         }
 
         inline void generate_random() noexcept

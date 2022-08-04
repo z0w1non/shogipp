@@ -1882,7 +1882,23 @@ namespace shogipp
 
     class kyokumen_rollback_validator_t;
 
-#define _ { empty.value() }
+#define _ { empty        .value() }
+#define P { black_pawn   .value() }
+#define p { white_pawn   .value() }
+#define L { black_lance  .value() }
+#define l { white_lance  .value() }
+#define N { black_knight .value() }
+#define n { white_knight .value() }
+#define S { black_silver .value() }
+#define s { white_silver .value() }
+#define G { black_gold   .value() }
+#define g { white_gold   .value() }
+#define B { black_bishop .value() }
+#define b { white_bishop .value() }
+#define R { black_rook   .value() }
+#define r { white_rook   .value() }
+#define K { black_king   .value() }
+#define k { white_king   .value() }
 #define x { out_of_range.value() }
     constexpr colored_piece_t clear_board[]
     {
@@ -1902,18 +1918,34 @@ namespace shogipp
     constexpr colored_piece_t initial_board[]
     {
         x, x, x, x, x, x, x, x, x, x, x,
-        x, white_lance, white_knight, white_silver, white_gold, white_king, white_gold, white_silver, white_knight, white_lance, x,
-        x, _, white_rook, _, _, _, _, _, white_bishop, _, x,
-        x, white_pawn, white_pawn, white_pawn, white_pawn, white_pawn, white_pawn, white_pawn, white_pawn, white_pawn, x,
+        x, l, n, s, g, k, g, s, n, l, x,
+        x, _, r, _, _, _, _, _, b, _, x,
+        x, p, p, p, p, p, p, p, p, p, x,
         x, _, _, _, _, _, _, _, _, _, x,
         x, _, _, _, _, _, _, _, _, _, x,
         x, _, _, _, _, _, _, _, _, _, x,
-        x, black_pawn, black_pawn, black_pawn, black_pawn, black_pawn, black_pawn, black_pawn, black_pawn, black_pawn, x,
-        x, _, black_bishop, _, _, _, _, _, black_rook, _, x,
-        x, black_lance, black_knight, black_silver, black_gold, black_king, black_gold, black_silver, black_knight, black_lance, x,
+        x, P, P, P, P, P, P, P, P, P, x,
+        x, _, B, _, _, _, _, _, R, _, x,
+        x, L, N, S, G, K, G, S, N, L, x,
         x, x, x, x, x, x, x, x, x, x, x,
     };
 #undef _
+#undef P
+#undef p
+#undef L
+#undef l
+#undef N
+#undef n
+#undef S
+#undef s
+#undef G
+#undef g
+#undef B
+#undef b
+#undef R
+#undef r
+#undef K
+#undef k
 #undef x
 
     /**
@@ -5675,19 +5707,13 @@ namespace shogipp
                 if (!tokens.empty())
                 {
                     if (tokens[0] == "undo")
-                    {
                         return command_t{ command_t::id_t::undo };
-                    }
 
                     if (tokens[0] == "giveup")
-                    {
                         return command_t{ command_t::id_t::giveup };
-                    }
 
                     if (tokens[0] == "dump")
-                    {
                         return command_t{ command_t::id_t::dump };
-                    }
 
                     if (tokens[0] == "perft")
                     {
@@ -5703,19 +5729,13 @@ namespace shogipp
                     }
 
                     if (tokens[0] == "hash")
-                    {
                         return command_t{ command_t::id_t::hash };
-                    }
 
                     if (tokens[0] == "sfen")
-                    {
                         return command_t{ command_t::id_t::sfen };
-                    }
 
                     if (tokens[0] == "eval")
-                    {
                         return command_t{ command_t::id_t::eval };
-                    }
 
                     std::optional<std::size_t> move_index = details::cast_to<std::size_t>(tokens[0]);
                     if (!move_index)
@@ -6272,9 +6292,7 @@ namespace shogipp
                             throw invalid_usi_input{ "unexpected stop command" };
                     }
                     else
-                    {
                         throw invalid_usi_input{ "unexpected stop command" };
-                    }
                 }
                 else if (tokens[0] == "ponderhit")
                 {

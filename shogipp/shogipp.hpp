@@ -6204,13 +6204,9 @@ namespace shogipp
                         std::cout << "bestmove " << best_move->sfen_string() << std::endl;
                 }
                 else if (tokens[0] == "quit")
-                {
                     std::terminate();
-                }
                 else if (tokens[0] == "gameover")
-                {
                     ;
-                }
             }
         }
 

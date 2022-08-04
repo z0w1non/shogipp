@@ -1325,27 +1325,39 @@ namespace shogipp
 
     enum : std::size_t
     {
-        captured_pawn_offset    = 0                                            , captured_pawn_size   = 18 + 1,
-        captured_lance_offset   = captured_pawn_offset   + captured_pawn_size  , captured_lance_size  =  4 + 1,
-        captured_knight_offset  = captured_lance_offset  + captured_lance_size , captured_knight_size =  4 + 1,
-        captured_silver_offset  = captured_knight_offset + captured_knight_size, captured_silver_size =  4 + 1,
-        captured_gold_offset    = captured_silver_offset + captured_silver_size, captured_gold_size   =  4 + 1,
-        captured_bishop_offset  = captured_gold_offset   + captured_gold_size  , captured_bishop_size =  2 + 1,
-        captured_rook_offset    = captured_bishop_offset + captured_bishop_size, captured_rook_size   =  2 + 1,
+        captured_pawn_offset    = 0                                            , captured_pawn_size   = 9 * 2 + 1,
+        captured_lance_offset   = captured_pawn_offset   + captured_pawn_size  , captured_lance_size  = 2 * 2 + 1,
+        captured_knight_offset  = captured_lance_offset  + captured_lance_size , captured_knight_size = 2 * 2 + 1,
+        captured_silver_offset  = captured_knight_offset + captured_knight_size, captured_silver_size = 2 * 2 + 1,
+        captured_gold_offset    = captured_silver_offset + captured_silver_size, captured_gold_size   = 2 * 2 + 1,
+        captured_bishop_offset  = captured_gold_offset   + captured_gold_size  , captured_bishop_size = 1 * 2 + 1,
+        captured_rook_offset    = captured_bishop_offset + captured_bishop_size, captured_rook_size   = 1 * 2 + 1,
         captured_size           = captured_rook_offset   + captured_rook_size
     };
 
-    constexpr std::size_t captured_offsets[]
+    class captured_piece_range_t
     {
-        0, /* dummy */
-        captured_pawn_offset,
-        captured_lance_offset,
-        captured_knight_offset,
-        captured_silver_offset,
-        captured_gold_offset,
-        captured_bishop_offset,
-        captured_rook_offset,
+    public:
+        std::size_t offset;
+        std::size_t size;
     };
+
+    captured_piece_range_t captured_piece_range(captured_piece_t captured_piece)
+    {
+        constexpr captured_piece_range_t map[]
+        {
+            { captured_pawn_offset  , captured_pawn_size   },
+            { captured_lance_offset , captured_lance_size  },
+            { captured_knight_offset, captured_knight_size },
+            { captured_silver_offset, captured_silver_size },
+            { captured_gold_offset  , captured_gold_size   },
+            { captured_bishop_offset, captured_bishop_size },
+            { captured_rook_offset  , captured_rook_size   },
+        };
+        const std::size_t index = captured_piece.value() - pawn_value;
+        SHOGIPP_ASSERT(index < std::size(map));
+        return map[index];
+    }
 
     class move_t;
 
@@ -1440,7 +1452,7 @@ namespace shogipp
         SHOGIPP_ASSERT(!(piece == captured_bishop && count >= captured_bishop_size));
         SHOGIPP_ASSERT(!(piece == captured_rook   && count >= captured_rook_size  ));
 
-        std::size_t index = captured_offsets[piece.value()];
+        std::size_t index = captured_piece_range(piece).offset;
         index += count;
         index *= color_t::size();
         index += color.value();
@@ -5405,7 +5417,7 @@ namespace shogipp
 
         inline evaluation_value_t evaluate_captured_piece(captured_piece_t piece, captured_pieces_t::size_type count) const noexcept
         {
-            const std::size_t index = captured_offsets[piece.value()] + count;
+            const std::size_t index = captured_piece_range(piece).offset + count;
             SHOGIPP_ASSERT(index < std::size(captured_piece_points));
             return captured_piece_points[index];
         }

@@ -409,7 +409,7 @@ namespace shogipp
             constexpr evaluation_value_t captured_bishop = static_cast<evaluation_value_t>(board_bishop * captured_bonus);
             constexpr evaluation_value_t captured_rook   = static_cast<evaluation_value_t>(board_rook   * captured_bonus);
 
-            constexpr evaluation_value_t board_map[]
+            constexpr evaluation_value_t map[]
             {
                 /* empty           */ 0, /* dummy */
                 /* pawn            */ board_pawn,
@@ -5010,7 +5010,7 @@ namespace shogipp
     public:
         evaluation_value_t evaluate(kyokumen_t & kyokumen) override
         {
-            evaluation_value_t evaluation_value = kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::board_map);
+            evaluation_value_t evaluation_value = kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
             return evaluation_value;
         }
 
@@ -5027,7 +5027,7 @@ namespace shogipp
         evaluation_value_t evaluate(kyokumen_t & kyokumen) override
         {
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::board_map);
+            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
             return evaluation_value;
         }
 
@@ -5044,7 +5044,7 @@ namespace shogipp
         evaluation_value_t evaluate(kyokumen_t & kyokumen) override
         {
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::board_map);
+            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
 
             return evaluation_value;
         }
@@ -5066,7 +5066,7 @@ namespace shogipp
             constexpr evaluation_value_t himo_point = 10;
 
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::board_map);
+            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
 
             for (position_t position = position_begin; position < position_end; ++position)
             {
@@ -5106,7 +5106,7 @@ namespace shogipp
             constexpr evaluation_value_t himo_point = 10;
 
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::board_map);
+            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
 
             for (position_t position = position_begin; position < position_end; ++position)
             {
@@ -5230,25 +5230,19 @@ namespace shogipp
 
             {
                 constexpr double coefficient = 3.0 / 4;
-# define        SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(piece)                                                               \
-/*define*/          for (std::size_t i = 0; i < captured_##piece##_size; ++i)                                                 \
-/*define*/          {                                                                                                         \
-/*define*/              if (i == 0)                                                                                           \
-/*define*/                  captured_piece_points[captured_##piece##_offset + i] = 0;                                         \
-/*define*/              else                                                                                                  \
-/*define*/                  captured_piece_points[captured_##piece##_offset + i]                                              \
-/*define*/                      = static_cast<unsigned short>(captured_piece_points[captured_##piece##_offset + i - 1]        \
-/*define*/                      + details::evaluation_value_template::captured_##piece * details::power(coefficient, i - 1)); \
-/*define*/          }                                                                                                         \
-
-                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(pawn);
-                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(lance);
-                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(knight);
-                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(silver);
-                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(gold);
-                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(bishop);
-                SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS(rook);
-# undef         SHOGIPP_INITIALIZE_CAPTURED_PIECE_POINTS
+                for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
+                {
+                    const captured_piece_range_t range = captured_piece_range(piece);
+                    for (std::size_t i = 0; i < range.size; ++i)
+                    {
+                        if (i == 0)
+                            captured_piece_points[range.offset + i] = 0;
+                        else
+                            captured_piece_points[range.offset + i]
+                                = static_cast<unsigned short>(captured_piece_points[range.offset + i - 1]
+                                + details::evaluation_value_template::map[piece] * details::power(coefficient, i - 1));
+                    }
+                }
             }
 
             constexpr unsigned char kiki_coefficient_template[]

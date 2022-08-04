@@ -4498,12 +4498,7 @@ namespace shogipp
         }
 
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            details::timer.search_count() += usi_info->nodes;
             usi_info->terminate();
-            SHOGIPP_ASSERT(candidate_move.has_value());
-        }
 
         if (!candidate_move)
             throw timeout_exception{ "query_best_move failed" };
@@ -4633,12 +4628,7 @@ namespace shogipp
         }
 
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            details::timer.search_count() += usi_info->nodes;
             usi_info->terminate();
-            SHOGIPP_ASSERT(candidate_move.has_value());
-        }
 
         if (!candidate_move)
             throw timeout_exception{ "query_best_move failed" };
@@ -4806,12 +4796,7 @@ namespace shogipp
         }
 
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            details::timer.search_count() += usi_info->nodes;
             usi_info->terminate();
-            SHOGIPP_ASSERT(candidate_move.has_value());
-        }
 
         if (!candidate_move)
             throw timeout_exception{ "query_best_move failed" };
@@ -4950,12 +4935,7 @@ namespace shogipp
         }
 
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            details::timer.search_count() += usi_info->nodes;
             usi_info->terminate();
-            SHOGIPP_ASSERT(candidate_move.has_value());
-        }
 
         if (!candidate_move)
             throw timeout_exception{ "query_best_move failed" };

@@ -4316,12 +4316,24 @@ namespace shogipp
         }
 
         /**
-         * @param cache_hit_count を1増加させる。
+         * @breif cache_hit_count を1増加させる。
          */
         inline void increase_cache_hit_count()
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
             ++cache_hit_count;
+        }
+
+        /**
+         * @breif 現在探索している合法手を通知する。
+         * @param currmove 現在探索している合法手
+         * @details この関数は深度0の再帰で呼び出される。
+         */
+        inline void notify_currmove(const move_t & currmove)
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            this->currmove = currmove;
+            ondemand_print();
         }
     };
 
@@ -4551,11 +4563,7 @@ namespace shogipp
         for (const move_t & move : moves)
         {
             if (usi_info && depth == 0)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                usi_info->currmove = move;
-                usi_info->ondemand_print();
-            }
+                usi_info->notify_currmove(move);
 
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
@@ -4733,11 +4741,7 @@ namespace shogipp
         for (const move_t & move : moves)
         {
             if (usi_info && depth == 0)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                usi_info->currmove = move;
-                usi_info->ondemand_print();
-            }
+                usi_info->notify_currmove(move);
 
             std::optional<move_t> nested_candidate_move;
             position_t destination = (!move.put() && !move.destination_piece().empty()) ? move.destination() : npos;
@@ -4889,11 +4893,7 @@ namespace shogipp
         for (const move_t & move : moves)
         {
             if (usi_info && depth == 0)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                usi_info->currmove = move;
-                usi_info->ondemand_print();
-            }
+                usi_info->notify_currmove(move);
 
             const pruning_threshold_t increased_pruning_parameter = pruning_parameter + get_pruning_parameter(kyokumen, move);
             std::optional<move_t> nested_candidate_move;

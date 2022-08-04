@@ -4300,6 +4300,12 @@ namespace shogipp
             state = state_t::terminated;
         }
 
+        /**
+         * @breif depth と nodes を更新する。
+         * @param depth 現在の探索深度
+         * @details この関数は USI サーバーから stop コマンドが通知されている場合、 timeout_exception を送出する。
+         *          この関数は再帰的に呼び出される探索関数の先頭で呼び出される必要がある。
+         */
         inline void resolve_request_to_stop(depth_t depth)
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };

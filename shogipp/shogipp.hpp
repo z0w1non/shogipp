@@ -528,6 +528,12 @@ namespace shogipp
         constexpr inline basic_piece_t() noexcept;
         constexpr inline basic_piece_t(piece_value_t value) noexcept;
         constexpr inline piece_value_t value() const noexcept;
+
+        /**
+         * @breif ‹î‚ª‹ó‚Å‚ ‚é‚©”»’è‚·‚éB
+         * @retval true ‹î‚ª‹ó‚Å‚ ‚é
+         * @retval false ‹î‚ª‹ó‚Å‚È‚¢
+         */
         constexpr inline bool empty() const noexcept;
 
         /**

@@ -4433,11 +4433,7 @@ namespace shogipp
         for (const move_t & move : moves)
         {
             if (usi_info && depth == 0)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                usi_info->currmove = move;
-                usi_info->ondemand_print();
-            }
+                usi_info->notify_currmove(move);
 
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
@@ -4694,7 +4690,7 @@ namespace shogipp
             {
                 std::vector<evaluated_moves> evaluated_moves;
                 auto inserter = std::back_inserter(evaluated_moves);
-                moves_t moves = kyokumen.search_moves();
+                const moves_t moves = kyokumen.search_moves();
                 for (const move_t & move : moves)
                 {
                     if (!move.put() && move.destination() == previous_destination)
@@ -5076,6 +5072,7 @@ namespace shogipp
                     const color_t color = kyokumen.board[position].to_color();
                     kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
                     evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
+
                     std::vector<position_t> himo_list;
                     kyokumen.search_himo(std::back_inserter(himo_list), position, color);
                     evaluation_value += himo_point * static_cast<evaluation_value_t>(himo_list.size()) * reverse(color);

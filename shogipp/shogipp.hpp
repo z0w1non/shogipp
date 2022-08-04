@@ -6804,6 +6804,7 @@ namespace shogipp
         }
         catch (...)
         {
+            std::cerr << "unknown exception" << std::endl;
             return 1;
         }
 

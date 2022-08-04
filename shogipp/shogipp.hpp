@@ -5954,7 +5954,7 @@ namespace shogipp
 
         if (moves.empty())
         {
-            auto & winner_evaluator = kishi_list[!kyokumen.color().value()];
+            const std::shared_ptr<abstract_kishi_t> & winner_evaluator = kishi_list[!kyokumen.color().value()];
             ostream << kyokumen.move_count << "Žè‹l‚Ý" << std::endl;
             kyokumen.print(ostream);
             ostream << color_to_string(!kyokumen.color()) << "Ÿ—˜i" << winner_evaluator->name() << "j" << std::flush;

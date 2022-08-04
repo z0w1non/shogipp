@@ -1899,7 +1899,7 @@ namespace shogipp
 #define r { white_rook   .value() }
 #define K { black_king   .value() }
 #define k { white_king   .value() }
-#define x { out_of_range.value() }
+#define x { out_of_range .value() }
     constexpr colored_piece_t clear_board[]
     {
         x, x, x, x, x, x, x, x, x, x, x,

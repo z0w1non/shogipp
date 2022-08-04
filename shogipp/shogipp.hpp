@@ -1499,7 +1499,6 @@ namespace shogipp
      * @breif 数値を全角文字列に変換する。
      * @param value 数値
      * @return 全角文字列
-     * @details 持ち駒の最大枚数18を超える値を指定してこの関数を呼び出してはならない。
      */
     inline std::string to_zenkaku_digit(unsigned int value) noexcept
     {

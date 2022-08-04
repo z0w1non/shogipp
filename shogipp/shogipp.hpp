@@ -6065,9 +6065,7 @@ namespace shogipp
                         {
                             ++current;
                             if (current >= tokens.size())
-                            {
                                 throw invalid_usi_input{ "unexpected end of command" };
-                            }
                             name = tokens[current];
                             ++current;
                         }
@@ -6075,22 +6073,16 @@ namespace shogipp
                         {
                             ++current;
                             if (current >= tokens.size())
-                            {
                                 throw invalid_usi_input{ "unexpected end of command" };
-                            }
                             value = tokens[current];
                             ++current;
                         }
                     }
 
                     if (!name)
-                    {
                         throw invalid_usi_input{ "name parameter not specified" };
-                    }
                     else if (!value)
-                    {
                         throw invalid_usi_input{ "value parameter not specified" };
-                    }
 
                     setoptions[*name] = *value;
                 }

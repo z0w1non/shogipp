@@ -4299,6 +4299,15 @@ namespace shogipp
                 std::cout << "bestmove " << best_move->sfen_string() << std::endl;
             state = state_t::terminated;
         }
+
+        inline void resolve_request_to_stop(depth_t depth)
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            if (state == usi_info_t::state_t::requested_to_stop)
+                throw timeout_exception{ "requested to stop" };
+            this->depth = depth;
+            this->nodes += 1;
+        }
     };
 
     /**
@@ -4353,13 +4362,7 @@ namespace shogipp
     )
     {
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            if (usi_info->state == usi_info_t::state_t::requested_to_stop)
-                throw timeout_exception{ "requested to stop" };
-            usi_info->depth = depth;
-            usi_info->nodes += 1;
-        }
+            usi_info->resolve_request_to_stop(depth);
 
         if (depth >= arguments.max_depth)
         {
@@ -4503,13 +4506,7 @@ namespace shogipp
     )
     {
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            if (usi_info->state == usi_info_t::state_t::requested_to_stop)
-                throw timeout_exception{ "requested to stop" };
-            usi_info->depth = depth;
-            usi_info->nodes += 1;
-        }
+            usi_info->resolve_request_to_stop(depth);
 
         if (depth >= arguments.max_depth)
         {
@@ -4662,13 +4659,7 @@ namespace shogipp
     )
     {
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            if (usi_info->state == usi_info_t::state_t::requested_to_stop)
-                throw timeout_exception{ "requested to stop" };
-            usi_info->depth = depth;
-            usi_info->nodes += 1;
-        }
+            usi_info->resolve_request_to_stop(depth);
         
         if (depth >= arguments.max_depth)
         {
@@ -4858,13 +4849,7 @@ namespace shogipp
     )
     {
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            if (usi_info->state == usi_info_t::state_t::requested_to_stop)
-                throw timeout_exception{ "requested to stop" };
-            usi_info->depth = depth;
-            usi_info->nodes += 1;
-        }
+            usi_info->resolve_request_to_stop(depth);
 
         // 深度が奇数であり、枝刈りパラメータが閾値以上である場合、局面の評価値を返す。
         if (depth % 2 == 1 && pruning_parameter >= arguments.pruning_threshold)

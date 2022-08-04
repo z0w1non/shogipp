@@ -2820,7 +2820,7 @@ namespace shogipp
         if (current_token == tokens.end())
             throw invalid_usi_input{ "unexpected sfen end 1" };
 
-        bool is_startpos = *current_token == startpos;
+        const bool is_startpos = *current_token == startpos;
         if (is_startpos)
         {
             ++current_token;
@@ -3482,7 +3482,7 @@ namespace shogipp
         ostream << (color == black ? "▲" : "△");
         if (move.put())
         {
-            ostream << position_to_string(move.destination()) << move.captured_piece().to_string() << "打";
+            ostream << position_to_string(move.destination()) << move.captured_piece().to_string() << "打" << std::flush;
         }
         else
         {
@@ -3498,7 +3498,7 @@ namespace shogipp
                 promotion_string = "";
             ostream
                 << position_to_string(move.destination()) << noncolored_piece_t{ move.source_piece() }.to_string() << promotion_string
-                << "（" << position_to_string(move.source()) << "）";
+                << "（" << position_to_string(move.source()) << "）" << std::flush;
         }
     }
 

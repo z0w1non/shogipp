@@ -1335,6 +1335,9 @@ namespace shogipp
         captured_size           = captured_rook_offset   + captured_rook_size
     };
 
+    /**
+     * @breif 持ち駒と所持数の組の配列におけるオフセットとサイズを表現する。
+     */
     class captured_piece_range_t
     {
     public:
@@ -1342,6 +1345,11 @@ namespace shogipp
         std::size_t size;
     };
 
+    /**
+     * @breif 持ち駒と所持数の組の配列におけるオフセットとサイズを取得する。
+     * @param captured_piece 持ち駒
+     * @return 持ち駒と所持数の組の配列におけるオフセットとサイズ
+     */
     captured_piece_range_t captured_piece_range(captured_piece_t captured_piece)
     {
         constexpr captured_piece_range_t map[]

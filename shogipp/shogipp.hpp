@@ -6387,62 +6387,61 @@ namespace shogipp
             }
 
             // スレッドを作成する。
-            std::vector<std::thread> threads;
-            for (unsigned int thread_id = 0; thread_id < thread_number; ++thread_id)
             {
-                threads.emplace_back([this, thread_id, &thread_arguments_queue, &fitness_table, &log_directory, &mutex]
-                    {
-                        while (true)
+                std::vector<std::future<void>> futures;
+                for (unsigned int thread_id = 0; thread_id < thread_number; ++thread_id)
+                {
+                    futures.push_back(std::async(std::launch::async, [this, thread_id, &thread_arguments_queue, &fitness_table, &log_directory, &mutex]
                         {
-                            try
+                            while (true)
                             {
-                                thread_arguments_t arguments;
-
+                                try
                                 {
-                                    std::lock_guard<decltype(mutex)> lock{ mutex };
-                                    if (thread_arguments_queue.empty())
-                                        return;
-                                    arguments = thread_arguments_queue.front();
-                                    thread_arguments_queue.pop_front();
-                                }
+                                    thread_arguments_t arguments;
 
-                                std::ostringstream temp_stream;
-                                const std::shared_ptr<chromosome_evaluator_t> black = individuals[arguments.i];
-                                const std::shared_ptr<chromosome_evaluator_t> white = individuals[arguments.j];
-                                const std::vector<move_t> kifu = make_kifu(black, white, temp_stream);
-
-                                {
-                                    std::lock_guard<decltype(mutex)> lock{ mutex };
-
-                                    const std::string log_file_name = std::to_string(arguments.i) + "_" + std::to_string(arguments.j) + ".txt";
-                                    const std::filesystem::path log_path = log_directory / log_file_name;
-                                    std::ofstream log_stream{ log_path };
-                                    log_stream << temp_stream.str() << std::flush;
-
-                                    if (kifu.size() < m_max_move_count)
                                     {
-                                        if (kifu.size() % 2 == 1)
-                                            fitness_table[arguments.i] += 1;
-                                        else
-                                            fitness_table[arguments.j] += 1;
+                                        std::lock_guard<decltype(mutex)> lock{ mutex };
+                                        if (thread_arguments_queue.empty())
+                                            return;
+                                        arguments = thread_arguments_queue.front();
+                                        thread_arguments_queue.pop_front();
+                                    }
+
+                                    std::ostringstream temp_stream;
+                                    const std::shared_ptr<chromosome_evaluator_t> black = individuals[arguments.i];
+                                    const std::shared_ptr<chromosome_evaluator_t> white = individuals[arguments.j];
+                                    const std::vector<move_t> kifu = make_kifu(black, white, temp_stream);
+
+                                    {
+                                        std::lock_guard<decltype(mutex)> lock{ mutex };
+
+                                        const std::string log_file_name = std::to_string(arguments.i) + "_" + std::to_string(arguments.j) + ".txt";
+                                        const std::filesystem::path log_path = log_directory / log_file_name;
+                                        std::ofstream log_stream{ log_path };
+                                        log_stream << temp_stream.str() << std::flush;
+
+                                        if (kifu.size() < m_max_move_count)
+                                        {
+                                            if (kifu.size() % 2 == 1)
+                                                fitness_table[arguments.i] += 1;
+                                            else
+                                                fitness_table[arguments.j] += 1;
+                                        }
                                     }
                                 }
-                            }
-                            catch (const std::exception & e)
-                            {
-                                std::cerr << e.what() << std::endl;
-                            }
-                            catch (...)
-                            {
-                                std::cerr << "unkown error at thread (" << thread_id << ")" << std::endl;
+                                catch (const std::exception & e)
+                                {
+                                    std::cerr << e.what() << std::endl;
+                                }
+                                catch (...)
+                                {
+                                    std::cerr << "unkown error at thread (" << thread_id << ")" << std::endl;
+                                }
                             }
                         }
-                    }
-                );
+                    ));
+                }
             }
-            for (std::thread & thread : threads)
-                thread.join();
-            threads.clear();
 
             // 勝率により降順に個体を並び替える。
             using evaluated_individual_t = std::pair<chromosome_evaluator_t *, evaluation_value_t>;

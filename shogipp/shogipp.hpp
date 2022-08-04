@@ -1323,17 +1323,22 @@ namespace shogipp
 #endif
     }
 
-    enum : std::size_t
-    {
-        captured_pawn_offset    = 0                                            , captured_pawn_size   = 9 * 2 + 1,
-        captured_lance_offset   = captured_pawn_offset   + captured_pawn_size  , captured_lance_size  = 2 * 2 + 1,
-        captured_knight_offset  = captured_lance_offset  + captured_lance_size , captured_knight_size = 2 * 2 + 1,
-        captured_silver_offset  = captured_knight_offset + captured_knight_size, captured_silver_size = 2 * 2 + 1,
-        captured_gold_offset    = captured_silver_offset + captured_silver_size, captured_gold_size   = 2 * 2 + 1,
-        captured_bishop_offset  = captured_gold_offset   + captured_gold_size  , captured_bishop_size = 1 * 2 + 1,
-        captured_rook_offset    = captured_bishop_offset + captured_bishop_size, captured_rook_size   = 1 * 2 + 1,
-        captured_size           = captured_rook_offset   + captured_rook_size
-    };
+    constexpr std::size_t captured_pawn_size   = 9 * 2 + 1;
+    constexpr std::size_t captured_lance_size  = 2 * 2 + 1;
+    constexpr std::size_t captured_knight_size = 2 * 2 + 1;
+    constexpr std::size_t captured_silver_size = 2 * 2 + 1;
+    constexpr std::size_t captured_gold_size   = 2 * 2 + 1;
+    constexpr std::size_t captured_bishop_size = 1 * 2 + 1;
+    constexpr std::size_t captured_rook_size   = 1 * 2 + 1;
+
+    constexpr std::size_t captured_pawn_offset   = 0;
+    constexpr std::size_t captured_lance_offset  = captured_pawn_offset   + captured_pawn_size;
+    constexpr std::size_t captured_knight_offset = captured_lance_offset  + captured_lance_size;
+    constexpr std::size_t captured_silver_offset = captured_knight_offset + captured_knight_size;
+    constexpr std::size_t captured_gold_offset   = captured_silver_offset + captured_silver_size;
+    constexpr std::size_t captured_bishop_offset = captured_gold_offset   + captured_gold_size;
+    constexpr std::size_t captured_rook_offset   = captured_bishop_offset + captured_bishop_size;
+    constexpr std::size_t captured_size          = captured_rook_offset   + captured_rook_size;
 
     /**
      * @breif 持ち駒と所持数の組の配列におけるオフセットとサイズを表現する。

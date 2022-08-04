@@ -5941,7 +5941,7 @@ namespace shogipp
         details::timer.print_elapsed_time();
 
         taikyoku.kyokumen.print_kifu();
-        std::cout.flush();
+        std::cout << std::flush;
     }
 
     /**
@@ -6373,7 +6373,7 @@ namespace shogipp
             details::timer.print_elapsed_time(ostream);
 
             taikyoku.kyokumen.print_kifu(ostream);
-            ostream.flush();
+            ostream << std::flush;
 
             return taikyoku.kyokumen.kifu;
         }

@@ -1482,14 +1482,19 @@ namespace shogipp
      * @return ‘SŠp•¶š—ñ
      * @details ‚¿‹î‚ÌÅ‘å–‡”18‚ğ’´‚¦‚é’l‚ğw’è‚µ‚Ä‚±‚ÌŠÖ”‚ğŒÄ‚Ño‚µ‚Ä‚Í‚È‚ç‚È‚¢B
      */
-    inline const char * to_zenkaku_digit(unsigned int value) noexcept
+    inline std::string to_zenkaku_digit(unsigned int value) noexcept
     {
         const char * map[]
         {
             "‚O", "‚P", "‚Q", "‚R", "‚S", "‚T", "‚U", "‚V", "‚W", "‚X",
-            "‚P‚O", "‚P‚P", "‚P‚Q", "‚P‚R", "‚P‚S", "‚P‚T", "‚P‚U", "‚P‚V", "‚P‚W"
         };
-        SHOGIPP_ASSERT(value <= std::size(map));
+        std::string result;
+        while (value > 0)
+        {
+            result.push_back(static_cast<char>((value % 10) + '0'));
+            value /= 10;
+        }
+        std::reverse(result.begin(), result.end());
         return map[value];
     }
 

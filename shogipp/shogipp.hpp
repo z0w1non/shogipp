@@ -6566,6 +6566,7 @@ namespace shogipp
                     {
                         const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*evaluated_individuals[i].first->chromosome());
                         const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, evaluated_individuals[i].first->name(), uid++);
+                        next_individuals.push_back(next_individual);
                     }
                 }
             }

@@ -3941,8 +3941,7 @@ namespace shogipp
             {
                 try
                 {
-                    std::cout << "#";
-                    std::cout.flush();
+                    std::cout << "#" << std::flush;
                     std::cin >> id;
                     if (id == 0)
                         throw invalid_command_line_input{ "invalid command line input" };

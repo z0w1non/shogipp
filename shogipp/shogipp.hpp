@@ -4314,6 +4314,15 @@ namespace shogipp
             this->depth = depth;
             this->nodes += 1;
         }
+
+        /**
+         * @param cache_hit_count Ç1ëùâ¡Ç≥ÇπÇÈÅB
+         */
+        inline void increase_cache_hit_count()
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            ++cache_hit_count;
+        }
     };
 
     /**
@@ -4380,10 +4389,7 @@ namespace shogipp
             if (cached_evaluation_value)
             {
                 if (usi_info)
-                {
-                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                    ++usi_info->cache_hit_count;
-                }
+                    usi_info->increase_cache_hit_count();
                 return *cached_evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
@@ -4524,10 +4530,7 @@ namespace shogipp
             if (cached_evaluation_value)
             {
                 if (usi_info)
-                {
-                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                    ++usi_info->cache_hit_count;
-                }
+                    usi_info->increase_cache_hit_count();
                 return *cached_evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
@@ -4709,10 +4712,7 @@ namespace shogipp
             if (cached_evaluation_value)
             {
                 if (usi_info)
-                {
-                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                    ++usi_info->cache_hit_count;
-                }
+                    usi_info->increase_cache_hit_count();
                 return *cached_evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
@@ -4868,10 +4868,7 @@ namespace shogipp
             if (cached_evaluation_value)
             {
                 if (usi_info)
-                {
-                    std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                    ++usi_info->cache_hit_count;
-                }
+                    usi_info->increase_cache_hit_count();
                 return *cached_evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());

@@ -4335,6 +4335,18 @@ namespace shogipp
             this->currmove = currmove;
             ondemand_print();
         }
+
+        /**
+         * @breif Å‘Pè‚ğ’Ê’m‚·‚éB
+         * @param best_move Å‘Pè
+         * @param cp •à1–‡‚ğ100‚Æ‚µ‚½ê‡‚Ì•]‰¿’l
+         */
+        inline void notify_best_move(const move_t & best_move, evaluation_value_t cp)
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            this->best_move = best_move;
+            this->cp = cp;
+        }
     };
 
     /**
@@ -4438,11 +4450,8 @@ namespace shogipp
             *inserter++ = { &move, evaluation_value };
 
             if (usi_info && depth == 0 && evaluation_value > max_evaluation_value)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                usi_info->best_move = move;
-                usi_info->cp = evaluation_value;
-            }
+                usi_info->notify_best_move(move, evaluation_value);
+
             max_evaluation_value = evaluation_value;
         }
 
@@ -4576,11 +4585,8 @@ namespace shogipp
             *inserter++ = { &move, evaluation_value };
 
             if (usi_info && depth == 0 && evaluation_value > max_evaluation_value)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                usi_info->best_move = move;
-                usi_info->cp = evaluation_value;
-            }
+                usi_info->notify_best_move(move, evaluation_value);
+
             max_evaluation_value = evaluation_value;
 
             alpha = std::max(alpha, evaluation_value);
@@ -4755,11 +4761,8 @@ namespace shogipp
             *inserter++ = { &move, evaluation_value };
 
             if (usi_info && depth == 0 && evaluation_value > max_evaluation_value)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                usi_info->best_move = move;
-                usi_info->cp = evaluation_value;
-            }
+                usi_info->notify_best_move(move, evaluation_value);
+
             max_evaluation_value = evaluation_value;
 
             alpha = std::max(alpha, evaluation_value);
@@ -4908,11 +4911,8 @@ namespace shogipp
             *inserter++ = { &move, evaluation_value };
 
             if (usi_info && depth == 0 && evaluation_value > max_evaluation_value)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                usi_info->best_move = move;
-                usi_info->cp = evaluation_value;
-            }
+                usi_info->notify_best_move(move, evaluation_value);
+
             max_evaluation_value = evaluation_value;
 
             alpha = std::max(alpha, evaluation_value);

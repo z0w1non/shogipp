@@ -2856,11 +2856,6 @@ namespace shogipp
             ++current_token;
         }
 
-        if (current_token != tokens.end())
-        {
-
-        }
-
         while (current_token != tokens.end())
         {
             if (*current_token == "w")

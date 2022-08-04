@@ -286,7 +286,7 @@ namespace shogipp
         inline unsigned char uniform_croossover(unsigned char a, unsigned char b)
         {
             unsigned char result = 0;
-            unsigned char random_byte = random<unsigned char>();
+            const unsigned char random_byte = random<unsigned char>();
             result |= (a & random_byte);
             result |= (b & (~random_byte));
             return result;

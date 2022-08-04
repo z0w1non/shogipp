@@ -4148,7 +4148,7 @@ namespace shogipp
         move_count_t mate{};
         std::optional<move_t> currmove;
         std::optional<move_t> best_move;
-        search_count_t cache_rookt_count{};
+        search_count_t cache_hit_count{};
         state_t state = state_t::not_ready;
         std::chrono::milliseconds limit_time{};
         std::map<std::string, std::string> options;
@@ -4176,7 +4176,7 @@ namespace shogipp
             std::lock_guard<decltype(mutex)> lock{ mutex };
             if (nodes == 0)
                 return 0;
-            return cache_rookt_count * 1000 / nodes;
+            return cache_hit_count * 1000 / nodes;
         }
 
         /**
@@ -4382,7 +4382,7 @@ namespace shogipp
                 if (usi_info)
                 {
                     std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                    ++usi_info->cache_rookt_count;
+                    ++usi_info->cache_hit_count;
                 }
                 return *cached_evaluation_value;
             }
@@ -4526,7 +4526,7 @@ namespace shogipp
                 if (usi_info)
                 {
                     std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                    ++usi_info->cache_rookt_count;
+                    ++usi_info->cache_hit_count;
                 }
                 return *cached_evaluation_value;
             }
@@ -4711,7 +4711,7 @@ namespace shogipp
                 if (usi_info)
                 {
                     std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                    ++usi_info->cache_rookt_count;
+                    ++usi_info->cache_hit_count;
                 }
                 return *cached_evaluation_value;
             }
@@ -4870,7 +4870,7 @@ namespace shogipp
                 if (usi_info)
                 {
                     std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                    ++usi_info->cache_rookt_count;
+                    ++usi_info->cache_hit_count;
                 }
                 return *cached_evaluation_value;
             }

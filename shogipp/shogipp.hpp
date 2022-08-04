@@ -381,7 +381,7 @@ namespace shogipp
 
             constexpr unsigned int default_ga_thread_number = 1;
             unsigned int ga_thread_number = default_ga_thread_number;
-        } // program_options
+        } // namespace program_options
 
         namespace evaluation_value_template
         {

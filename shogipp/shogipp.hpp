@@ -1491,7 +1491,7 @@ namespace shogipp
         std::string result;
         while (value > 0)
         {
-            result.push_back(static_cast<char>((value % 10) + '0'));
+            result += map[value % 10];
             value /= 10;
         }
         std::reverse(result.begin(), result.end());
@@ -4347,6 +4347,13 @@ namespace shogipp
             this->best_move = best_move;
             this->cp = cp;
         }
+
+        inline void notify_search_begin()
+        {
+            std::lock_guard<decltype(mutex)> lock{ mutex };
+            begin = std::chrono::system_clock::now();
+            state = usi_info_t::state_t::searching;
+        }
     };
 
     /**
@@ -4460,11 +4467,7 @@ namespace shogipp
     move_t negamax_evaluator_t::query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
     {
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            usi_info->begin = std::chrono::system_clock::now();
-            usi_info->state = usi_info_t::state_t::searching;
-        }
+            usi_info->notify_search_begin();
 
         cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
@@ -4599,11 +4602,7 @@ namespace shogipp
     move_t alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
     {
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            usi_info->begin = std::chrono::system_clock::now();
-            usi_info->state = usi_info_t::state_t::searching;
-        }
+            usi_info->notify_search_begin();
 
         cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
@@ -4775,11 +4774,7 @@ namespace shogipp
     move_t extendable_alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
     {
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            usi_info->begin = std::chrono::system_clock::now();
-            usi_info->state = usi_info_t::state_t::searching;
-        }
+            usi_info->notify_search_begin();
 
         cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
@@ -4925,11 +4920,7 @@ namespace shogipp
     move_t pruning_alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
     {
         if (usi_info)
-        {
-            std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-            usi_info->begin = std::chrono::system_clock::now();
-            usi_info->state = usi_info_t::state_t::searching;
-        }
+            usi_info->notify_search_begin();
 
         cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;

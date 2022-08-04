@@ -1507,14 +1507,11 @@ namespace shogipp
         {
             "‚O", "‚P", "‚Q", "‚R", "‚S", "‚T", "‚U", "‚V", "‚W", "‚X",
         };
+        std::string temp = std::to_string(value);
         std::string result;
-        while (value > 0)
-        {
-            result += map[value % 10];
-            value /= 10;
-        }
-        std::reverse(result.begin(), result.end());
-        return map[value];
+        for (const char c : temp)
+            result += map[c - '0'];
+        return result;
     }
 
     /**

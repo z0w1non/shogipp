@@ -4004,7 +4004,7 @@ namespace shogipp
                 else
                 {
                     const char * ptr = argv[i] + 1;
-                    char option = *ptr;
+                    const char option = *ptr;
                     while (std::isalpha(*ptr))
                     {
                         params_map[std::string{ *ptr }];
@@ -4032,7 +4032,7 @@ namespace shogipp
                     if (qiter != std::end(quotations))
                     {
                         const char * begin = arg;
-                        char quotation = *qiter;
+                        const char quotation = *qiter;
                         while (*arg && *arg != quotation)
                             ++arg;
                         if (*arg)

@@ -6293,11 +6293,12 @@ namespace shogipp
         };
 
         using fitness_type = unsigned int;
+        using parameter_type = unsigned int;
 
         inline action_t random_action() noexcept
         {
-            unsigned int div = m_mutation_rate + m_crossover_rate + m_selection_rate;
-            unsigned int value = details::random<unsigned int>(0, div - 1);
+            parameter_type div = m_mutation_rate + m_crossover_rate + m_selection_rate;
+            parameter_type value = details::random<parameter_type>(0, div - 1);
             if (value < m_mutation_rate)
                 return action_t::mutation;
             value -= m_mutation_rate;
@@ -6449,7 +6450,7 @@ namespace shogipp
                 const std::filesystem::path log_path = log_directory / "summary.txt";
                 std::ofstream log_stream{ log_path };
                 
-                unsigned int div = (individuals.size() - 1) * 2;
+                std::size_t div = (individuals.size() - 1) * 2;
                 for (std::size_t i = 0; i < individuals.size(); ++i)
                 {
                     const std::string name = individuals[i]->name() + "_" + std::to_string(individuals[i]->id());
@@ -6551,21 +6552,21 @@ namespace shogipp
                 individual->write_file(directory);
         }
 
-        inline void set_mutation_rate (unsigned int mutation_rate ) noexcept { m_mutation_rate  = mutation_rate ; }
-        inline void set_crossover_rate(unsigned int crossover_rate) noexcept { m_crossover_rate = crossover_rate; }
-        inline void set_selection_rate(unsigned int selection_rate) noexcept { m_selection_rate = selection_rate; }
-        inline void set_max_move_count(unsigned int max_move_count) noexcept { m_max_move_count = max_move_count; }
-        inline void set_min_chromosome_distance(unsigned int min_chromosome_distance) noexcept { m_min_chromosome_distance = min_chromosome_distance; }
-        inline void set_elite_number(unsigned int elite_number) noexcept { m_elite_number = elite_number; }
+        inline void set_mutation_rate (parameter_type mutation_rate ) noexcept { m_mutation_rate  = mutation_rate ; }
+        inline void set_crossover_rate(parameter_type crossover_rate) noexcept { m_crossover_rate = crossover_rate; }
+        inline void set_selection_rate(parameter_type selection_rate) noexcept { m_selection_rate = selection_rate; }
+        inline void set_max_move_count(move_count_t max_move_count) noexcept { m_max_move_count = max_move_count; }
+        inline void set_min_chromosome_distance(parameter_type min_chromosome_distance) noexcept { m_min_chromosome_distance = min_chromosome_distance; }
+        inline void set_elite_number(parameter_type elite_number) noexcept { m_elite_number = elite_number; }
 
     private:
         std::vector<std::shared_ptr<chromosome_evaluator_t>> individuals;
-        unsigned int m_mutation_rate  = 10;
-        unsigned int m_crossover_rate = 800;
-        unsigned int m_selection_rate = 190;
+        parameter_type m_mutation_rate  = 10;
+        parameter_type m_crossover_rate = 800;
+        parameter_type m_selection_rate = 190;
         move_count_t m_max_move_count = 300;
-        unsigned int m_min_chromosome_distance = 1;
-        unsigned int m_elite_number = 1;
+        parameter_type m_min_chromosome_distance = 1;
+        parameter_type m_elite_number = 1;
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept

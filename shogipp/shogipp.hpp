@@ -5460,11 +5460,14 @@ namespace shogipp
                 {
                     const position_t offset = nearest_8[i];
                     const position_t nearest = king_position + offset;
-                    const colored_piece_t piece = kyokumen.board[nearest];
-                    if (!board_t::out(nearest) && !piece.empty())
+                    if (!board_t::out(nearest))
                     {
-                        evaluation_value += (evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
-                            * nearest_8_coefficient[i]) >> CHAR_BIT;
+                        const colored_piece_t piece = kyokumen.board[nearest];
+                        if (!piece.empty())
+                        {
+                            evaluation_value += (evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
+                                * nearest_8_coefficient[i]) >> CHAR_BIT;
+                        }
                     }
                 }
 

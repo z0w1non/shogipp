@@ -1458,9 +1458,9 @@ namespace shogipp
         SHOGIPP_ASSERT(piece.value() <= rook.value());
         SHOGIPP_ASSERT(!(piece == captured_pawn   && count >= captured_pawn_size  ));
         SHOGIPP_ASSERT(!(piece == captured_lance  && count >= captured_lance_size ));
-        SHOGIPP_ASSERT(!(piece == captured_knight && count >= captured_knight_size ));
-        SHOGIPP_ASSERT(!(piece == captured_silver && count >= captured_silver_size ));
-        SHOGIPP_ASSERT(!(piece == captured_gold   && count >= captured_gold_size ));
+        SHOGIPP_ASSERT(!(piece == captured_knight && count >= captured_knight_size));
+        SHOGIPP_ASSERT(!(piece == captured_silver && count >= captured_silver_size));
+        SHOGIPP_ASSERT(!(piece == captured_gold   && count >= captured_gold_size  ));
         SHOGIPP_ASSERT(!(piece == captured_bishop && count >= captured_bishop_size));
         SHOGIPP_ASSERT(!(piece == captured_rook   && count >= captured_rook_size  ));
 

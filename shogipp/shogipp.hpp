@@ -5100,7 +5100,7 @@ namespace shogipp
     };
 
     class edagari_evaluator_t
-        : public pruning_alphabeta_evaluator_t
+        : public extendable_alphabeta_evaluator_t
     {
     public:
         evaluation_value_t evaluate(kyokumen_t & kyokumen) override
@@ -5138,27 +5138,27 @@ namespace shogipp
             return "Ž}Š ‚è";
         }
 
-        pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
-        {
-            if (move.tag() & move_t::check_tag)
-                return 3;
-            if (move.tag() & move_t::escape_tag)
-                return 3;
-            if (move.tag() & move_t::aigoma_tag)
-                return 3;
-            if (move.tag() & move_t::promote_tag)
-                return 3;
-            if (move.tag() & move_t::capture_tag)
-                return 4;
-            if (move.tag() & move_t::put_tag)
-                return 4;
-            return 5;
-        }
+        //pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
+        //{
+        //    if (move.tag() & move_t::check_tag)
+        //        return 3;
+        //    if (move.tag() & move_t::escape_tag)
+        //        return 3;
+        //    if (move.tag() & move_t::aigoma_tag)
+        //        return 3;
+        //    if (move.tag() & move_t::promote_tag)
+        //        return 3;
+        //    if (move.tag() & move_t::capture_tag)
+        //        return 4;
+        //    if (move.tag() & move_t::put_tag)
+        //        return 4;
+        //    return 5;
+        //}
 
-        pruning_threshold_t get_pruning_threshold() const override
-        {
-            return 12;
-        }
+        //pruning_threshold_t get_pruning_threshold() const override
+        //{
+        //    return 12;
+        //}
     };
 
     /**
@@ -5198,7 +5198,6 @@ namespace shogipp
         short kiki_coefficient[4]{};
         short himo_coefficient[4]{};
         unsigned char destination_points[16]{};
-        //unsigned char nearest_center_side_3_coefficient{};
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
         unsigned short pruning_parameters[pruning_coefficient_size]{};
         unsigned short pruning_threshold{};

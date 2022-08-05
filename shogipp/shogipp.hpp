@@ -6576,9 +6576,7 @@ namespace shogipp
             auto callback = [&](const std::string & option, const std::vector<std::string> & params)
             {
                 if (option == "help")
-                {
                     print_help();
-                }
                 else if (option == "print-board" && !params.empty())
                 {
                     const std::optional<bool> value = details::to_bool(params[0]);

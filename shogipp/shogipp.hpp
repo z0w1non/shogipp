@@ -3942,7 +3942,7 @@ namespace shogipp
         }
         catch (const timeout_exception &)
         {
-            std::cerr << "timeout: " << last_iddfs_iteration << std::endl;
+            ;
         }
         catch (...)
         {
@@ -6628,6 +6628,120 @@ namespace shogipp
         move_count_t m_max_move_count = 300;
         parameter_type m_min_chromosome_distance = 1;
         parameter_type m_elite_number = 1;
+    };
+
+    class piece_pair_evaluator_t
+    {
+    public:
+        using value_type = unsigned short;
+
+        inline piece_pair_evaluator_t(const kyokumen_t & kyokumen)
+        {
+            evaluation_value_t evaluation_value = 0;
+            for (position_t position1 = position_begin; position1 < position_end; ++position1)
+                for (position_t position2 = position1 + 1; position2 < position_end; ++position2)
+                    if (position1 != position2
+                        && !board_t::out(position1)
+                        && !board_t::out(position2)
+                        && !kyokumen.board[position1].empty()
+                        && !kyokumen.board[position2].empty())
+                        evaluation_value += get(kyokumen.board[position1], position1, kyokumen.board[position2], position2);
+            evaluation_value_stack.push_back(evaluation_value);
+        }
+
+        inline evaluation_value_t evaluate() const
+        {
+            return evaluation_value_stack.back();
+        }
+
+        value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
+        {
+            SHOGIPP_ASSERT(position1 != position2);
+            std::size_t offset = 0;
+            
+            position_t relative_position = position2 - position1;
+            if (relative_position < 0)
+            {
+                relative_position = -relative_position;
+                std::swap(piece1, piece2);
+            }
+
+            offset = relative_position - 1;
+            offset *= piece_size / 2;
+            offset += noncolored_piece_t{ piece1 }.value();
+            offset *= piece_size;
+            offset += noncolored_piece_t{ piece2 }.value();
+            const bool is_friend = piece1.to_color() == piece2.to_color();
+            if (!is_friend)
+                offset += piece_size / 2;
+            
+            SHOGIPP_ASSERT(offset < std::size(map));
+            return map[offset] * reverse(piece1.to_color());
+        }
+
+        /**
+         * @breif 合法手を実行した際の評価値に更新する。
+         * @param kyokuomen 合法手を実行した後の局面
+         * @param move 合法手
+         */
+        inline void do_move(const kyokumen_t & kyokumen, const move_t & move)
+        {
+            evaluation_value_t evaluation_value = 0;
+
+            // 移動先にある駒の評価値を加算する。
+            const colored_piece_t piece1 = kyokumen.board[move.destination()];
+            const position_t position1 = move.destination();
+            for (position_t position2 = position_begin; position2 < position_end; ++position2)
+                if (position1 != position2
+                    && !board_t::out(position1)
+                    && !board_t::out(position2)
+                    && !kyokumen.board[position1].empty()
+                    && !kyokumen.board[position2].empty())
+                    evaluation_value += get(piece1, position1, kyokumen.board[position2], position2);
+
+            if (!move.put())
+            {
+                // 移動先にあった駒の評価値を減算する。
+                if (!move.destination_piece().empty())
+                {
+                    const colored_piece_t piece1 = move.destination_piece();
+                    const position_t position1 = move.destination();
+                    for (position_t position2 = position_begin; position2 < position_end; ++position2)
+                        if (position1 != position2
+                            && !board_t::out(position1)
+                            && !board_t::out(position2)
+                            && !kyokumen.board[position1].empty()
+                            && !kyokumen.board[position2].empty())
+                            evaluation_value -= get(piece1, position1, kyokumen.board[position2], position2);
+                }
+
+                // 移動元にあった駒の評価値を減算する。
+                const colored_piece_t piece1 = move.source_piece();
+                const position_t position1 = move.source();
+                for (position_t position2 = position_begin; position2 < position_end; ++position2)
+                    if (position1 != position2
+                        && !board_t::out(position1)
+                        && !board_t::out(position2)
+                        && !kyokumen.board[position1].empty()
+                        && !kyokumen.board[position2].empty())
+                        evaluation_value -= get(piece1, position1, kyokumen.board[position2], position2);
+            }
+
+            evaluation_value_stack.push_back(evaluation_value);
+        }
+
+        /**
+         * @breif 合法手を実行する前の評価値に復元する。
+         */
+        inline void undo_move()
+        {
+            SHOGIPP_ASSERT(!evaluation_value_stack.empty());
+            evaluation_value_stack.pop_back();
+        }
+
+    private:
+        value_type map[(file_size * rank_size - 1) * (piece_size / 2) * piece_size]{};
+        std::vector<evaluation_value_t> evaluation_value_stack;
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept

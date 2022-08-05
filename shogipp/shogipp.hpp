@@ -1022,9 +1022,30 @@ namespace shogipp
      * @param rank 段
      * @return 座標
      */
-    inline position_t file_rank_to_position(position_t file, position_t rank) noexcept
+    inline constexpr position_t file_rank_to_position(position_t file, position_t rank) noexcept
     {
         return width * (rank + padding_height) + padding_width + file;
+    }
+
+    /**
+    * @breif 生の座標を [0, 81] の座標に変換する。
+    * @param position 座標
+    * @return 筋
+    */
+    inline constexpr position_t position_to_position9x9(position_t position) noexcept
+    {
+        struct impl_t
+        {
+            inline constexpr impl_t() noexcept
+            {
+                for (position_t rank = 0; rank < rank_size; ++rank)
+                    for (position_t file = 0; file < file_size; ++file)
+                        map[file_rank_to_position(file, rank)] = rank * file_size + file;
+            }
+            position_t map[position_size]{};
+        };
+        constexpr impl_t impl;
+        return impl.map[position];
     }
 
     static const position_t default_king_pos_list[]
@@ -6656,12 +6677,17 @@ namespace shogipp
             return evaluation_value_stack.back();
         }
 
+        /**
+         * @breif 盤の2駒の組と対応する評価値を取得する。
+         * @return 盤の2駒の組と対応する評価値
+         * @details この関数は先手から見て有利な状況を正とする評価値を返す。
+         */
         value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
         {
             SHOGIPP_ASSERT(position1 != position2);
             std::size_t offset = 0;
             
-            position_t relative_position = position2 - position1;
+            position_t relative_position = position_to_position9x9(position2) - position_to_position9x9(position2);
             if (relative_position < 0)
             {
                 relative_position = -relative_position;

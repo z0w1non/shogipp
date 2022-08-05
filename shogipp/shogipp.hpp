@@ -5182,8 +5182,8 @@ namespace shogipp
     public:
         unsigned short board_piece_points[promoted_rook_value - pawn_value - 1]{};
         unsigned short captured_piece_points[captured_size]{};
-        unsigned char kiki_coefficient[4]{};
-        unsigned char himo_coefficient[4]{};
+        short kiki_coefficient[4]{};
+        short himo_coefficient[4]{};
         unsigned char destination_points[16]{};
         //unsigned char nearest_center_side_3_coefficient{};
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
@@ -5249,21 +5249,21 @@ namespace shogipp
                 }
             }
 
-            constexpr unsigned char kiki_coefficient_template[]
+            constexpr std::decay_t<decltype(*kiki_coefficient)> kiki_coefficient_template[]
             {
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 1 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 2 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 3 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 4 / 8
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * -1 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * -2 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * -3 / 8,
+                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * -4 / 8
             };
             std::copy(std::begin(kiki_coefficient_template), std::end(kiki_coefficient_template), std::begin(kiki_coefficient));
 
-            constexpr unsigned char himo_coefficient_template[]
+            constexpr std::decay_t<decltype(*himo_coefficient)> himo_coefficient_template[]
             {
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 1 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 2 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 3 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * 4 / 8
+                std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max() * -1 / 8,
+                std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max() *  0 / 8,
+                std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max() *  1 / 8,
+                std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max() *  2 / 8
             };
             std::copy(std::begin(himo_coefficient_template), std::end(himo_coefficient_template), std::begin(himo_coefficient));
 
@@ -5330,9 +5330,9 @@ namespace shogipp
             for (std::size_t i = 0; i < captured_rook_size; ++i)
                 ostream << "captured-piece-points-rook-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_rook_offset + i]) << std::endl;
             for (std::size_t i = 0; i < std::size(kiki_coefficient); ++i)
-                ostream << "kiki-coefficient-" << i << ": " << static_cast<unsigned int>(kiki_coefficient[i]) << std::endl;
+                ostream << "kiki-coefficient-" << i << ": " << static_cast<int>(kiki_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(himo_coefficient); ++i)
-                ostream << "himo-coefficient-" << i << ": " << static_cast<unsigned int>(himo_coefficient[i]) << std::endl;
+                ostream << "himo-coefficient-" << i << ": " << static_cast<int>(himo_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(destination_points); ++i)
                 ostream << "destination-points-" << i << ": " << static_cast<unsigned int>(destination_points[i]) << std::endl;
             //ostream << "nearest-center-side-3-coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
@@ -5456,8 +5456,8 @@ namespace shogipp
                             std::vector<kiki_t> kiki_list;
                             kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
                             const std::size_t offset = std::min(kiki_list.size(), std::size(kiki_coefficient) - 1);
-                            evaluation_value -= (evaluate_board_piece(piece) * reverse(color)
-                                * kiki_coefficient[offset]) >> (sizeof(*kiki_coefficient) * CHAR_BIT);
+                            evaluation_value += (evaluate_board_piece(piece) * reverse(color)
+                                * kiki_coefficient[offset]) >> CHAR_BIT;
                         }
 
                         {
@@ -5465,7 +5465,7 @@ namespace shogipp
                             kyokumen.search_himo(std::back_inserter(himo_list), position, color);
                             const std::size_t offset = std::min(himo_list.size(), std::size(himo_coefficient) - 1);
                             evaluation_value += (evaluate_board_piece(piece) * reverse(color)
-                                * himo_coefficient[offset]) >> (sizeof(*himo_coefficient) * CHAR_BIT);
+                                * himo_coefficient[offset]) >> CHAR_BIT;
                         }
 
                         {

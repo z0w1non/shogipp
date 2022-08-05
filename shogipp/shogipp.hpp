@@ -4117,7 +4117,7 @@ namespace shogipp
     template<typename RandomAccessIterator>
     void sort_moves_by_category(RandomAccessIterator first, RandomAccessIterator last)
     {
-        std::sort(first, last, [](const move_t & a, const move_t & b) -> bool { return to_category(a) >= to_category(b); });
+        std::sort(first, last, [](const move_t & a, const move_t & b) -> bool { return to_category(a) > to_category(b); });
     }
 
     /**

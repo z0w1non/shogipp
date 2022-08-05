@@ -188,7 +188,7 @@ namespace shogipp
         inline void timer_t::print_elapsed_time(std::ostream & ostream) noexcept
         {
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            const auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
+            const std::chrono::milliseconds::rep duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
             const search_count_t nps = duration != 0 ? m_search_count * 1000 / duration : 0;
 
             ostream

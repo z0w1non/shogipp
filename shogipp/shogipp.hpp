@@ -1921,7 +1921,8 @@ namespace shogipp
 
     inline const captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece) const noexcept
     {
-        return (*const_cast<captured_pieces_t *>(this))[piece];
+        SHOGIPP_ASSERT(!piece.empty());
+        return count[piece.value() - pawn_value];
     }
 
     class kyokumen_rollback_validator_t;

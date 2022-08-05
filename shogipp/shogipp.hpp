@@ -1891,8 +1891,8 @@ namespace shogipp
     };
 
     inline captured_pieces_t::captured_pieces_t() noexcept
+        : count{}
     {
-        std::fill(std::begin(count), std::end(count), 0);
     }
 
     inline void captured_pieces_t::print(std::ostream & ostream) const

@@ -2004,8 +2004,8 @@ namespace shogipp
          */
         inline board_t();
 
-        inline colored_piece_t & operator [](size_t i) noexcept;
-        inline const colored_piece_t & operator [](size_t i) const noexcept;
+        inline colored_piece_t & operator [](std::size_t i) noexcept;
+        inline const colored_piece_t & operator [](std::size_t i) const noexcept;
 
         /**
          * @breif ç¿ïWÇ™î’äOÇ©îªíËÇ∑ÇÈÅB
@@ -2040,12 +2040,12 @@ namespace shogipp
         std::copy(std::begin(initial_board), std::end(initial_board), std::begin(data));
     }
 
-    inline colored_piece_t & board_t::operator [](size_t i) noexcept
+    inline colored_piece_t & board_t::operator [](std::size_t i) noexcept
     {
         return data[i];
     }
 
-    inline const colored_piece_t & board_t::operator [](size_t i) const noexcept
+    inline const colored_piece_t & board_t::operator [](std::size_t i) const noexcept
     {
         return data[i];
     }

@@ -5264,19 +5264,19 @@ namespace shogipp
 
             constexpr std::decay_t<decltype(*kiki_coefficient)> kiki_coefficient_template[]
             {
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * -1 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * -2 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * -3 / 8,
-                std::numeric_limits<std::decay_t<decltype(*kiki_coefficient)>>::max() * -4 / 8
+                std::numeric_limits<unsigned char>::max() * -1 / 8,
+                std::numeric_limits<unsigned char>::max() * -2 / 8,
+                std::numeric_limits<unsigned char>::max() * -3 / 8,
+                std::numeric_limits<unsigned char>::max() * -4 / 8
             };
             std::copy(std::begin(kiki_coefficient_template), std::end(kiki_coefficient_template), std::begin(kiki_coefficient));
 
             constexpr std::decay_t<decltype(*himo_coefficient)> himo_coefficient_template[]
             {
-                std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max() * -1 / 8,
-                std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max() *  0 / 8,
-                std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max() *  1 / 8,
-                std::numeric_limits<std::decay_t<decltype(*himo_coefficient)>>::max() *  2 / 8
+                std::numeric_limits<unsigned char>::max() * -1 / 8,
+                std::numeric_limits<unsigned char>::max() *  0 / 8,
+                std::numeric_limits<unsigned char>::max() *  1 / 8,
+                std::numeric_limits<unsigned char>::max() *  2 / 8
             };
             std::copy(std::begin(himo_coefficient_template), std::end(himo_coefficient_template), std::begin(himo_coefficient));
 

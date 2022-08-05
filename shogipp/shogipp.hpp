@@ -6263,7 +6263,9 @@ namespace shogipp
                 else if (tokens[0] == "quit")
                     std::terminate();
                 else if (tokens[0] == "gameover")
+                {
                     ;
+                }
             }
         }
 

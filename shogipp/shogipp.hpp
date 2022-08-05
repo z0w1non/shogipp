@@ -6653,6 +6653,9 @@ namespace shogipp
         parameter_type m_elite_number = 1;
     };
 
+    /**
+     * @breif 盤の2駒の組と対応する評価値を差分に基づき計算する。
+     */
     class piece_pair_evaluator_t
     {
     public:

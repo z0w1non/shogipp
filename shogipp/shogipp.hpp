@@ -381,6 +381,8 @@ namespace shogipp
 
             constexpr unsigned int default_ga_thread_number = 1;
             unsigned int ga_thread_number = default_ga_thread_number;
+
+            std::optional<std::string> sfen;
         } // namespace program_options
 
         namespace evaluation_value_template
@@ -2755,6 +2757,7 @@ namespace shogipp
         std::vector<move_t> kifu;                                   // ä˚ïà
         additional_info_t additional_info;                          // í«â¡èÓïÒ
         bool anti_repetition_of_moves = true;                       // ëœêÁì˙éË
+        std::string initial_sfen_string;                            // èâä˙èÛë‘
     };
 
 #ifndef NDEBUG
@@ -2800,6 +2803,7 @@ namespace shogipp
     {
         update_king_position_list();
         push_additional_info();
+        initial_sfen_string = "startpos";
     }
 
     inline kyokumen_t::kyokumen_t(std::string_view position)
@@ -2934,6 +2938,7 @@ namespace shogipp
         }
 
         *this = std::move(temp);
+        initial_sfen_string = position;
     }
 
     inline bool kyokumen_t::promotable(colored_piece_t piece, position_t source, position_t destination)
@@ -3264,6 +3269,7 @@ namespace shogipp
         
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         const auto & check_list = additional_info.check_list_stack[move_count];
+        const std::size_t saved_count = check_list.size();
         if (check_list.size() == 1)
         {
             if (check_list.front().aigoma)
@@ -3295,6 +3301,8 @@ namespace shogipp
                 }
             }
 
+            if (check_list.size() != saved_count)
+                std::cerr << sfen_string() << std::endl;
             // â§éËÇµÇƒÇ¢ÇÈãÓÇéÊÇÈéËÇåüçıÇ∑ÇÈÅB
             const position_t destination = check_list.front().position;
             std::vector<kiki_t> kiki_list;
@@ -3665,8 +3673,7 @@ namespace shogipp
     inline std::string kyokumen_t::sfen_string() const
     {
         std::string result;
-        result += "sfen ";
-        result += board.sfen_string();
+        result += initial_sfen_string;
         result += ' ';
         result += color_to_color_char(color());
         result += ' ';
@@ -6609,6 +6616,17 @@ namespace shogipp
                 {
                     details::program_options::white_name = params[0];
                 }
+                else if (option == "sfen" && !params.empty())
+                {
+                    std::string sfen_string;
+                    for (std::size_t i = 0; i < params.size(); ++i)
+                    {
+                        if (i > 0)
+                            sfen_string += ' ';
+                        sfen_string += params[i];
+                    }
+                    details::program_options::sfen = sfen_string;
+                }
                 else if (option == "max-iddfs-iteration" && !params.empty())
                 {
                     const std::optional<depth_t> opt_max_iddfs_iteration = details::cast_to<depth_t>(params[0]);
@@ -6782,7 +6800,12 @@ namespace shogipp
                     throw invalid_command_line_input{ "invalid white name" };
                 const std::shared_ptr<abstract_kishi_t> & white_kishi = white_iter->second;
 
-                do_taikyoku(black_kishi, white_kishi);
+                std::optional<kyokumen_t> opt_kyokumen;
+                if (details::program_options::sfen)
+                    opt_kyokumen = kyokumen_t{ *details::program_options::sfen };
+                else
+                    opt_kyokumen = kyokumen_t{};
+                do_taikyoku(*opt_kyokumen, black_kishi, white_kishi);
             }
             else
             {

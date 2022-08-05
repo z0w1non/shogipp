@@ -2705,12 +2705,18 @@ namespace shogipp
         /**
          * @breif 合法手を実行する。
          * @param move 合法手
+         * @details この関数を呼び出すときに指定した move を指定して undo_move を呼び出すことにより
+         *          この関数を呼び出す前の状態に復元することができる。
+         *          この関数は additional_info のメンバに再割当てを行う可能性があるため、
+         *          この関数を呼び出す前後で additional_info に関連した参照やポインタを継続して使用しないよう注意する。
+         * @sa undo_move
          */
         inline void do_move(const move_t & move);
 
         /**
          * @breif 合法手を実行する前に戻す。
          * @param move 合法手
+         * @sa do_move
          */
         inline void undo_move(const move_t & move);
 
@@ -2750,6 +2756,12 @@ namespace shogipp
          * @return 座標
          */
         inline position_t king_position(color_t color) const noexcept;
+
+        /**
+         * @breif 手番にかかっている王手を取得する。
+         * @return 手番にかかっている王手
+         */
+        inline const std::vector<kiki_t> & check_list() const noexcept;
 
         board_t board;                                              // 盤
         captured_pieces_t captured_pieces_list[color_t::size()];    // 持ち駒
@@ -3268,13 +3280,15 @@ namespace shogipp
         const position_t king_pos = additional_info.king_position_list[color().value()];
         
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
-        const auto & check_list = additional_info.check_list_stack[move_count];
-        const std::size_t saved_count = check_list.size();
-        if (check_list.size() == 1)
+        const std::size_t saved_count = check_list().size();
+
+        // 合駒を打つ際に打ち歩詰めを判定するため puttable は do_move / undo_move を呼び出す。
+        // ここで additional_info.check_list_stack の要素の参照をローカル変数として保持してはならない。
+        if (check_list().size() == 1)
         {
-            if (check_list.front().aigoma)
+            if (check_list().front().aigoma)
             {
-                const position_t offset = check_list.front().offset;
+                const position_t offset = check_list().front().offset;
                 for (position_t destination = king_pos + offset; !board_t::out(destination) && board[destination].empty(); destination += offset)
                 {
                     // 駒を移動させる合駒
@@ -3301,10 +3315,10 @@ namespace shogipp
                 }
             }
 
-            if (check_list.size() != saved_count)
+            if (check_list().size() != saved_count)
                 std::cerr << sfen_string() << std::endl;
             // 王手している駒を取る手を検索する。
-            const position_t destination = check_list.front().position;
+            const position_t destination = check_list().front().position;
             std::vector<kiki_t> kiki_list;
             search_kiki(std::back_inserter(kiki_list), destination, !color());
             for (const kiki_t & kiki : kiki_list)
@@ -3706,6 +3720,12 @@ namespace shogipp
     inline position_t kyokumen_t::king_position(color_t color) const noexcept
     {
         return additional_info.king_position_list[color.value()];
+    }
+
+    inline const std::vector<kiki_t> & kyokumen_t::check_list() const noexcept
+    {
+        SHOGIPP_ASSERT(move_count < check_list_stack.size());
+        return additional_info.check_list_stack[move_count];
     }
 
     template<typename Key, typename Value, typename Hash = std::hash<Key>>

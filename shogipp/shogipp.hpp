@@ -193,8 +193,8 @@ namespace shogipp
 
             ostream
                 << std::endl
-                << "‘“Ç‚ÝŽè”: " << m_search_count << std::endl
-                << "ŽÀsŽžŠÔ[ms]: " << duration << std::endl
+                << "‘“Ç‚ÝŽè”     : " << m_search_count << std::endl
+                << "ŽÀsŽžŠÔ[ms]   : " << duration << std::endl
                 << "“Ç‚ÝŽè‘¬“x[n/s]: " << nps << std::endl << std::endl;
         }
 

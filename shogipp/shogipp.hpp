@@ -595,13 +595,6 @@ namespace shogipp
         constexpr inline bool operator ==(const noncolored_piece_t & piece) const noexcept { return value() == piece.value(); }
         constexpr inline bool operator !=(const noncolored_piece_t & piece) const noexcept { return value() != piece.value(); }
         constexpr inline bool operator <(const noncolored_piece_t & piece) const noexcept { return value() < piece.value(); }
-
-        /**
-         * @breif ‹î‚ðŒãŽè‚Ì‹î‚É•ÏŠ·‚·‚éB
-         * @return ŒãŽè‚Ì‹î
-         * @details pawn -> black_pawn or white_pawn
-         */
-        inline colored_piece_t to_colored(color_t color) const noexcept;
     };
 
     class colored_piece_t

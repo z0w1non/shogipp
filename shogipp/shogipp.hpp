@@ -3818,19 +3818,19 @@ namespace shogipp
 
         inline void start() noexcept
         {
-            begin = std::chrono::system_clock::now();
+            m_begin = std::chrono::system_clock::now();
         }
 
         inline bool timeout() const noexcept
         {
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
-            return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin) >= std::chrono::milliseconds{ m_limit_time };
+            return std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin) >= std::chrono::milliseconds{ m_limit_time };
         }
 
     private:
         iddfs_iteration_t m_max_iddfs_iteration{};
         std::chrono::milliseconds m_limit_time{};
-        std::chrono::system_clock::time_point begin;
+        std::chrono::system_clock::time_point m_begin;
     };
 
     /**

@@ -6682,7 +6682,7 @@ namespace shogipp
          * @return 盤の2駒の組と対応する評価値
          * @details この関数は先手から見て有利な状況を正とする評価値を返す。
          */
-        value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
+        inline value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
         {
             SHOGIPP_ASSERT(position1 != position2);
             std::size_t offset = 0;

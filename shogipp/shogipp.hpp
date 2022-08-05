@@ -5179,6 +5179,19 @@ namespace shogipp
             pruning_coefficient_size
         };
 
+        enum : std::size_t
+        {
+            front_left_offset,
+            front_offset,
+            front_right_offset,
+            left_offset,
+            right_offset,
+            back_left_offset,
+            back_offset,
+            back_right_offset,
+            nearest_8_size
+        };
+
     public:
         unsigned short board_piece_points[promoted_rook_value - pawn_value - 1]{};
         unsigned short captured_piece_points[captured_size]{};
@@ -5189,6 +5202,7 @@ namespace shogipp
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
         unsigned short pruning_parameters[pruning_coefficient_size]{};
         unsigned short pruning_threshold{};
+        short nearest_8_coefficient[nearest_8_size]{};
 
         inline pruning_threshold_t get_pruning_parameter(move_t::tag_t tag) const noexcept
         {
@@ -5269,8 +5283,6 @@ namespace shogipp
 
             std::fill(std::begin(destination_points), std::end(destination_points), std::numeric_limits<std::decay_t<decltype(*destination_points)>>::max());
 
-            //nearest_center_side_3_coefficient = std::numeric_limits<std::decay_t<decltype(*kiki_coefficient_template)>>::max() * 1 / 8;
-
             for (unsigned short i = 0; i < static_cast<unsigned short>(std::size(nyugyoku_coefficient)); ++i)
                 nyugyoku_coefficient[i] = i;
 
@@ -5281,6 +5293,15 @@ namespace shogipp
             pruning_parameters[capture_offset] = std::numeric_limits<unsigned char>::max() / 2;
             pruning_parameters[put_offset]     = std::numeric_limits<unsigned char>::max() / 2;
             pruning_parameters[none_offset]    = std::numeric_limits<unsigned char>::max() / 2;
+
+            nearest_8_coefficient[front_left_offset ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
+            nearest_8_coefficient[front_offset      ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
+            nearest_8_coefficient[front_right_offset] = std::numeric_limits<unsigned char>::max() * 1 / 8;
+            nearest_8_coefficient[left_offset       ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
+            nearest_8_coefficient[right_offset      ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
+            nearest_8_coefficient[back_left_offset  ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
+            nearest_8_coefficient[back_offset       ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
+            nearest_8_coefficient[back_right_offset ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
 
             pruning_threshold = pruning_parameters[none_offset] * 2;
         }
@@ -5335,7 +5356,6 @@ namespace shogipp
                 ostream << "himo-coefficient-" << i << ": " << static_cast<int>(himo_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(destination_points); ++i)
                 ostream << "destination-points-" << i << ": " << static_cast<unsigned int>(destination_points[i]) << std::endl;
-            //ostream << "nearest-center-side-3-coefficient: " << static_cast<unsigned int>(nearest_center_side_3_coefficient) << std::endl;
             for (std::size_t i = 0; i < std::size(nyugyoku_coefficient); ++i)
                 ostream << "nyugyoku-coefficient-" << i << ": " << static_cast<unsigned int>(nyugyoku_coefficient[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(pruning_parameters); ++i)
@@ -5423,18 +5443,31 @@ namespace shogipp
                 for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
                     evaluation_value += evaluate_captured_piece(captured_piece_t{ piece }, kyokumen.captured_pieces_list[color.value()][piece]) * reverse(color);
 
-                //const position_t king_position = kyokumen.king_position(color);
-                //for (const position_t * offset = nearest_center_side_3(king_position); *offset != 0; ++offset)
-                //{
-                //    const position_t nearest = king_position + *offset;
-                //    const colored_piece_t piece = kyokumen.board[nearest];
-                //    SHOGIPP_ASSERT((!board_t::out(nearest)));
-                //    if (!piece.empty())
-                //    {
-                //        evaluation_value += (evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
-                //            * nearest_center_side_3_coefficient) >> (sizeof(nearest_center_side_3_coefficient) * CHAR_BIT);
-                //    }
-                //}
+                const position_t king_position = kyokumen.king_position(color);
+                constexpr position_t nearest_8[]
+                {
+                    front_left,
+                    front,
+                    front_right,
+                    left,
+                    right,
+                    back_left,
+                    back,
+                    back_right,
+                };
+
+                for (std::size_t i = 0; i < nearest_8_size; ++i)
+                {
+                    const position_t offset = nearest_8[i];
+                    const position_t nearest = king_position + offset;
+                    const colored_piece_t piece = kyokumen.board[nearest];
+                    SHOGIPP_ASSERT((!board_t::out(nearest)));
+                    if (!piece.empty())
+                    {
+                        evaluation_value += (evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
+                            * nearest_8_coefficient[i]) >> CHAR_BIT;
+                    }
+                }
 
                 {
                     const unsigned int offset = nyugyoku_progress(kyokumen.additional_info.king_position_list[color.value()], color);

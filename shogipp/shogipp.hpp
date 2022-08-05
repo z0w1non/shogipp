@@ -5199,31 +5199,31 @@ namespace shogipp
         short himo_coefficient[4]{};
         unsigned char destination_points[16]{};
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
-        unsigned short pruning_parameters[pruning_coefficient_size]{};
-        unsigned short pruning_threshold{};
         short nearest_8_coefficient[nearest_8_size]{};
+        //unsigned short pruning_parameters[pruning_coefficient_size]{};
+        //unsigned short pruning_threshold{};
 
-        inline pruning_threshold_t get_pruning_parameter(move_t::tag_t tag) const noexcept
-        {
-            if (tag & move_t::check_tag)
-                return pruning_parameters[check_offset];
-            if (tag & move_t::escape_tag)
-                return pruning_parameters[escape_offset];
-            if (tag & move_t::aigoma_tag)
-                return pruning_parameters[aigoma_offset];
-            if (tag & move_t::promote_tag)
-                return pruning_parameters[promote_offset];
-            if (tag & move_t::capture_tag)
-                return pruning_parameters[capture_offset];
-            if (tag & move_t::put_tag)
-                return pruning_parameters[put_offset];
-            return pruning_parameters[none_offset];
-        }
+        //inline pruning_threshold_t get_pruning_parameter(move_t::tag_t tag) const noexcept
+        //{
+        //    if (tag & move_t::check_tag)
+        //        return pruning_parameters[check_offset];
+        //    if (tag & move_t::escape_tag)
+        //        return pruning_parameters[escape_offset];
+        //    if (tag & move_t::aigoma_tag)
+        //        return pruning_parameters[aigoma_offset];
+        //    if (tag & move_t::promote_tag)
+        //        return pruning_parameters[promote_offset];
+        //    if (tag & move_t::capture_tag)
+        //        return pruning_parameters[capture_offset];
+        //    if (tag & move_t::put_tag)
+        //        return pruning_parameters[put_offset];
+        //    return pruning_parameters[none_offset];
+        //}
 
-        inline bool get_pruning_threshold() const noexcept
-        {
-            return pruning_threshold;
-        }
+        //inline bool get_pruning_threshold() const noexcept
+        //{
+        //    return pruning_threshold;
+        //}
 
         inline void generate_template() noexcept
         {
@@ -5285,24 +5285,24 @@ namespace shogipp
             for (unsigned short i = 0; i < static_cast<unsigned short>(std::size(nyugyoku_coefficient)); ++i)
                 nyugyoku_coefficient[i] = i;
 
-            pruning_parameters[check_offset]   = std::numeric_limits<unsigned char>::max() / 2;
-            pruning_parameters[escape_offset]  = std::numeric_limits<unsigned char>::max() / 2;
-            pruning_parameters[aigoma_offset]  = std::numeric_limits<unsigned char>::max() / 2;
-            pruning_parameters[promote_offset] = std::numeric_limits<unsigned char>::max() / 2;
-            pruning_parameters[capture_offset] = std::numeric_limits<unsigned char>::max() / 2;
-            pruning_parameters[put_offset]     = std::numeric_limits<unsigned char>::max() / 2;
-            pruning_parameters[none_offset]    = std::numeric_limits<unsigned char>::max() / 2;
+            //pruning_parameters[check_offset]   = std::numeric_limits<unsigned char>::max() / 2;
+            //pruning_parameters[escape_offset]  = std::numeric_limits<unsigned char>::max() / 2;
+            //pruning_parameters[aigoma_offset]  = std::numeric_limits<unsigned char>::max() / 2;
+            //pruning_parameters[promote_offset] = std::numeric_limits<unsigned char>::max() / 2;
+            //pruning_parameters[capture_offset] = std::numeric_limits<unsigned char>::max() / 2;
+            //pruning_parameters[put_offset]     = std::numeric_limits<unsigned char>::max() / 2;
+            //pruning_parameters[none_offset]    = std::numeric_limits<unsigned char>::max() / 2;
 
-            nearest_8_coefficient[front_left_offset ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
-            nearest_8_coefficient[front_offset      ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
-            nearest_8_coefficient[front_right_offset] = std::numeric_limits<unsigned char>::max() * 1 / 8;
-            nearest_8_coefficient[left_offset       ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
-            nearest_8_coefficient[right_offset      ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
-            nearest_8_coefficient[back_left_offset  ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
-            nearest_8_coefficient[back_offset       ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
-            nearest_8_coefficient[back_right_offset ] = std::numeric_limits<unsigned char>::max() * 1 / 8;
+            nearest_8_coefficient[front_left_offset ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
+            nearest_8_coefficient[front_offset      ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
+            nearest_8_coefficient[front_right_offset] = std::numeric_limits<unsigned char>::max() * 1 / 64;
+            nearest_8_coefficient[left_offset       ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
+            nearest_8_coefficient[right_offset      ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
+            nearest_8_coefficient[back_left_offset  ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
+            nearest_8_coefficient[back_offset       ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
+            nearest_8_coefficient[back_right_offset ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
 
-            pruning_threshold = pruning_parameters[none_offset] * 2;
+            //pruning_threshold = pruning_parameters[none_offset] * 2;
         }
 
         inline void generate_random() noexcept
@@ -5357,9 +5357,9 @@ namespace shogipp
                 ostream << "destination-points-" << i << ": " << static_cast<unsigned int>(destination_points[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(nyugyoku_coefficient); ++i)
                 ostream << "nyugyoku-coefficient-" << i << ": " << static_cast<unsigned int>(nyugyoku_coefficient[i]) << std::endl;
-            for (std::size_t i = 0; i < std::size(pruning_parameters); ++i)
-                ostream << "pruning-parameter-" << i << ": " << static_cast<unsigned int>(pruning_parameters[i]) << std::endl;
-            ostream << "pruning-threshold: " << static_cast<unsigned int>(pruning_threshold) << std::endl;
+            //for (std::size_t i = 0; i < std::size(pruning_parameters); ++i)
+            //    ostream << "pruning-parameter-" << i << ": " << static_cast<unsigned int>(pruning_parameters[i]) << std::endl;
+            //ostream << "pruning-threshold: " << static_cast<unsigned int>(pruning_threshold) << std::endl;
         }
 
         inline void clossover(const chromosome_t & chromosome) noexcept
@@ -5524,7 +5524,7 @@ namespace shogipp
     };
 
     class chromosome_evaluator_t
-        : public pruning_alphabeta_evaluator_t
+        : public extendable_alphabeta_evaluator_t
     {
     public:
         using id_type = unsigned long long;
@@ -5559,15 +5559,15 @@ namespace shogipp
             return m_name;
         }
 
-        pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
-        {
-            return m_chromosome->get_pruning_parameter(move.tag());
-        }
+        //pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
+        //{
+        //    return m_chromosome->get_pruning_parameter(move.tag());
+        //}
 
-        pruning_threshold_t get_pruning_threshold() const override
-        {
-            return m_chromosome->get_pruning_threshold();
-        }
+        //pruning_threshold_t get_pruning_threshold() const override
+        //{
+        //    return m_chromosome->get_pruning_threshold();
+        //}
 
         std::string file_name() const
         {

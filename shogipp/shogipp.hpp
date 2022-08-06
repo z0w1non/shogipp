@@ -6736,7 +6736,7 @@ namespace shogipp
         /**
          * @breif 盤の全ての2駒の組み合わせを引数に callback を呼び出す。
          * @param board 盤
-         * @param callback コールバック関数
+         * @param callback コールバック関数 void (colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
          */
         template<typename Callback>
         inline static void for_each(const board_t & board, Callback callback)
@@ -6756,7 +6756,7 @@ namespace shogipp
          * @param board 盤
          * @param piece1 駒1
          * @param position1 座標1
-         * @param callback コールバック関数
+         * @param callback コールバック関数 void (colored_piece_t piece2, position_t position2)
          */
         template<typename Callback>
         inline static void for_each(const board_t & board, colored_piece_t piece1, position_t position1, Callback callback)

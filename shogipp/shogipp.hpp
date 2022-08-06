@@ -6764,6 +6764,25 @@ namespace shogipp
         }
 
         /**
+         * @breif 指定された駒を一方とする盤の全ての2駒の組み合わせを引数に callback を呼び出す。
+         * @param board 盤
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param callback コールバック関数
+         */
+        template<typename Callback>
+        inline static void for_each(const board_t & board, colored_piece_t piece1, position_t position1, Callback callback)
+        {
+            for (position_t position2 = position_begin; position2 < position_end; ++position2)
+                if (position1 != position2
+                    && !board_t::out(position1)
+                    && !board_t::out(position2)
+                    && !board[position1].empty()
+                    && !board[position2].empty())
+                    callback(board[position2], position2);
+        }
+
+        /**
          * @breif 盤の2駒の組と対応する評価値を 1 加算する。
          * @param piece1 駒1
          * @param position1 座標1
@@ -6823,13 +6842,13 @@ namespace shogipp
             // 移動先にある駒の評価値を加算する。
             const colored_piece_t piece1 = board[move.destination()];
             const position_t position1 = move.destination();
-            for (position_t position2 = position_begin; position2 < position_end; ++position2)
-                if (position1 != position2
-                    && !board_t::out(position1)
-                    && !board_t::out(position2)
-                    && !board[position1].empty()
-                    && !board[position2].empty())
+            {
+                const auto callback = [&] (colored_piece_t piece2, position_t position2)
+                {
                     evaluation_value += get(piece1, position1, board[position2], position2);
+                };
+                for_each(board, piece1, position1, callback);
+            }
 
             if (!move.put())
             {
@@ -6838,25 +6857,21 @@ namespace shogipp
                 {
                     const colored_piece_t piece1 = move.destination_piece();
                     const position_t position1 = move.destination();
-                    for (position_t position2 = position_begin; position2 < position_end; ++position2)
-                        if (position1 != position2
-                            && !board_t::out(position1)
-                            && !board_t::out(position2)
-                            && !board[position1].empty()
-                            && !board[position2].empty())
-                            evaluation_value -= get(piece1, position1, board[position2], position2);
+                    const auto callback = [&](colored_piece_t piece2, position_t position2)
+                    {
+                        evaluation_value -= get(piece1, position1, board[position2], position2);
+                    };
+                    for_each(board, piece1, position1, callback);
                 }
 
                 // 移動元にあった駒の評価値を減算する。
                 const colored_piece_t piece1 = move.source_piece();
                 const position_t position1 = move.source();
-                for (position_t position2 = position_begin; position2 < position_end; ++position2)
-                    if (position1 != position2
-                        && !board_t::out(position1)
-                        && !board_t::out(position2)
-                        && !board[position1].empty()
-                        && !board[position2].empty())
-                        evaluation_value -= get(piece1, position1, board[position2], position2);
+                const auto callback = [&](colored_piece_t piece2, position_t position2)
+                {
+                    evaluation_value -= get(piece1, position1, board[position2], position2);
+                };
+                for_each(board, piece1, position1, callback);
             }
 
             return evaluation_value;

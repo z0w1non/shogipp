@@ -6659,16 +6659,19 @@ namespace shogipp
     class piece_pair_evaluator_t
     {
     public:
-        using value_type = unsigned short;
+        using value_type = unsigned long long;
         constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
 
         /**
          * @breif 盤の2駒の組と対応する評価値の表を構築する。
          * @details 全ての評価値は 0 で初期化される。
          */
-        inline piece_pair_evaluator_t(const kyokumen_t & kyokumen)
-        {
-        }
+        constexpr inline piece_pair_evaluator_t() noexcept = default;
+        constexpr inline piece_pair_evaluator_t(const piece_pair_evaluator_t &) noexcept = default;
+        constexpr inline piece_pair_evaluator_t(piece_pair_evaluator_t &&) noexcept = default;
+        constexpr inline piece_pair_evaluator_t & operator =(const piece_pair_evaluator_t &) noexcept = default;
+        constexpr inline piece_pair_evaluator_t & operator =(piece_pair_evaluator_t &&) noexcept = default;
+
         
         /**
          * @breif 駒と座標の組を、座標1を基準とした相対座標が昇順になるように入れ替える。
@@ -6726,23 +6729,8 @@ namespace shogipp
         inline value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
         {
             const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(data));
-            return data[offset] * reverse(piece1.to_color());
-        }
-
-        /**
-         * @breif 盤の2駒の組と対応する評価値を設定する。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @param value 先手から見て有利な状況を正とする評価値
-         */
-        inline void set(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2, value_type value)
-        {
-            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(data));
-            data[offset] = value;
+            SHOGIPP_ASSERT(offset < std::size(m_data));
+            return m_data[offset] * reverse(piece1.to_color());
         }
 
         /**
@@ -6793,10 +6781,11 @@ namespace shogipp
         inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
         {
             const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(data));
-            if (data[offset] == std::numeric_limits<value_type>::max())
+            SHOGIPP_ASSERT(offset < std::size(m_data));
+            if (m_denominator == std::numeric_limits<value_type>::max())
                 normalize();
-            ++data[offset];
+            ++m_data[offset];
+            ++m_denominator;
         }
 
         /**
@@ -6884,7 +6873,7 @@ namespace shogipp
         inline void read_file(const std::filesystem::path & path)
         {
             std::ifstream out(path, std::ios_base::in | std::ios::binary);
-            out.read(reinterpret_cast<char *>(data), sizeof(data));
+            out.read(reinterpret_cast<char *>(m_data), sizeof(m_data));
         }
 
         /**
@@ -6894,19 +6883,22 @@ namespace shogipp
         inline void write_file(const std::filesystem::path & path) const
         {
             std::ofstream out(path, std::ios_base::out | std::ios::binary);
-            out.write(reinterpret_cast<const char *>(data), sizeof(data));
+            out.write(reinterpret_cast<const char *>(m_data), sizeof(m_data));
         }
 
     private:
-        value_type data[data_size]{};
+        value_type m_denominator{};
+        value_type m_data[data_size]{};
 
         /**
          * @breif 評価値を加算してもオーバーフローが発生しないよう、全ての評価値をそれらの比率を維持したまま減らす。
          */
         inline void normalize() noexcept
         {
-            for (value_type & value : data)
-                value /= 2;
+            constexpr value_type d = 2;
+            for (value_type & value : m_data)
+                value /= d;
+            m_denominator /= d;
         }
     };
 

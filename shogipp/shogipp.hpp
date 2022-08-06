@@ -6660,6 +6660,7 @@ namespace shogipp
     {
     public:
         using value_type = unsigned short;
+        constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
 
         inline piece_pair_evaluator_t(const kyokumen_t & kyokumen)
         {
@@ -6679,24 +6680,40 @@ namespace shogipp
         {
             return evaluation_value_stack.back();
         }
-
+        
         /**
-         * @breif 盤の2駒の組と対応する評価値を取得する。
-         * @return 盤の2駒の組と対応する評価値
-         * @details この関数は先手から見て有利な状況を正とする評価値を返す。
+         * @breif 駒と座標の組を、座標1を基準とした相対座標が昇順になるように入れ替える。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 並び替えた後の座標1を基準とした相対座標
          */
-        inline value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
+        inline static position_t sort(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
         {
             SHOGIPP_ASSERT(position1 != position2);
-            std::size_t offset = 0;
-            
             position_t relative_position = position_to_position9x9(position2) - position_to_position9x9(position2);
             if (relative_position < 0)
             {
                 relative_position = -relative_position;
                 std::swap(piece1, piece2);
+                std::swap(position1, position2);
             }
+            return relative_position;
+        }
 
+        /**
+         * @breif 盤の2駒の組と対応する評価値のオフセットを取得する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 盤の2駒の組と対応する評価値のオフセット
+         */
+        inline std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2) const
+        {
+            std::size_t offset = 0;
+            const position_t relative_position = sort(piece1, position1, piece2, position2);
             offset = relative_position - 1;
             offset *= piece_size / 2;
             offset += noncolored_piece_t{ piece1 }.value();
@@ -6705,9 +6722,38 @@ namespace shogipp
             const bool is_friend = piece1.to_color() == piece2.to_color();
             if (!is_friend)
                 offset += piece_size / 2;
-            
-            SHOGIPP_ASSERT(offset < std::size(map));
-            return map[offset] * reverse(piece1.to_color());
+            return offset;
+        }
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値を取得する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 盤の2駒の組と対応する評価値
+         * @details この関数は先手から見て有利な状況を正とする評価値を返す。
+         */
+        inline value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
+        {
+            std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            SHOGIPP_ASSERT(offset < std::size(data));
+            return data[offset] * reverse(piece1.to_color());
+        }
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値を設定する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @param value 先手から見て有利な状況を正とする評価値
+         */
+        inline void set(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2, value_type value)
+        {
+            std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            SHOGIPP_ASSERT(offset < std::size(data));
+            data[offset] = value;
         }
 
         /**
@@ -6770,8 +6816,28 @@ namespace shogipp
             evaluation_value_stack.pop_back();
         }
 
+        /**
+         * @breif ファイルを読み込む。
+         * @param path ファイルのパス
+         */
+        inline void read_file(const std::filesystem::path & path)
+        {
+            std::ifstream out(path, std::ios_base::in | std::ios::binary);
+            out.read(reinterpret_cast<char *>(data), sizeof(data));
+        }
+
+        /**
+         * @breif ファイルに書き出す。
+         * @param path ファイルのパス
+         */
+        inline void write_file(const std::filesystem::path & path) const
+        {
+            std::ofstream out(path, std::ios_base::out | std::ios::binary);
+            out.write(reinterpret_cast<const char *>(data), sizeof(data));
+        }
+
     private:
-        value_type map[(file_size * rank_size - 1) * (piece_size / 2) * piece_size]{};
+        value_type data[data_size]{};
         std::vector<evaluation_value_t> evaluation_value_stack;
     };
 

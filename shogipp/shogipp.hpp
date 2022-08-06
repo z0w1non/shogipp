@@ -6654,7 +6654,7 @@ namespace shogipp
     };
 
     /**
-     * @breif 盤の2駒の組と対応する評価値を差分に基づき計算する。
+     * @breif 盤の2駒の組と対応する評価値の表
      */
     class piece_pair_evaluator_t
     {
@@ -6662,6 +6662,10 @@ namespace shogipp
         using value_type = unsigned short;
         constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
 
+        /**
+         * @breif 盤の2駒の組と対応する評価値の表を構築する。
+         * @details 全ての評価値は 0 で初期化される。
+         */
         inline piece_pair_evaluator_t(const kyokumen_t & kyokumen)
         {
         }

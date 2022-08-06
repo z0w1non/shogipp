@@ -6736,7 +6736,7 @@ namespace shogipp
          */
         inline value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
         {
-            std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
             SHOGIPP_ASSERT(offset < std::size(data));
             return data[offset] * reverse(piece1.to_color());
         }
@@ -6751,9 +6751,26 @@ namespace shogipp
          */
         inline void set(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2, value_type value)
         {
-            std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
             SHOGIPP_ASSERT(offset < std::size(data));
             data[offset] = value;
+        }
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値を 1 加算する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
+         */
+        inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+        {
+            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            SHOGIPP_ASSERT(offset < std::size(data));
+            if (data[offset] == std::numeric_limits<value_type>::max())
+                normalize();
+            ++data[offset];
         }
 
         /**
@@ -6839,6 +6856,15 @@ namespace shogipp
     private:
         value_type data[data_size]{};
         std::vector<evaluation_value_t> evaluation_value_stack;
+
+        /**
+         * @breif 評価値を加算してもオーバーフローが発生しないよう、全ての評価値をそれらの比率を維持したまま減らす。
+         */
+        inline void normalize() noexcept
+        {
+            for (value_type & value : data)
+                value /= 2;
+        }
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept

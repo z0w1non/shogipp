@@ -6777,7 +6777,7 @@ namespace shogipp
                 if (position1 != position2
                     && !board_t::out(position1)
                     && !board_t::out(position2)
-                    && !board[position1].empty()
+                    && !piece1.empty()
                     && !board[position2].empty())
                     callback(board[position2], position2);
         }

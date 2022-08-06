@@ -6742,6 +6742,24 @@ namespace shogipp
         }
 
         /**
+         * @breif 盤の全ての2駒の組み合わせを引数に callback を呼び出す。
+         * @param board 盤
+         * @param callback コールバック関数
+         */
+        template<typename Callback>
+        inline static void for_each(const board_t & board, Callback callback)
+        {
+            for (position_t position1 = position_begin; position1 < position_end; ++position1)
+                for (position_t position2 = position1 + 1; position2 < position_end; ++position2)
+                    if (position1 != position2
+                        && !board_t::out(position1)
+                        && !board_t::out(position2)
+                        && !board[position1].empty()
+                        && !board[position2].empty())
+                        callback(board[position1], position1, board[position2], position2);
+        }
+
+        /**
          * @breif 盤の2駒の組と対応する評価値を 1 加算する。
          * @param piece1 駒1
          * @param position1 座標1
@@ -6759,21 +6777,17 @@ namespace shogipp
         }
 
         /**
-         * @breif 盤の全ての2駒の組み合わせを引数に callback を呼び出す。
+         * @breif 盤の全ての2駒の組と対応する評価値を 1 加算する。
          * @param board 盤
-         * @param callback コールバック関数
+         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
          */
-        template<typename Callback>
-        inline static void for_each(const board_t & board, Callback callback)
+        inline void increase(const board_t & board)
         {
-            for (position_t position1 = position_begin; position1 < position_end; ++position1)
-                for (position_t position2 = position1 + 1; position2 < position_end; ++position2)
-                    if (position1 != position2
-                        && !board_t::out(position1)
-                        && !board_t::out(position2)
-                        && !board[position1].empty()
-                        && !board[position2].empty())
-                        callback(board[position1], position1, board[position2], position2);
+            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+            {
+                increase(piece1, position1, piece2, position2);
+            };
+            for_each(board, callback);
         }
 
         /**

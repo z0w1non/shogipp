@@ -6759,44 +6759,59 @@ namespace shogipp
         }
 
         /**
-         * @breif 局面の評価値を取得する。
-         * @param kyokuomen 局面
-         * @return 局面の評価値
+         * @breif 盤の全ての2駒の組み合わせを引数に callback を呼び出す。
+         * @param board 盤
+         * @param callback コールバック関数
          */
-        inline evaluation_value_t evaluate(const kyokumen_t & kyokumen)
+        template<typename Callback>
+        inline static void for_each(const board_t & board, Callback callback)
         {
-            evaluation_value_t evaluation_value = 0;
             for (position_t position1 = position_begin; position1 < position_end; ++position1)
                 for (position_t position2 = position1 + 1; position2 < position_end; ++position2)
                     if (position1 != position2
                         && !board_t::out(position1)
                         && !board_t::out(position2)
-                        && !kyokumen.board[position1].empty()
-                        && !kyokumen.board[position2].empty())
-                        evaluation_value += get(kyokumen.board[position1], position1, kyokumen.board[position2], position2);
+                        && !board[position1].empty()
+                        && !board[position2].empty())
+                        callback(board[position1], position1, board[position2], position2);
+        }
+
+        /**
+         * @breif 盤の評価値を取得する。
+         * @param board 盤
+         * @return 盤の評価値
+         */
+        inline evaluation_value_t evaluate(const board_t & board) const
+        {
+            evaluation_value_t evaluation_value = 0;
+            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+            {
+                evaluation_value += get(piece1, position1, piece2, position2);
+            };
+            for_each(board, callback);
             return evaluation_value;
         }
 
         /**
          * @breif 合法手を実行した際の評価値の差分を取得する。
-         * @param kyokuomen 合法手を実行した後の局面
+         * @param board 合法手を実行した後の盤
          * @param move 合法手
          * @return 合法手を実行した際の評価値の差分
          */
-        inline evaluation_value_t evaluate_diff(const kyokumen_t & kyokumen, const move_t & move)
+        inline evaluation_value_t evaluate_diff(const board_t & board, const move_t & move) const
         {
             evaluation_value_t evaluation_value = 0;
 
             // 移動先にある駒の評価値を加算する。
-            const colored_piece_t piece1 = kyokumen.board[move.destination()];
+            const colored_piece_t piece1 = board[move.destination()];
             const position_t position1 = move.destination();
             for (position_t position2 = position_begin; position2 < position_end; ++position2)
                 if (position1 != position2
                     && !board_t::out(position1)
                     && !board_t::out(position2)
-                    && !kyokumen.board[position1].empty()
-                    && !kyokumen.board[position2].empty())
-                    evaluation_value += get(piece1, position1, kyokumen.board[position2], position2);
+                    && !board[position1].empty()
+                    && !board[position2].empty())
+                    evaluation_value += get(piece1, position1, board[position2], position2);
 
             if (!move.put())
             {
@@ -6809,9 +6824,9 @@ namespace shogipp
                         if (position1 != position2
                             && !board_t::out(position1)
                             && !board_t::out(position2)
-                            && !kyokumen.board[position1].empty()
-                            && !kyokumen.board[position2].empty())
-                            evaluation_value -= get(piece1, position1, kyokumen.board[position2], position2);
+                            && !board[position1].empty()
+                            && !board[position2].empty())
+                            evaluation_value -= get(piece1, position1, board[position2], position2);
                 }
 
                 // 移動元にあった駒の評価値を減算する。
@@ -6821,9 +6836,9 @@ namespace shogipp
                     if (position1 != position2
                         && !board_t::out(position1)
                         && !board_t::out(position2)
-                        && !kyokumen.board[position1].empty()
-                        && !kyokumen.board[position2].empty())
-                        evaluation_value -= get(piece1, position1, kyokumen.board[position2], position2);
+                        && !board[position1].empty()
+                        && !board[position2].empty())
+                        evaluation_value -= get(piece1, position1, board[position2], position2);
             }
 
             return evaluation_value;

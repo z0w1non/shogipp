@@ -30,6 +30,8 @@
 #include <future>
 #include <thread>
 
+#undef NDEBUG
+
 /**
  * @breif ハッシュ値のバイト数を定義する。
  * @details SIZE_OF_HASH % sizeof(std::size_t) == 0 でなければならない。
@@ -1037,8 +1039,9 @@ namespace shogipp
     */
     inline constexpr position_t position_to_position9x9(position_t position) noexcept
     {
-        struct impl_t
+        class impl_t
         {
+        public:
             inline constexpr impl_t() noexcept
             {
                 for (position_t rank = 0; rank < rank_size; ++rank)
@@ -3855,21 +3858,27 @@ namespace shogipp
 
         /**
          * @breif 駒と座標の組を、座標1を基準とした相対座標が昇順になるように入れ替える。
+         *        また、駒1と駒2の手番関係を維持したまま駒1を先手の駒に変換する。
          * @param piece1 駒1
          * @param position1 座標1
          * @param piece2 駒2
          * @param position2 座標2
          * @return 並び替えた後の座標1を基準とした相対座標
          */
-        inline static position_t sort(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
+        inline static position_t canonicalize(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
         {
             SHOGIPP_ASSERT(position1 != position2);
-            position_t relative_position = position_to_position9x9(position2) - position_to_position9x9(position2);
+            position_t relative_position = position_to_position9x9(position2) - position_to_position9x9(position1);
             if (relative_position < 0)
             {
                 relative_position = -relative_position;
                 std::swap(piece1, piece2);
                 std::swap(position1, position2);
+            }
+            if (piece1.to_color() == white)
+            {
+                piece1 = colored_piece_t{ noncolored_piece_t{ piece1 }, black };
+                piece2 = colored_piece_t{ noncolored_piece_t{ piece2 }, !piece2.to_color() };
             }
             return relative_position;
         }
@@ -3885,15 +3894,12 @@ namespace shogipp
         inline std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2) const
         {
             std::size_t offset = 0;
-            const position_t relative_position = sort(piece1, position1, piece2, position2);
+            const position_t relative_position = canonicalize(piece1, position1, piece2, position2);
             offset = relative_position - 1;
             offset *= piece_size / 2;
-            offset += noncolored_piece_t{ piece1 }.value();
+            offset += piece1.value();
             offset *= piece_size;
-            offset += noncolored_piece_t{ piece2 }.value();
-            const bool is_friend = piece1.to_color() == piece2.to_color();
-            if (!is_friend)
-                offset += piece_size / 2;
+            offset += piece2.value();
             return offset;
         }
 

@@ -3837,7 +3837,8 @@ namespace shogipp
     class piece_pair_evaluator_t
     {
     public:
-        using value_type = unsigned long long;
+        using value_type = std::uint64_t;
+        using half_value_type = std::uint32_t;
         constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
         constexpr static value_type max = std::numeric_limits<value_type>::max() / data_size;
 
@@ -3994,6 +3995,15 @@ namespace shogipp
             };
             for_each(board, callback);
             return accumulated_value;
+        }
+
+        /**
+         * @breif ”Õ‚Ì•]‰¿’l‚Ì•ª•ê‚ğæ“¾‚·‚éB
+         * @return ”Õ‚Ì•]‰¿’l‚Ì•ª•ê
+         */
+        inline value_type denominator() const noexcept
+        {
+            return m_denominator;
         }
 
         /**

@@ -3832,6 +3832,255 @@ namespace shogipp
 #endif
 
     /**
+     * @breif 盤の2駒の組と対応する評価値の表
+     */
+    class piece_pair_evaluator_t
+    {
+    public:
+        using value_type = unsigned long long;
+        constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
+        constexpr static value_type max = std::numeric_limits<value_type>::max() / data_size;
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値の表を構築する。
+         * @details 全ての評価値は 0 で初期化される。
+         */
+        constexpr inline piece_pair_evaluator_t() noexcept = default;
+        constexpr inline piece_pair_evaluator_t(const piece_pair_evaluator_t &) noexcept = default;
+        constexpr inline piece_pair_evaluator_t(piece_pair_evaluator_t &&) noexcept = default;
+        constexpr inline piece_pair_evaluator_t & operator =(const piece_pair_evaluator_t &) noexcept = default;
+        constexpr inline piece_pair_evaluator_t & operator =(piece_pair_evaluator_t &&) noexcept = default;
+
+        /**
+         * @breif 駒と座標の組を、座標1を基準とした相対座標が昇順になるように入れ替える。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 並び替えた後の座標1を基準とした相対座標
+         */
+        inline static position_t sort(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
+        {
+            SHOGIPP_ASSERT(position1 != position2);
+            position_t relative_position = position_to_position9x9(position2) - position_to_position9x9(position2);
+            if (relative_position < 0)
+            {
+                relative_position = -relative_position;
+                std::swap(piece1, piece2);
+                std::swap(position1, position2);
+            }
+            return relative_position;
+        }
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値のオフセットを取得する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 盤の2駒の組と対応する評価値のオフセット
+         */
+        inline std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2) const
+        {
+            std::size_t offset = 0;
+            const position_t relative_position = sort(piece1, position1, piece2, position2);
+            offset = relative_position - 1;
+            offset *= piece_size / 2;
+            offset += noncolored_piece_t{ piece1 }.value();
+            offset *= piece_size;
+            offset += noncolored_piece_t{ piece2 }.value();
+            const bool is_friend = piece1.to_color() == piece2.to_color();
+            if (!is_friend)
+                offset += piece_size / 2;
+            return offset;
+        }
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値を取得する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 盤の2駒の組と対応する評価値
+         * @details この関数は先手から見て有利な状況を正とする評価値を返す。
+         */
+        inline value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
+        {
+            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            SHOGIPP_ASSERT(offset < std::size(m_data));
+            return m_data[offset] * reverse(piece1.to_color());
+        }
+
+        /**
+         * @breif 盤の全ての2駒の組み合わせを引数に callback を呼び出す。
+         * @param board 盤
+         * @param callback コールバック関数 void (colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+         */
+        template<typename Callback>
+        inline static void for_each(const board_t & board, Callback callback)
+        {
+            for (position_t position1 = position_begin; position1 < position_end; ++position1)
+                for (position_t position2 = position1 + 1; position2 < position_end; ++position2)
+                    if (position1 != position2
+                        && !board_t::out(position1)
+                        && !board_t::out(position2)
+                        && !board[position1].empty()
+                        && !board[position2].empty())
+                        callback(board[position1], position1, board[position2], position2);
+        }
+
+        /**
+         * @breif 指定された駒を一方とする盤の全ての2駒の組み合わせを引数に callback を呼び出す。
+         * @param board 盤
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param callback コールバック関数 void (colored_piece_t piece2, position_t position2)
+         */
+        template<typename Callback>
+        inline static void for_each(const board_t & board, colored_piece_t piece1, position_t position1, Callback callback)
+        {
+            for (position_t position2 = position_begin; position2 < position_end; ++position2)
+                if (position1 != position2
+                    && !board_t::out(position1)
+                    && !board_t::out(position2)
+                    && !piece1.empty()
+                    && !board[position2].empty())
+                    callback(board[position2], position2);
+        }
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値を 1 加算する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
+         */
+        inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+        {
+            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            SHOGIPP_ASSERT(offset < std::size(m_data));
+            if (m_denominator == std::numeric_limits<value_type>::max())
+                normalize();
+            ++m_data[offset];
+            ++m_denominator;
+        }
+
+        /**
+         * @breif 盤の全ての2駒の組と対応する評価値を 1 加算する。
+         * @param board 盤
+         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
+         */
+        inline void increase(const board_t & board)
+        {
+            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+            {
+                increase(piece1, position1, piece2, position2);
+            };
+            for_each(board, callback);
+        }
+
+        /**
+         * @breif 盤の評価値を取得する。
+         * @param board 盤
+         * @return 盤の評価値
+         */
+        inline value_type accumulate(const board_t & board) const
+        {
+            value_type accumulated_value = 0;
+            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+            {
+                accumulated_value += get(piece1, position1, piece2, position2);
+            };
+            for_each(board, callback);
+            return accumulated_value;
+        }
+
+        /**
+         * @breif 合法手を実行した際の評価値の差分を取得する。
+         * @param board 合法手を実行した後の盤
+         * @param move 合法手
+         * @return 合法手を実行した際の評価値の差分
+         */
+        inline value_type accumulate_diff(const board_t & board, const move_t & move) const
+        {
+            value_type accumulated_value = 0;
+
+            // 移動先にある駒の評価値を加算する。
+            const colored_piece_t piece1 = board[move.destination()];
+            const position_t position1 = move.destination();
+            {
+                const auto callback = [&](colored_piece_t piece2, position_t position2)
+                {
+                    accumulated_value += get(piece1, position1, board[position2], position2);
+                };
+                for_each(board, piece1, position1, callback);
+            }
+
+            if (!move.put())
+            {
+                // 移動先にあった駒の評価値を減算する。
+                if (!move.destination_piece().empty())
+                {
+                    const colored_piece_t piece1 = move.destination_piece();
+                    const position_t position1 = move.destination();
+                    const auto callback = [&](colored_piece_t piece2, position_t position2)
+                    {
+                        accumulated_value -= get(piece1, position1, board[position2], position2);
+                    };
+                    for_each(board, piece1, position1, callback);
+                }
+
+                // 移動元にあった駒の評価値を減算する。
+                const colored_piece_t piece1 = move.source_piece();
+                const position_t position1 = move.source();
+                const auto callback = [&](colored_piece_t piece2, position_t position2)
+                {
+                    accumulated_value -= get(piece1, position1, board[position2], position2);
+                };
+                for_each(board, piece1, position1, callback);
+            }
+
+            return accumulated_value;
+        }
+
+        /**
+         * @breif ファイルを読み込む。
+         * @param path ファイルのパス
+         */
+        inline void read_file(const std::filesystem::path & path)
+        {
+            std::ifstream out(path, std::ios_base::in | std::ios::binary);
+            out.read(reinterpret_cast<char *>(m_data), sizeof(m_data));
+        }
+
+        /**
+         * @breif ファイルに書き出す。
+         * @param path ファイルのパス
+         */
+        inline void write_file(const std::filesystem::path & path) const
+        {
+            std::ofstream out(path, std::ios_base::out | std::ios::binary);
+            out.write(reinterpret_cast<const char *>(m_data), sizeof(m_data));
+        }
+
+    private:
+        value_type m_denominator{};
+        value_type m_data[data_size]{};
+
+        /**
+         * @breif 評価値を加算してもオーバーフローが発生しないよう、全ての評価値をそれらの比率を維持したまま減らす。
+         */
+        inline void normalize() noexcept
+        {
+            constexpr value_type d = 2;
+            for (value_type & value : m_data)
+                value /= d;
+            m_denominator /= d;
+        }
+    };
+
+    /**
      * @breif 評価関数オブジェクトが呼び出された文脈を表現する。
      */
     class iddfs_context_t
@@ -6651,255 +6900,6 @@ namespace shogipp
         move_count_t m_max_move_count = 300;
         parameter_type m_min_chromosome_distance = 1;
         parameter_type m_elite_number = 1;
-    };
-
-    /**
-     * @breif 盤の2駒の組と対応する評価値の表
-     */
-    class piece_pair_evaluator_t
-    {
-    public:
-        using value_type = unsigned long long;
-        constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
-
-        /**
-         * @breif 盤の2駒の組と対応する評価値の表を構築する。
-         * @details 全ての評価値は 0 で初期化される。
-         */
-        constexpr inline piece_pair_evaluator_t() noexcept = default;
-        constexpr inline piece_pair_evaluator_t(const piece_pair_evaluator_t &) noexcept = default;
-        constexpr inline piece_pair_evaluator_t(piece_pair_evaluator_t &&) noexcept = default;
-        constexpr inline piece_pair_evaluator_t & operator =(const piece_pair_evaluator_t &) noexcept = default;
-        constexpr inline piece_pair_evaluator_t & operator =(piece_pair_evaluator_t &&) noexcept = default;
-
-        
-        /**
-         * @breif 駒と座標の組を、座標1を基準とした相対座標が昇順になるように入れ替える。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @return 並び替えた後の座標1を基準とした相対座標
-         */
-        inline static position_t sort(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
-        {
-            SHOGIPP_ASSERT(position1 != position2);
-            position_t relative_position = position_to_position9x9(position2) - position_to_position9x9(position2);
-            if (relative_position < 0)
-            {
-                relative_position = -relative_position;
-                std::swap(piece1, piece2);
-                std::swap(position1, position2);
-            }
-            return relative_position;
-        }
-
-        /**
-         * @breif 盤の2駒の組と対応する評価値のオフセットを取得する。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @return 盤の2駒の組と対応する評価値のオフセット
-         */
-        inline std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2) const
-        {
-            std::size_t offset = 0;
-            const position_t relative_position = sort(piece1, position1, piece2, position2);
-            offset = relative_position - 1;
-            offset *= piece_size / 2;
-            offset += noncolored_piece_t{ piece1 }.value();
-            offset *= piece_size;
-            offset += noncolored_piece_t{ piece2 }.value();
-            const bool is_friend = piece1.to_color() == piece2.to_color();
-            if (!is_friend)
-                offset += piece_size / 2;
-            return offset;
-        }
-
-        /**
-         * @breif 盤の2駒の組と対応する評価値を取得する。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @return 盤の2駒の組と対応する評価値
-         * @details この関数は先手から見て有利な状況を正とする評価値を返す。
-         */
-        inline value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
-        {
-            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(m_data));
-            return m_data[offset] * reverse(piece1.to_color());
-        }
-
-        /**
-         * @breif 盤の全ての2駒の組み合わせを引数に callback を呼び出す。
-         * @param board 盤
-         * @param callback コールバック関数 void (colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
-         */
-        template<typename Callback>
-        inline static void for_each(const board_t & board, Callback callback)
-        {
-            for (position_t position1 = position_begin; position1 < position_end; ++position1)
-                for (position_t position2 = position1 + 1; position2 < position_end; ++position2)
-                    if (position1 != position2
-                        && !board_t::out(position1)
-                        && !board_t::out(position2)
-                        && !board[position1].empty()
-                        && !board[position2].empty())
-                        callback(board[position1], position1, board[position2], position2);
-        }
-
-        /**
-         * @breif 指定された駒を一方とする盤の全ての2駒の組み合わせを引数に callback を呼び出す。
-         * @param board 盤
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param callback コールバック関数 void (colored_piece_t piece2, position_t position2)
-         */
-        template<typename Callback>
-        inline static void for_each(const board_t & board, colored_piece_t piece1, position_t position1, Callback callback)
-        {
-            for (position_t position2 = position_begin; position2 < position_end; ++position2)
-                if (position1 != position2
-                    && !board_t::out(position1)
-                    && !board_t::out(position2)
-                    && !piece1.empty()
-                    && !board[position2].empty())
-                    callback(board[position2], position2);
-        }
-
-        /**
-         * @breif 盤の2駒の組と対応する評価値を 1 加算する。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
-         */
-        inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
-        {
-            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(m_data));
-            if (m_denominator == std::numeric_limits<value_type>::max())
-                normalize();
-            ++m_data[offset];
-            ++m_denominator;
-        }
-
-        /**
-         * @breif 盤の全ての2駒の組と対応する評価値を 1 加算する。
-         * @param board 盤
-         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
-         */
-        inline void increase(const board_t & board)
-        {
-            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
-            {
-                increase(piece1, position1, piece2, position2);
-            };
-            for_each(board, callback);
-        }
-
-        /**
-         * @breif 盤の評価値を取得する。
-         * @param board 盤
-         * @return 盤の評価値
-         */
-        inline value_type accumulate(const board_t & board) const
-        {
-            value_type accumulated_value = 0;
-            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
-            {
-                accumulated_value += get(piece1, position1, piece2, position2);
-            };
-            for_each(board, callback);
-            return accumulated_value;
-        }
-
-        /**
-         * @breif 合法手を実行した際の評価値の差分を取得する。
-         * @param board 合法手を実行した後の盤
-         * @param move 合法手
-         * @return 合法手を実行した際の評価値の差分
-         */
-        inline value_type accumulate_diff(const board_t & board, const move_t & move) const
-        {
-            value_type accumulated_value = 0;
-
-            // 移動先にある駒の評価値を加算する。
-            const colored_piece_t piece1 = board[move.destination()];
-            const position_t position1 = move.destination();
-            {
-                const auto callback = [&] (colored_piece_t piece2, position_t position2)
-                {
-                    accumulated_value += get(piece1, position1, board[position2], position2);
-                };
-                for_each(board, piece1, position1, callback);
-            }
-
-            if (!move.put())
-            {
-                // 移動先にあった駒の評価値を減算する。
-                if (!move.destination_piece().empty())
-                {
-                    const colored_piece_t piece1 = move.destination_piece();
-                    const position_t position1 = move.destination();
-                    const auto callback = [&](colored_piece_t piece2, position_t position2)
-                    {
-                        accumulated_value -= get(piece1, position1, board[position2], position2);
-                    };
-                    for_each(board, piece1, position1, callback);
-                }
-
-                // 移動元にあった駒の評価値を減算する。
-                const colored_piece_t piece1 = move.source_piece();
-                const position_t position1 = move.source();
-                const auto callback = [&](colored_piece_t piece2, position_t position2)
-                {
-                    accumulated_value -= get(piece1, position1, board[position2], position2);
-                };
-                for_each(board, piece1, position1, callback);
-            }
-
-            return accumulated_value;
-        }
-
-        /**
-         * @breif ファイルを読み込む。
-         * @param path ファイルのパス
-         */
-        inline void read_file(const std::filesystem::path & path)
-        {
-            std::ifstream out(path, std::ios_base::in | std::ios::binary);
-            out.read(reinterpret_cast<char *>(m_data), sizeof(m_data));
-        }
-
-        /**
-         * @breif ファイルに書き出す。
-         * @param path ファイルのパス
-         */
-        inline void write_file(const std::filesystem::path & path) const
-        {
-            std::ofstream out(path, std::ios_base::out | std::ios::binary);
-            out.write(reinterpret_cast<const char *>(m_data), sizeof(m_data));
-        }
-
-    private:
-        value_type m_denominator{};
-        value_type m_data[data_size]{};
-
-        /**
-         * @breif 評価値を加算してもオーバーフローが発生しないよう、全ての評価値をそれらの比率を維持したまま減らす。
-         */
-        inline void normalize() noexcept
-        {
-            constexpr value_type d = 2;
-            for (value_type & value : m_data)
-                value /= d;
-            m_denominator /= d;
-        }
     };
 
     inline int parse_command_line(int argc, const char ** argv) noexcept

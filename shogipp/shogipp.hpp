@@ -4096,6 +4096,11 @@ namespace shogipp
         }
     };
 
+    namespace details
+    {
+        piece_pair_statistics_t piece_pair_statistics;
+    }
+
     /**
      * @breif 評価関数オブジェクトが呼び出された文脈を表現する。
      */
@@ -6701,6 +6706,19 @@ namespace shogipp
             return taikyoku.kyokumen.kifu;
         }
 
+        inline static void write_piece_pair_statistics(const std::vector<move_t> & kifu)
+        {
+            kyokumen_t kyokumen;
+            const move_count_t winner_mod = (kifu.size() + 1) % 2;
+            details::piece_pair_statistics.increase(kyokumen.board);
+            for (move_count_t i = 0; i < kifu.size(); ++i)
+            {
+                kyokumen.do_move(kifu[i]);
+                if (i % 2 == winner_mod)
+                    details::piece_pair_statistics.increase(kyokumen.board);
+            }
+        }
+
         inline void run(const std::filesystem::path & log_directory, unsigned long long & uid, unsigned int thread_number)
         {
             std::vector<fitness_type> fitness_table;
@@ -6771,6 +6789,8 @@ namespace shogipp
                                             else
                                                 fitness_table[arguments.j] += 1;
                                         }
+
+                                        write_piece_pair_statistics(kifu);
                                     }
                                 }
                                 catch (const std::exception & e)
@@ -6785,6 +6805,15 @@ namespace shogipp
                         }
                     ));
                 }
+            }
+
+            try
+            {
+                details::piece_pair_statistics.write_file(details::program_options::piece_pair_statistics);
+            }
+            catch (const std::filesystem::filesystem_error &)
+            {
+                std::cerr << "piece_pair_statistics.write_file() failed" << std::endl;
             }
 
             // 勝率により降順に個体を並び替える。
@@ -7072,6 +7101,16 @@ namespace shogipp
                 }
             };
             parse_program_options(argc, argv, callback);
+
+            try
+            {
+                if (std::filesystem::exists(details::program_options::piece_pair_statistics))
+                    details::piece_pair_statistics.read_file(details::program_options::piece_pair_statistics);
+            }
+            catch (const std::filesystem::filesystem_error &)
+            {
+                ;
+            }
 
             if (details::program_options::ga_create_chromosome && details::program_options::ga_create_mode)
             {

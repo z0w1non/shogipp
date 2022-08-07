@@ -3954,26 +3954,22 @@ namespace shogipp
          * @param piece2 駒2
          * @param position2 座標2
          * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
-         *          この関数が呼び出されてから update_denominator が呼び出されるまでの間、 denominator は不適切な値を返す。
-         * @sa update_denominator
-         * @sa denominator
          */
         inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
         {
             const std::size_t offset = this->offset(piece1, position1, piece2, position2);
             SHOGIPP_ASSERT(offset < std::size(m_data));
-            if (m_denominator == std::numeric_limits<value_type>::max())
+            if (m_max == std::numeric_limits<value_type>::max())
                 normalize();
             ++m_data[offset];
+            if (m_max < m_data[offset])
+                m_max = m_data[offset];
         }
 
         /**
          * @breif 盤の全ての2駒の組と対応する評価値を 1 加算する。
          * @param board 盤
          * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
-         *          この関数が呼び出されてから update_denominator が呼び出されるまでの間、 denominator は不適切な値を返す。
-         * @sa update_denominator
-         * @sa denominator
          */
         inline void increase(const board_t & board)
         {
@@ -4001,24 +3997,12 @@ namespace shogipp
         }
 
         /**
-         * @breif 盤の評価値の分母を更新する。
+         * @breif 盤の評価値の最大値を取得する。
+         * @return 盤の評価値の最大値
          */
-        inline void update_denominator() noexcept
+        inline value_type max() const noexcept
         {
-            m_denominator = std::numeric_limits<value_type>::min();
-            for (value_type & value : m_data)
-                if (m_denominator < value)
-                    m_denominator = value;
-            m_denominator;
-        }
-
-        /**
-         * @breif 盤の評価値の分母を取得する。
-         * @return 盤の評価値の分母
-         */
-        inline value_type denominator() const noexcept
-        {
-            return m_denominator;
+            return m_max;
         }
 
         /**
@@ -4090,7 +4074,7 @@ namespace shogipp
         }
 
     private:
-        value_type m_denominator{};
+        value_type m_max{};
         value_type m_data[data_size]{};
 
         /**
@@ -4101,7 +4085,7 @@ namespace shogipp
             constexpr value_type d = 2;
             for (value_type & value : m_data)
                 value /= d;
-            m_denominator /= d;
+            m_max /= d;
         }
     };
 

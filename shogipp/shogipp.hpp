@@ -3837,10 +3837,8 @@ namespace shogipp
     class piece_pair_evaluator_t
     {
     public:
-        using value_type = std::uint64_t;
-        using half_value_type = std::uint32_t;
+        using value_type = unsigned long long;
         constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
-        constexpr static value_type max = std::numeric_limits<value_type>::max() / data_size;
 
         /**
          * @breif 盤の2駒の組と対応する評価値の表を構築する。
@@ -3956,6 +3954,9 @@ namespace shogipp
          * @param piece2 駒2
          * @param position2 座標2
          * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
+         *          この関数が呼び出されてから update_denominator が呼び出されるまでの間、 denominator は不適切な値を返す。
+         * @sa update_denominator
+         * @sa denominator
          */
         inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
         {
@@ -3964,13 +3965,15 @@ namespace shogipp
             if (m_denominator == std::numeric_limits<value_type>::max())
                 normalize();
             ++m_data[offset];
-            ++m_denominator;
         }
 
         /**
          * @breif 盤の全ての2駒の組と対応する評価値を 1 加算する。
          * @param board 盤
          * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
+         *          この関数が呼び出されてから update_denominator が呼び出されるまでの間、 denominator は不適切な値を返す。
+         * @sa update_denominator
+         * @sa denominator
          */
         inline void increase(const board_t & board)
         {
@@ -3995,6 +3998,18 @@ namespace shogipp
             };
             for_each(board, callback);
             return accumulated_value;
+        }
+
+        /**
+         * @breif 盤の評価値の分母を更新する。
+         */
+        inline void update_denominator() noexcept
+        {
+            m_denominator = std::numeric_limits<value_type>::min();
+            for (value_type & value : m_data)
+                if (m_denominator < value)
+                    m_denominator = value;
+            m_denominator;
         }
 
         /**

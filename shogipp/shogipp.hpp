@@ -5620,12 +5620,12 @@ namespace shogipp
             ostream << "board-piece-points-gold           : " << static_cast<unsigned int>(board_piece_points[gold_value            - pawn_value - 1]) << std::endl;
             ostream << "board-piece-points-bishop         : " << static_cast<unsigned int>(board_piece_points[bishop_value          - pawn_value - 1]) << std::endl;
             ostream << "board-piece-points-rook           : " << static_cast<unsigned int>(board_piece_points[rook_value            - pawn_value - 1]) << std::endl;
-            ostream << "board-piece-points-promoted_pawn  : " << static_cast<unsigned int>(board_piece_points[promoted_pawn_value   - pawn_value - 2]) << std::endl;
-            ostream << "board-piece-points-promoted_lance : " << static_cast<unsigned int>(board_piece_points[promoted_lance_value  - pawn_value - 2]) << std::endl;
-            ostream << "board-piece-points-promoted_knight: " << static_cast<unsigned int>(board_piece_points[promoted_knight_value - pawn_value - 2]) << std::endl;
-            ostream << "board-piece-points-promoted_silver: " << static_cast<unsigned int>(board_piece_points[promoted_silver_value - pawn_value - 2]) << std::endl;
-            ostream << "board-piece-points-promoted_bishop: " << static_cast<unsigned int>(board_piece_points[promoted_bishop_value - pawn_value - 2]) << std::endl;
-            ostream << "board-piece-points-promoted_rook  : " << static_cast<unsigned int>(board_piece_points[promoted_rook_value   - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted-pawn  : " << static_cast<unsigned int>(board_piece_points[promoted_pawn_value   - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted-lance : " << static_cast<unsigned int>(board_piece_points[promoted_lance_value  - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted-knight: " << static_cast<unsigned int>(board_piece_points[promoted_knight_value - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted-silver: " << static_cast<unsigned int>(board_piece_points[promoted_silver_value - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted-bishop: " << static_cast<unsigned int>(board_piece_points[promoted_bishop_value - pawn_value - 2]) << std::endl;
+            ostream << "board-piece-points-promoted-rook  : " << static_cast<unsigned int>(board_piece_points[promoted_rook_value   - pawn_value - 2]) << std::endl;
             for (std::size_t i = 0; i < captured_pawn_size; ++i)
                 ostream << "captured-piece-points-pawn-" << i << ": " << static_cast<unsigned int>(captured_piece_points[captured_pawn_offset + i]) << std::endl;
             for (std::size_t i = 0; i < captured_lance_size; ++i)

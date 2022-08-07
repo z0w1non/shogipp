@@ -3748,7 +3748,7 @@ namespace shogipp
 
     inline const std::vector<kiki_t> & kyokumen_t::check_list() const noexcept
     {
-        SHOGIPP_ASSERT(move_count < check_list_stack.size());
+        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         return additional_info.check_list_stack[move_count];
     }
 

@@ -6706,7 +6706,7 @@ namespace shogipp
             return taikyoku.kyokumen.kifu;
         }
 
-        inline static void write_piece_pair_statistics(const std::vector<move_t> & kifu)
+        inline static void update_piece_pair_statistics(const std::vector<move_t> & kifu)
         {
             kyokumen_t kyokumen;
             const move_count_t winner_mod = (kifu.size() + 1) % 2;
@@ -6790,7 +6790,7 @@ namespace shogipp
                                                 fitness_table[arguments.j] += 1;
                                         }
 
-                                        write_piece_pair_statistics(kifu);
+                                        update_piece_pair_statistics(kifu);
                                     }
                                 }
                                 catch (const std::exception & e)

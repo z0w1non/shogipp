@@ -7062,7 +7062,7 @@ namespace shogipp
                     else
                         std::cerr << "invalid ga-thread-number parameter" << std::endl;
                 }
-                else if (option == "piece-pair-statistics-file-path" && !params.empty())
+                else if (option == "piece-pair-statistics" && !params.empty())
                 {
                     details::program_options::piece_pair_statistics_file_path = params[0];
                 }

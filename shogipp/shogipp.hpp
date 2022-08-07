@@ -384,8 +384,8 @@ namespace shogipp
 
             std::optional<std::string> sfen;
 
-            const std::string default_piece_pair_statistics_file_path = "piece_pair_statistics.bin";
-            std::string piece_pair_statistics_file_path = default_piece_pair_statistics_file_path;
+            const std::string default_piece_pair_statistics = "piece_pair_statistics.bin";
+            std::string piece_pair_statistics = default_piece_pair_statistics;
         } // namespace program_options
 
         namespace evaluation_value_template
@@ -4062,8 +4062,12 @@ namespace shogipp
          */
         inline void read_file(const std::filesystem::path & path)
         {
+            m_max = std::numeric_limits<value_type>::min();
             std::ifstream out(path, std::ios_base::in | std::ios::binary);
             out.read(reinterpret_cast<char *>(m_data), sizeof(m_data));
+            for (value_type value : m_data)
+                if (m_max < value)
+                    m_max = value;
         }
 
         /**
@@ -7064,7 +7068,7 @@ namespace shogipp
                 }
                 else if (option == "piece-pair-statistics" && !params.empty())
                 {
-                    details::program_options::piece_pair_statistics_file_path = params[0];
+                    details::program_options::piece_pair_statistics = params[0];
                 }
             };
             parse_program_options(argc, argv, callback);

@@ -3832,23 +3832,23 @@ namespace shogipp
 #endif
 
     /**
-     * @breif 盤の2駒の組と対応する評価値の表
+     * @breif 盤の2駒の組と対応する評価値の統計
      */
-    class piece_pair_evaluator_t
+    class piece_pair_statistics_t
     {
     public:
         using value_type = unsigned long long;
         constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
 
         /**
-         * @breif 盤の2駒の組と対応する評価値の表を構築する。
+         * @breif 盤の2駒の組と対応する評価値の統計を構築する。
          * @details 全ての評価値は 0 で初期化される。
          */
-        constexpr inline piece_pair_evaluator_t() noexcept = default;
-        constexpr inline piece_pair_evaluator_t(const piece_pair_evaluator_t &) noexcept = default;
-        constexpr inline piece_pair_evaluator_t(piece_pair_evaluator_t &&) noexcept = default;
-        constexpr inline piece_pair_evaluator_t & operator =(const piece_pair_evaluator_t &) noexcept = default;
-        constexpr inline piece_pair_evaluator_t & operator =(piece_pair_evaluator_t &&) noexcept = default;
+        constexpr inline piece_pair_statistics_t() noexcept = default;
+        constexpr inline piece_pair_statistics_t(const piece_pair_statistics_t &) noexcept = default;
+        constexpr inline piece_pair_statistics_t(piece_pair_statistics_t &&) noexcept = default;
+        constexpr inline piece_pair_statistics_t & operator =(const piece_pair_statistics_t &) noexcept = default;
+        constexpr inline piece_pair_statistics_t & operator =(piece_pair_statistics_t &&) noexcept = default;
 
         /**
          * @breif 駒と座標の組を、座標1を基準とした相対座標が昇順になるように入れ替える。

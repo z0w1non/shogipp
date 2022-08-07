@@ -383,6 +383,9 @@ namespace shogipp
             unsigned int ga_thread_number = default_ga_thread_number;
 
             std::optional<std::string> sfen;
+
+            const std::string default_piece_pair_statistics_file_path = "piece_pair_statistics.bin";
+            std::string piece_pair_statistics_file_path = default_piece_pair_statistics_file_path;
         } // namespace program_options
 
         namespace evaluation_value_template
@@ -7058,7 +7061,11 @@ namespace shogipp
                         details::program_options::ga_thread_number = *ga_thread_number;
                     else
                         std::cerr << "invalid ga-thread-number parameter" << std::endl;
-                } 
+                }
+                else if (option == "piece-pair-statistics-file-path" && !params.empty())
+                {
+                    details::program_options::piece_pair_statistics_file_path = params[0];
+                }
             };
             parse_program_options(argc, argv, callback);
 

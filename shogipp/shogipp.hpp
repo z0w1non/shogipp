@@ -6807,15 +6807,15 @@ namespace shogipp
          * @param board 盤
          * @return 盤の評価値
          */
-        inline evaluation_value_t evaluate(const board_t & board) const
+        inline value_type accumulate(const board_t & board) const
         {
-            evaluation_value_t evaluation_value = 0;
+            value_type accumulated_value = 0;
             const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
             {
-                evaluation_value += get(piece1, position1, piece2, position2);
+                accumulated_value += get(piece1, position1, piece2, position2);
             };
             for_each(board, callback);
-            return evaluation_value;
+            return accumulated_value;
         }
 
         /**
@@ -6824,9 +6824,9 @@ namespace shogipp
          * @param move 合法手
          * @return 合法手を実行した際の評価値の差分
          */
-        inline evaluation_value_t evaluate_diff(const board_t & board, const move_t & move) const
+        inline value_type accumulate_diff(const board_t & board, const move_t & move) const
         {
-            evaluation_value_t evaluation_value = 0;
+            value_type accumulated_value = 0;
 
             // 移動先にある駒の評価値を加算する。
             const colored_piece_t piece1 = board[move.destination()];
@@ -6834,7 +6834,7 @@ namespace shogipp
             {
                 const auto callback = [&] (colored_piece_t piece2, position_t position2)
                 {
-                    evaluation_value += get(piece1, position1, board[position2], position2);
+                    accumulated_value += get(piece1, position1, board[position2], position2);
                 };
                 for_each(board, piece1, position1, callback);
             }
@@ -6848,7 +6848,7 @@ namespace shogipp
                     const position_t position1 = move.destination();
                     const auto callback = [&](colored_piece_t piece2, position_t position2)
                     {
-                        evaluation_value -= get(piece1, position1, board[position2], position2);
+                        accumulated_value -= get(piece1, position1, board[position2], position2);
                     };
                     for_each(board, piece1, position1, callback);
                 }
@@ -6858,12 +6858,12 @@ namespace shogipp
                 const position_t position1 = move.source();
                 const auto callback = [&](colored_piece_t piece2, position_t position2)
                 {
-                    evaluation_value -= get(piece1, position1, board[position2], position2);
+                    accumulated_value -= get(piece1, position1, board[position2], position2);
                 };
                 for_each(board, piece1, position1, callback);
             }
 
-            return evaluation_value;
+            return accumulated_value;
         }
 
         /**

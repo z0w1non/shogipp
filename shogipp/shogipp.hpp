@@ -1033,9 +1033,9 @@ namespace shogipp
     }
 
     /**
-    * @breif 生の座標を [0, 81] の座標に変換する。
+    * @breif 生の座標を 0 以上 81 未満の座標に変換する。
     * @param position 座標
-    * @return 筋
+    * @return 0 以上 81 未満の座標
     */
     inline constexpr position_t position_to_position9x9(position_t position) noexcept
     {
@@ -1053,6 +1053,17 @@ namespace shogipp
         constexpr impl_t impl;
         return impl.map[position];
     }
+
+    /**
+     * @breif 0 以上 81 未満の座標を生の座標に変換する。
+     * @param position 0 以上 81 未満の座標
+     * @return 生の座標
+     */
+    inline constexpr position_t position9x9_to_position(position_t position) noexcept
+    {
+        return file_rank_to_position(static_cast<position_t>(position % file_size), static_cast<position_t>(position / file_size));
+    }
+
 
     static const position_t default_king_pos_list[]
     {
@@ -3857,30 +3868,37 @@ namespace shogipp
         constexpr inline piece_pair_statistics_t & operator =(piece_pair_statistics_t &&) noexcept = default;
 
         /**
-         * @breif 駒と座標の組を、座標1を基準とした相対座標が昇順になるように入れ替える。
-         *        また、駒1と駒2の手番関係を維持したまま駒1を先手の駒に変換する。
+         * @breif 駒と座標の組を正規化する。
+         *        座標2 >= 座標1 を満たすように組を入れ替える。
+         *        相対的な筋は常に正の値に変換される。換言すれば、この関数は位置関係を左右対称に扱う。
+         *        また、駒1と駒2の関係(同手番である、あるいは医)を維持したまま駒1を先手の駒に変換する。
          * @param piece1 駒1
          * @param position1 座標1
          * @param piece2 駒2
          * @param position2 座標2
-         * @return 並び替えた後の座標1を基準とした相対座標
+         * @return 並び替えた後の座標1を基準とした1-81の相対座標
          */
         inline static position_t canonicalize(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
         {
             SHOGIPP_ASSERT(position1 != position2);
-            position_t relative_position = position_to_position9x9(position2) - position_to_position9x9(position1);
-            if (relative_position < 0)
+            
+            if (position1 > position2)
             {
-                relative_position = -relative_position;
                 std::swap(piece1, piece2);
                 std::swap(position1, position2);
             }
+            position_t relative_file = position_to_file(position2) - position_to_file(position1);
+            if (relative_file < 0) // abs
+                relative_file = -relative_file;
+            const position_t relative_rank = position_to_rank(position2) - position_to_rank(position1);
+            
             if (piece1.to_color() == white)
             {
                 piece1 = colored_piece_t{ noncolored_piece_t{ piece1 }, black };
                 piece2 = colored_piece_t{ noncolored_piece_t{ piece2 }, !piece2.to_color() };
             }
-            return relative_position;
+            
+            return relative_rank * file_size + relative_file;
         }
 
         /**
@@ -4060,6 +4078,59 @@ namespace shogipp
             }
 
             return accumulated_value;
+        }
+
+        /**
+         * @breif 出現回数の多い駒関係のうち上位 n 件を出力する。
+         * @param n 表示する件数
+         * @param ostream 出力ストリーム
+         */
+        inline void print_most_frequent(std::size_t n, std::ostream & ostream = std::cout) const
+        {
+            class element_t
+            {
+            public:
+                colored_piece_t piece1{};
+                colored_piece_t piece2{};
+                position_t relative_position{};
+                value_type value{};
+            };
+
+            std::vector<element_t> elements;
+            for (std::size_t i = 0; i < std::size(m_data); ++i)
+            {
+                std::size_t temp = i;
+                element_t element;
+                element.piece2 = colored_piece_t{ temp % piece_size };
+                temp /= piece_size;
+                element.piece2 = colored_piece_t{ temp % (piece_size / 2) };
+                temp /= piece_size / 2;
+                element.relative_position = temp;
+                element.value = m_data[i];
+                elements.push_back(element);
+            }
+
+            const auto comparator = [](const element_t & a, const element_t & b) -> bool
+            {
+                return a.value > b.value;
+            };
+
+            std::sort(elements.begin(), elements.end(), comparator);
+
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                const element_t & element = elements[i];
+                board_t board;
+                board.clear();
+                const position_t relative_file = element.relative_position % file_size;
+                const position_t relative_rank = element.relative_position / file_size;
+                constexpr position_t position1 = file_rank_to_position(0, rank_size - 1);
+                const position_t position2 = file_rank_to_position(0 + relative_file, rank_size - 1 - relative_rank);
+                board[position1] = element.piece1;
+                board[position2] = element.piece2;
+                board.print(ostream);
+                ostream << "count: " << element.value << std::endl << std::endl;
+            }
         }
 
         /**

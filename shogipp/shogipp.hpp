@@ -30,8 +30,6 @@
 #include <future>
 #include <thread>
 
-#undef NDEBUG
-
 /**
  * @breif ハッシュ値のバイト数を定義する。
  * @details SIZE_OF_HASH % sizeof(std::size_t) == 0 でなければならない。
@@ -6918,7 +6916,7 @@ namespace shogipp
                 evaluated_individuals.front().first->chromosome()->print(log_stream);
                 std::cout << std::endl;
 
-                details::piece_pair_statistics.print_most_frequent(10, log_stream);
+                details::piece_pair_statistics.print_most_frequent(100, log_stream);
             }
 
             std::vector<std::shared_ptr<chromosome_evaluator_t>> next_individuals;

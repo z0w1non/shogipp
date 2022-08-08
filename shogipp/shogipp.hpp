@@ -3915,9 +3915,9 @@ namespace shogipp
             const position_t relative_position = canonicalize(piece1, position1, piece2, position2);
             offset = relative_position - 1;
             offset *= piece_size / 2;
-            offset += piece1.value();
+            offset += piece1.value() - pawn_value;
             offset *= piece_size;
-            offset += piece2.value();
+            offset += piece2.value() - pawn_value;
             return offset;
         }
 
@@ -4101,9 +4101,9 @@ namespace shogipp
             {
                 std::size_t temp = i;
                 element_t element;
-                element.piece2 = colored_piece_t{ temp % piece_size };
+                element.piece2 = colored_piece_t{ (temp % piece_size) + pawn_value };
                 temp /= piece_size;
-                element.piece1 = colored_piece_t{ temp % (piece_size / 2) };
+                element.piece1 = colored_piece_t{ (temp % (piece_size / 2)) + pawn_value };
                 temp /= piece_size / 2;
                 element.relative_position = static_cast<position_t>(temp);
                 element.value = m_data[i];

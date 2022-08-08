@@ -7179,6 +7179,8 @@ namespace shogipp
                 {
                     details::program_options::piece_pair_statistics = params[0];
                 }
+                else
+                    std::cerr << "invalid option \"" << option << "\"" << std::endl;
             };
             parse_program_options(argc, argv, callback);
 

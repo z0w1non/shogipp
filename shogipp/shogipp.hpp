@@ -4103,7 +4103,7 @@ namespace shogipp
                 temp /= piece_size;
                 element.piece1 = colored_piece_t{ (temp % (piece_size / 2)) + pawn_value };
                 temp /= piece_size / 2;
-                element.relative_position = static_cast<position_t>(temp);
+                element.relative_position = static_cast<position_t>(temp + 1);
                 element.value = m_data[i];
                 elements.push_back(element);
             }

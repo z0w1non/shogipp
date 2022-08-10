@@ -3855,6 +3855,15 @@ namespace shogipp
         using value_type = unsigned long long;
         constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
 
+        class element_t
+        {
+        public:
+            colored_piece_t piece1{};
+            colored_piece_t piece2{};
+            position_t relative_position{};
+            value_type value{};
+        };
+
         /**
          * @breif 盤の2駒の組と対応する評価値の統計を構築する。
          * @details 全ての評価値は 0 で初期化される。
@@ -4079,33 +4088,34 @@ namespace shogipp
         }
 
         /**
+         * @breif 駒関係の要素を取得する。
+         * @param offset 要素の添字
+         * @return 駒関係の要素
+         */
+        inline element_t get_element(std::size_t offset) const
+        {
+            std::size_t temp = offset;
+            element_t element;
+            element.piece2 = colored_piece_t{ (temp % piece_size) + pawn_value };
+            temp /= piece_size;
+            element.piece1 = colored_piece_t{ (temp % (piece_size / 2)) + pawn_value };
+            temp /= piece_size / 2;
+            element.relative_position = static_cast<position_t>(temp + 1);
+            element.value = m_data[offset];
+            return element;
+        }
+
+        /**
          * @breif 出現回数の多い駒関係のうち上位 n 件を出力する。
          * @param n 表示する件数
          * @param ostream 出力ストリーム
          */
         inline void print_most_frequent(std::size_t n, std::ostream & ostream = std::cout) const
         {
-            class element_t
-            {
-            public:
-                colored_piece_t piece1{};
-                colored_piece_t piece2{};
-                position_t relative_position{};
-                value_type value{};
-            };
-
             std::vector<element_t> elements;
             for (std::size_t i = 0; i < std::size(m_data); ++i)
             {
-                std::size_t temp = i;
-                element_t element;
-                element.piece2 = colored_piece_t{ (temp % piece_size) + pawn_value };
-                temp /= piece_size;
-                element.piece1 = colored_piece_t{ (temp % (piece_size / 2)) + pawn_value };
-                temp /= piece_size / 2;
-                element.relative_position = static_cast<position_t>(temp + 1);
-                element.value = m_data[i];
-                elements.push_back(element);
+                elements.push_back(get_element(i));
             }
 
             const auto comparator = [](const element_t & a, const element_t & b) -> bool

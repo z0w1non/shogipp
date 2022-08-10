@@ -3854,7 +3854,7 @@ namespace shogipp
     public:
         using value_type = unsigned long long;
         constexpr static std::size_t piece_category_size = (piece_size / 2) * piece_size;
-        constexpr static std::size_t position9x9_size = file_size * rank_size - 1;
+        constexpr static std::size_t relative_position9x9_size = file_size * rank_size - 1;
 
         class element_t
         {
@@ -3922,7 +3922,7 @@ namespace shogipp
             offset += piece1.value() - pawn_value;
             offset *= piece_size;
             offset += piece2.value() - pawn_value;
-            offset *= position9x9_size;
+            offset *= relative_position9x9_size;
             offset += relative_position - 1;
             return offset;
         }
@@ -4177,7 +4177,7 @@ namespace shogipp
             std::ifstream out(path, std::ios_base::in | std::ios::binary);
             out.read(reinterpret_cast<char *>(m_counts), sizeof(m_counts));
             for (std::size_t i = 0; i < std::size(m_counts); ++i)
-                m_piece_category_denominators[i / position9x9_size] += m_counts[i];
+                m_piece_category_denominators[i / relative_position9x9_size] += m_counts[i];
         }
 
         /**
@@ -4191,7 +4191,7 @@ namespace shogipp
         }
 
     private:
-        value_type m_counts[piece_category_size * position9x9_size]{};
+        value_type m_counts[piece_category_size * relative_position9x9_size]{};
         value_type m_piece_category_denominators[piece_category_size]{};
 
         /**

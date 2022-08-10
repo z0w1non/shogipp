@@ -533,6 +533,7 @@ namespace shogipp
         constexpr inline basic_piece_t() noexcept;
         constexpr inline basic_piece_t(piece_value_t value) noexcept;
         constexpr inline piece_value_t value() const noexcept;
+        constexpr inline std::size_t index() const noexcept;
 
         /**
          * @breif 駒が空であるか判定する。
@@ -564,6 +565,11 @@ namespace shogipp
     constexpr inline piece_value_t basic_piece_t::value() const noexcept
     {
         return m_value;
+    }
+
+    constexpr inline std::size_t basic_piece_t::index() const noexcept
+    {
+        return m_value - pawn_value;
     }
 
     constexpr inline bool basic_piece_t::empty() const noexcept
@@ -1404,7 +1410,7 @@ namespace shogipp
             { captured_bishop_offset, captured_bishop_size },
             { captured_rook_offset  , captured_rook_size   },
         };
-        const std::size_t index = captured_piece.value() - pawn_value;
+        const std::size_t index = captured_piece.index();
         SHOGIPP_ASSERT(index < std::size(map));
         return map[index];
     }
@@ -1954,13 +1960,13 @@ namespace shogipp
     inline captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece) noexcept
     {
         SHOGIPP_ASSERT(!piece.empty());
-        return count[piece.value() - pawn_value];
+        return count[piece.index()];
     }
 
     inline const captured_pieces_t::size_type & captured_pieces_t::operator [](captured_piece_t piece) const noexcept
     {
         SHOGIPP_ASSERT(!piece.empty());
-        return count[piece.value() - pawn_value];
+        return count[piece.index()];
     }
 
     class kyokumen_rollback_validator_t;
@@ -3916,12 +3922,12 @@ namespace shogipp
          * @param relative_position 1 以上 81 未満の相対座標
          * @return 盤の2駒の組と対応する出現回数のオフセット
          */
-        inline std::size_t offset(noncolored_piece_t piece1, colored_piece_t piece2, position_t relative_position) const
+        inline static std::size_t offset(noncolored_piece_t piece1, colored_piece_t piece2, position_t relative_position)
         {
             std::size_t offset = 0;
-            offset += piece1.value() - pawn_value;
+            offset += piece1.index();
             offset *= piece_size;
-            offset += piece2.value() - pawn_value;
+            offset += piece2.index();
             offset *= relative_position9x9_size;
             offset += relative_position - 1;
             return offset;
@@ -3935,7 +3941,7 @@ namespace shogipp
          * @param position2 座標2
          * @return 盤の2駒の組と対応する出現回数のオフセット
          */
-        inline std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2) const
+        inline static std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
         {
             const position_t relative_position = canonicalize(piece1, position1, piece2, position2);
             return offset(noncolored_piece_t{ piece1.value() }, piece2, relative_position);
@@ -3944,18 +3950,18 @@ namespace shogipp
         inline value_type & piece_category_denominators(noncolored_piece_t piece1, colored_piece_t piece2)
         {
             std::size_t offset = 0;
-            offset += piece1.value() - pawn_value;
+            offset += piece1.index();
             offset *= piece_size;
-            offset += piece2.value() - pawn_value;
+            offset += piece2.index();
             return m_piece_category_denominators[offset];
         }
 
         inline const value_type & piece_category_denominators(noncolored_piece_t piece1, colored_piece_t piece2) const
         {
             std::size_t offset = 0;
-            offset += piece1.value() - pawn_value;
+            offset += piece1.index();
             offset *= piece_size;
-            offset += piece2.value() - pawn_value;
+            offset += piece2.index();
             return m_piece_category_denominators[offset];
         }
 

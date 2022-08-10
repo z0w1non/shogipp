@@ -3853,7 +3853,8 @@ namespace shogipp
     {
     public:
         using value_type = unsigned long long;
-        constexpr static std::size_t data_size = (file_size * rank_size - 1) * (piece_size / 2) * piece_size;
+        constexpr static std::size_t piece_category_size = (piece_size / 2) * piece_size;
+        constexpr static std::size_t position9x9_size = file_size * rank_size - 1;
 
         class element_t
         {
@@ -3888,7 +3889,7 @@ namespace shogipp
         inline static position_t canonicalize(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
         {
             SHOGIPP_ASSERT(position1 != position2);
-            
+
             if (position1 > position2)
             {
                 std::swap(piece1, piece2);
@@ -3898,34 +3899,64 @@ namespace shogipp
             if (relative_file < 0) // abs
                 relative_file = -relative_file;
             const position_t relative_rank = position_to_rank(position2) - position_to_rank(position1);
-            
+
             if (piece1.to_color() == white)
             {
                 piece1 = colored_piece_t{ noncolored_piece_t{ piece1 }, black };
                 piece2 = colored_piece_t{ noncolored_piece_t{ piece2 }, !piece2.to_color() };
             }
-            
+
             return relative_rank * file_size + relative_file;
         }
 
         /**
-         * @breif 盤の2駒の組と対応する評価値のオフセットを取得する。
+         * @breif 盤の2駒の組の出現回数のオフセットを取得する。
+         * @param piece1 駒1
+         * @param piece2 駒2
+         * @param relative_position 1 以上 81 未満の相対座標
+         * @return 盤の2駒の組と対応する出現回数のオフセット
+         */
+        inline std::size_t offset(noncolored_piece_t piece1, colored_piece_t piece2, position_t relative_position) const
+        {
+            std::size_t offset = 0;
+            offset += piece1.value() - pawn_value;
+            offset *= piece_size;
+            offset += piece2.value() - pawn_value;
+            offset *= position9x9_size;
+            offset += relative_position - 1;
+            return offset;
+        }
+
+        /**
+         * @breif 盤の2駒の組の出現回数のオフセットを取得する。
          * @param piece1 駒1
          * @param position1 座標1
          * @param piece2 駒2
          * @param position2 座標2
-         * @return 盤の2駒の組と対応する評価値のオフセット
+         * @return 盤の2駒の組と対応する出現回数のオフセット
          */
         inline std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2) const
         {
-            std::size_t offset = 0;
             const position_t relative_position = canonicalize(piece1, position1, piece2, position2);
-            offset = relative_position - 1;
-            offset *= piece_size / 2;
+            return offset(noncolored_piece_t{ piece1.value() }, piece2, relative_position);
+        }
+
+        inline value_type & piece_category_denominators(noncolored_piece_t piece1, colored_piece_t piece2)
+        {
+            std::size_t offset = 0;
             offset += piece1.value() - pawn_value;
             offset *= piece_size;
             offset += piece2.value() - pawn_value;
-            return offset;
+            return m_piece_category_denominators[offset];
+        }
+
+        inline const value_type & piece_category_denominators(noncolored_piece_t piece1, colored_piece_t piece2) const
+        {
+            std::size_t offset = 0;
+            offset += piece1.value() - pawn_value;
+            offset *= piece_size;
+            offset += piece2.value() - pawn_value;
+            return m_piece_category_denominators[offset];
         }
 
         /**
@@ -3937,11 +3968,16 @@ namespace shogipp
          * @return 盤の2駒の組と対応する評価値
          * @details この関数は先手から見て有利な状況を正とする評価値を返す。
          */
-        inline value_type get(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
+        inline evaluation_value_t get_evaluation_value(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
         {
             const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(m_data));
-            return m_data[offset] * reverse(piece1.to_color());
+            SHOGIPP_ASSERT(offset < std::size(m_counts));
+            value_type temp = m_counts[offset];
+            // 筋が異なる場合、左右対称の駒関係の出現回数が合算されるため、ここで補正する。
+            if (position_to_file(position1) != position_to_file(position2))
+                temp /= 2;
+            temp *= reverse(piece1.to_color());
+            return static_cast<evaluation_value_t>(temp);
         }
 
         /**
@@ -3992,12 +4028,12 @@ namespace shogipp
         inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
         {
             const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(m_data));
-            if (m_max == std::numeric_limits<value_type>::max())
+            SHOGIPP_ASSERT(offset < std::size(m_counts));
+            value_type piece_category_denominator = piece_category_denominators(piece1, piece2);
+            if (piece_category_denominator == std::numeric_limits<value_type>::max())
                 normalize();
-            ++m_data[offset];
-            if (m_max < m_data[offset])
-                m_max = m_data[offset];
+            ++m_counts[offset];
+            ++piece_category_denominator;
         }
 
         /**
@@ -4024,19 +4060,10 @@ namespace shogipp
             value_type accumulated_value = 0;
             const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
             {
-                accumulated_value += get(piece1, position1, piece2, position2);
+                accumulated_value += get_evaluation_value(piece1, position1, piece2, position2);
             };
             for_each(board, callback);
             return accumulated_value;
-        }
-
-        /**
-         * @breif 盤の評価値の最大値を取得する。
-         * @return 盤の評価値の最大値
-         */
-        inline value_type max() const noexcept
-        {
-            return m_max;
         }
 
         /**
@@ -4055,7 +4082,7 @@ namespace shogipp
             {
                 const auto callback = [&](colored_piece_t piece2, position_t position2)
                 {
-                    accumulated_value += get(piece1, position1, board[position2], position2);
+                    accumulated_value += get_evaluation_value(piece1, position1, board[position2], position2);
                 };
                 for_each(board, piece1, position1, callback);
             }
@@ -4069,7 +4096,7 @@ namespace shogipp
                     const position_t position1 = move.destination();
                     const auto callback = [&](colored_piece_t piece2, position_t position2)
                     {
-                        accumulated_value -= get(piece1, position1, board[position2], position2);
+                        accumulated_value -= get_evaluation_value(piece1, position1, board[position2], position2);
                     };
                     for_each(board, piece1, position1, callback);
                 }
@@ -4079,7 +4106,7 @@ namespace shogipp
                 const position_t position1 = move.source();
                 const auto callback = [&](colored_piece_t piece2, position_t position2)
                 {
-                    accumulated_value -= get(piece1, position1, board[position2], position2);
+                    accumulated_value -= get_evaluation_value(piece1, position1, board[position2], position2);
                 };
                 for_each(board, piece1, position1, callback);
             }
@@ -4101,7 +4128,7 @@ namespace shogipp
             element.piece1 = colored_piece_t{ (temp % (piece_size / 2)) + pawn_value };
             temp /= piece_size / 2;
             element.relative_position = static_cast<position_t>(temp + 1);
-            element.value = m_data[offset];
+            element.value = m_counts[offset];
             return element;
         }
 
@@ -4113,7 +4140,7 @@ namespace shogipp
         inline void print_most_frequent(std::size_t n, std::ostream & ostream = std::cout) const
         {
             std::vector<element_t> elements;
-            for (std::size_t i = 0; i < std::size(m_data); ++i)
+            for (std::size_t i = 0; i < std::size(m_counts); ++i)
             {
                 elements.push_back(get_element(i));
             }
@@ -4147,12 +4174,10 @@ namespace shogipp
          */
         inline void read_file(const std::filesystem::path & path)
         {
-            m_max = std::numeric_limits<value_type>::min();
             std::ifstream out(path, std::ios_base::in | std::ios::binary);
-            out.read(reinterpret_cast<char *>(m_data), sizeof(m_data));
-            for (value_type value : m_data)
-                if (m_max < value)
-                    m_max = value;
+            out.read(reinterpret_cast<char *>(m_counts), sizeof(m_counts));
+            for (std::size_t i = 0; i < std::size(m_counts); ++i)
+                m_piece_category_denominators[i / position9x9_size] += m_counts[i];
         }
 
         /**
@@ -4162,12 +4187,12 @@ namespace shogipp
         inline void write_file(const std::filesystem::path & path) const
         {
             std::ofstream out(path, std::ios_base::out | std::ios::binary);
-            out.write(reinterpret_cast<const char *>(m_data), sizeof(m_data));
+            out.write(reinterpret_cast<const char *>(m_counts), sizeof(m_counts));
         }
 
     private:
-        value_type m_max{};
-        value_type m_data[data_size]{};
+        value_type m_counts[piece_category_size * position9x9_size]{};
+        value_type m_piece_category_denominators[piece_category_size]{};
 
         /**
          * @breif 評価値を加算してもオーバーフローが発生しないよう、全ての評価値をそれらの比率を維持したまま減らす。
@@ -4175,9 +4200,10 @@ namespace shogipp
         inline void normalize() noexcept
         {
             constexpr value_type d = 2;
-            for (value_type & value : m_data)
+            for (value_type & value : m_counts)
                 value /= d;
-            m_max /= d;
+            for (value_type & value : m_piece_category_denominators)
+                value /= d;
         }
     };
 

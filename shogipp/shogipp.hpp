@@ -4252,6 +4252,11 @@ namespace shogipp
     public:
         inline enclosure_evaluator_t(const board_t & board)
         {
+            std::map<colored_piece_t, std::vector<position_t>> map;
+            for (piece_value_t piece = pawn_value; piece <= king_value; ++piece)
+                for (position_t position = position_begin; position != position_end; ++position)
+                    if (!board_t::out(position) && board[position] == colored_piece_t{ piece })
+                        map[piece].push_back(position);
         }
     };
 

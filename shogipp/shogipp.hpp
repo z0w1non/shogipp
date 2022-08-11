@@ -2043,6 +2043,9 @@ namespace shogipp
     class board_t
     {
     public:
+        using iterator = colored_piece_t *;
+        using const_iterator = const colored_piece_t *;
+
         /**
          * @breif 盤を構築する。
          */
@@ -2050,6 +2053,12 @@ namespace shogipp
 
         inline colored_piece_t & operator [](std::size_t i) noexcept;
         inline const colored_piece_t & operator [](std::size_t i) const noexcept;
+        inline iterator begin() noexcept { return std::begin(data); }
+        inline const_iterator begin() const noexcept { return std::begin(data); }
+        inline iterator end() noexcept { return std::end(data); }
+        inline const_iterator end() const noexcept { return std::end(data); }
+        inline const_iterator cbegin() const noexcept { return std::begin(data); }
+        inline const_iterator cend() const noexcept { return std::end(data); }
 
         /**
          * @breif 座標が盤外か判定する。
@@ -2073,6 +2082,23 @@ namespace shogipp
          * @breif 盤をSFEN表記法に準拠した文字列に変換する。
          */
         inline std::string sfen_string() const;
+
+        inline position_t find(colored_piece_t piece) const
+        {
+            auto iter = std::find(begin(), end(), piece);
+            if (iter == end())
+                return npos;
+            return std::distance(begin(), iter);
+        }
+
+        template<typename Pred>
+        inline position_t find_if(Pred && pred) const
+        {
+            auto iter = std::find_if(begin(), end(), std::forward<decltype(pred)>(pred)...);
+            if (iter == end())
+                return npos;
+            return std::distance(begin(), iter);
+        }
 
     private:
         friend class kyokumen_rollback_validator_t;
@@ -4217,6 +4243,17 @@ namespace shogipp
     {
         piece_pair_statistics_t piece_pair_statistics;
     }
+
+    /**
+     * @breif 囲いを評価する。
+     */
+    class enclosure_evaluator_t
+    {
+    public:
+        inline enclosure_evaluator_t(const board_t & board)
+        {
+        }
+    };
 
     /**
      * @breif 評価関数オブジェクトが呼び出された文脈を表現する。

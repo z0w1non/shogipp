@@ -2224,6 +2224,8 @@ namespace shogipp
         class positions_t
         {
         public:
+            constexpr static evaluation_value_t insufficient = std::numeric_limits<evaluation_value_t>::min();
+
             inline positions_t(const board_t & board);
             inline evaluation_value_t distance(const positions_t & positions) const;
            
@@ -2351,27 +2353,70 @@ namespace shogipp
 
     inline evaluation_value_t enclosure_evaluator_t::positions_t::distance(const positions_t & positions) const
     {
-        const auto impl = [](position_t enclosure_position, position_t position) -> position_t
+        const auto impl = [](position_t enclosure_position, position_t position) -> evaluation_value_t
         {
-            if (enclosure_position == npos || position == npos)
+            if (enclosure_position == npos)
                 return 0;
+            if (position == npos)
+                return insufficient;
             return shogipp::distance(enclosure_position, position);
         };
 
         evaluation_value_t result = 0;
 
         for (std::size_t i = 0; i < std::size(pawn_destination); ++i)
-            result += impl(pawn_destination[i], positions.pawn_destination[i]);
+        {
+            const evaluation_value_t temp = impl(pawn_destination[i], positions.pawn_destination[i]);
+            if (temp == insufficient)
+                return insufficient;
+            result += temp;
+        }
+
         for (std::size_t i = 0; i < std::size(lance_destination); ++i)
-            result += impl(lance_destination[i], positions.lance_destination[i]);
+        {
+            const evaluation_value_t temp = impl(lance_destination[i], positions.lance_destination[i]);
+            if (temp == insufficient)
+                return insufficient;
+            result += temp;
+        }
+
         for (std::size_t i = 0; i < std::size(knight_destination); ++i)
-            result += impl(knight_destination[i], positions.knight_destination[i]);
+        {
+            const evaluation_value_t temp = impl(knight_destination[i], positions.knight_destination[i]);
+            if (temp == insufficient)
+                return insufficient;
+            result += temp;
+        }
+
         for (std::size_t i = 0; i < std::size(silver_destination); ++i)
-            result += impl(silver_destination[i], positions.silver_destination[i]);
+        {
+            const evaluation_value_t temp = impl(silver_destination[i], positions.silver_destination[i]);
+            if (temp == insufficient)
+                return insufficient;
+            result += temp;
+        }
+
         for (std::size_t i = 0; i < std::size(gold_destination); ++i)
-            result += impl(gold_destination[i], positions.gold_destination[i]);
-        result += impl(bishop_destination, positions.bishop_destination);
-        result += impl(king_destination, positions.king_destination);
+        {
+            const evaluation_value_t temp = impl(gold_destination[i], positions.gold_destination[i]);
+            if (temp == insufficient)
+                return insufficient;
+            result += temp;
+        }
+
+        {
+            const evaluation_value_t temp = impl(bishop_destination, positions.bishop_destination);
+            if (temp == insufficient)
+                return insufficient;
+            result += temp;
+        }
+
+        {
+            const evaluation_value_t temp = impl(king_destination, positions.king_destination);
+            if (temp == insufficient)
+                return insufficient;
+            result += temp;
+        }
 
         return result;
     }

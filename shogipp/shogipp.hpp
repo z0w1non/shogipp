@@ -2222,6 +2222,8 @@ namespace shogipp
 
     inline enclosure_evaluator_t::positions_t::positions_t(const board_t & board)
     {
+        return; // TODO
+
         std::fill(std::begin(pawn_destination), std::end(pawn_destination), npos);
         std::fill(std::begin(lance_destination), std::end(lance_destination), npos);
         std::fill(std::begin(knight_destination), std::end(knight_destination), npos);

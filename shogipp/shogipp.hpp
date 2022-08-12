@@ -2058,6 +2058,7 @@ namespace shogipp
          * @breif 盤を構築する。
          */
         inline board_t();
+        inline board_t(std::initializer_list<colored_piece_t> initializer_list);
 
         inline colored_piece_t & operator [](std::size_t i) noexcept;
         inline const colored_piece_t & operator [](std::size_t i) const noexcept;
@@ -2116,6 +2117,11 @@ namespace shogipp
     inline board_t::board_t()
     {
         std::copy(std::begin(initial_board), std::end(initial_board), std::begin(data));
+    }
+
+    inline board_t::board_t(std::initializer_list<colored_piece_t> initializer_list)
+    {
+        std::copy(initializer_list.begin(), initializer_list.end(), begin());
     }
 
     inline colored_piece_t & board_t::operator [](std::size_t i) noexcept
@@ -4258,85 +4264,130 @@ namespace shogipp
     class enclosure_evaluator_t
     {
     public:
-        inline enclosure_evaluator_t(const board_t & board)
-        {
-            std::fill(std::begin(pawn_destination), std::end(pawn_destination), npos);
-            lance_destination = npos;
-            knight_destination = npos;
-            std::fill(std::begin(silver_destination), std::end(silver_destination), npos);
-            std::fill(std::begin(gold_destination), std::end(gold_destination), npos);
-            bishop_destination = npos;
-            king_destination = npos;
+        inline enclosure_evaluator_t(const board_t & board);
 
-            std::map<colored_piece_t, std::vector<position_t>> map;
-            for (piece_value_t piece = pawn_value; piece <= king_value; ++piece)
-                for (position_t position = position_begin; position != position_end; ++position)
-                    if (!board_t::out(position) && board[position] == colored_piece_t{ piece })
-                        map[piece].push_back(position);
-
-            if (map[black_king].size() != 1)
-                throw invalid_enclosure{ "map[black_king].size() != 1" };
-            king_destination = map[black_king][0];
-
-            is_right_side = position_to_file(map[black_king][0]) > file_size / 2;
-
-            // 囲いから近い駒の座標、囲いから遠い駒の座標の順に並び替える。
-            const auto comparator = [this](position_t position1, position_t position2) -> bool
-            {
-                const position_t file1 = position_to_file(position1);
-                const position_t file2 = position_to_file(position2);
-                if (file1 < file2)
-                    return true ^ is_right_side;
-                if (file1 > file2)
-                    return false ^ is_right_side;
-                const position_t rank1 = position_to_rank(position1);
-                const position_t rank2 = position_to_rank(position2);
-                if (file1 <= file_size / 2)
-                    return (rank1 < rank2) ^ is_right_side;
-                return (rank1 > rank2) ^ is_right_side;
-            };
-            for (auto & [colored_piece, positions] : map)
-                std::sort(positions.begin(), positions.end(), comparator);
-
-            if (map[black_pawn].size() > std::size(pawn_destination))
-                throw invalid_enclosure{ "map[black_pawn].size() > std::size(pawn_destination)" };
-            std::copy(map[black_pawn].begin(), map[black_pawn].end(), std::begin(pawn_destination));
-
-            if (map[black_lance].size() != 1)
-                throw invalid_enclosure{ "map[black_lance].size() != 1" };
-            lance_destination = map[black_lance][0];
-
-            if (map[black_knight].size() != 1)
-                throw invalid_enclosure{ "map[black_knight].size() != 1" };
-            knight_destination = map[black_knight][0];
-
-            if (map[black_silver].size() > std::size(silver_destination))
-                throw invalid_enclosure{ "map[black_silver].size() > std::size(silver_destination)" };
-            std::copy(map[black_silver].begin(), map[black_silver].end(), std::begin(silver_destination));
-
-            if (map[black_gold].size() > std::size(gold_destination))
-                throw invalid_enclosure{ "map[black_gold].size() > std::size(gold_destination)" };
-            std::copy(map[black_gold].begin(), map[black_gold].end(), std::begin(gold_destination));
-
-            if (map[black_bishop].size() != 1)
-                throw invalid_enclosure{ "map[black_bishop].size() != 1" };
-            bishop_destination = map[black_bishop][0];
-        }
-
-        inline position_t distance(const board_t & board, color_t color) const
-        {
-        }
+        inline position_t distance(const board_t & board, color_t color) const;
 
     private:
-        bool is_right_side;
-        position_t pawn_destination[file_size / 2 + 1];
-        position_t lance_destination;
-        position_t knight_destination;
-        position_t silver_destination[2];
-        position_t gold_destination[2];
-        position_t bishop_destination;
-        position_t king_destination;
+        class positions_t
+        {
+        public:
+            inline positions_t(const board_t & board);
+            inline position_t distance(const positions_t & positions) const;
+           
+            position_t pawn_destination[file_size];
+            position_t lance_destination[2];
+            position_t knight_destination[2];
+            position_t silver_destination[2];
+            position_t gold_destination[2];
+            position_t bishop_destination;
+            position_t king_destination;
+        };
+
+        positions_t positions;
     };
+
+    inline enclosure_evaluator_t::positions_t::positions_t(const board_t & board)
+    {
+        std::fill(std::begin(pawn_destination), std::end(pawn_destination), npos);
+        std::fill(std::begin(lance_destination), std::end(lance_destination), npos);
+        std::fill(std::begin(knight_destination), std::end(knight_destination), npos);
+        std::fill(std::begin(silver_destination), std::end(silver_destination), npos);
+        std::fill(std::begin(gold_destination), std::end(gold_destination), npos);
+        bishop_destination = npos;
+        king_destination = npos;
+
+        std::map<colored_piece_t, std::vector<position_t>> map;
+        for (piece_value_t piece = pawn_value; piece <= king_value; ++piece)
+            for (position_t position = position_begin; position != position_end; ++position)
+                if (!board_t::out(position) && board[position] == colored_piece_t{ piece })
+                    map[piece].push_back(position);
+
+        if (map[black_king].size() != 1)
+            throw invalid_enclosure{ "map[black_king].size() != 1" };
+        king_destination = map[black_king][0];
+
+        // 左側の駒の移動先から右側の駒の移動先の順に並び替える。
+        const auto comparator = [](position_t position1, position_t position2) -> bool
+        {
+            const position_t file1 = position_to_file(position1);
+            const position_t file2 = position_to_file(position2);
+            if (file1 < file2)
+                return true;
+            if (file1 > file2)
+                return false;
+            const position_t rank1 = position_to_rank(position1);
+            const position_t rank2 = position_to_rank(position2);
+            if (file1 <= file_size / 2)
+                return (rank1 < rank2);
+            return (rank1 > rank2);
+        };
+        for (auto & [colored_piece, positions] : map)
+            std::sort(positions.begin(), positions.end(), comparator);
+
+        if (map[black_pawn].size() > std::size(pawn_destination))
+            throw invalid_enclosure{ "map[black_pawn].size() > std::size(pawn_destination)" };
+        std::copy(map[black_pawn].begin(), map[black_pawn].end(), std::begin(pawn_destination));
+
+        if (map[black_lance].size() > std::size(lance_destination))
+            throw invalid_enclosure{ "map[black_lance].size() > std::size(lance_destination)" };
+        std::copy(map[black_lance].begin(), map[black_lance].end(), std::begin(lance_destination));
+
+        if (map[black_knight].size() > std::size(knight_destination))
+            throw invalid_enclosure{ "map[black_knight].size() > std::size(knight_destination)" };
+        std::copy(map[black_knight].begin(), map[black_knight].end(), std::begin(knight_destination));
+
+        if (map[black_silver].size() > std::size(silver_destination))
+            throw invalid_enclosure{ "map[black_silver].size() > std::size(silver_destination)" };
+        std::copy(map[black_silver].begin(), map[black_silver].end(), std::begin(silver_destination));
+
+        if (map[black_gold].size() > std::size(gold_destination))
+            throw invalid_enclosure{ "map[black_gold].size() > std::size(gold_destination)" };
+        std::copy(map[black_gold].begin(), map[black_gold].end(), std::begin(gold_destination));
+
+        if (map[black_bishop].size() != 1)
+            throw invalid_enclosure{ "map[black_bishop].size() != 1" };
+        bishop_destination = map[black_bishop][0];
+    }
+
+    inline position_t enclosure_evaluator_t::positions_t::distance(const positions_t & positions) const
+    {
+        const auto impl = [](position_t position1, position_t position2) -> position_t
+        {
+            if (position1 == npos || position2 == npos)
+                return 0;
+            return shogipp::distance(position1, position2);
+        };
+
+        position_t result = 0;
+
+        for (std::size_t i = 0; i < std::size(pawn_destination); ++i)
+            result += impl(pawn_destination[i], positions.pawn_destination[i]);
+        for (std::size_t i = 0; i < std::size(lance_destination); ++i)
+            result += impl(lance_destination[i], positions.lance_destination[i]);
+        for (std::size_t i = 0; i < std::size(knight_destination); ++i)
+            result += impl(knight_destination[i], positions.knight_destination[i]);
+        for (std::size_t i = 0; i < std::size(silver_destination); ++i)
+            result += impl(silver_destination[i], positions.silver_destination[i]);
+        for (std::size_t i = 0; i < std::size(gold_destination); ++i)
+            result += impl(gold_destination[i], positions.gold_destination[i]);
+        result += impl(bishop_destination, positions.bishop_destination);
+        result += impl(king_destination, positions.king_destination);
+
+        return result;
+    }
+
+    inline enclosure_evaluator_t::enclosure_evaluator_t(const board_t & board)
+        : positions{ board }
+    {
+    }
+
+    inline position_t enclosure_evaluator_t::distance(const board_t & board, color_t color) const
+    {
+        const board_t temp{ board };
+        // TODO: 後手番の場合反転させる
+        return positions.distance(positions_t{ temp });
+    }
 
     /**
      * @breif 評価関数オブジェクトが呼び出された文脈を表現する。

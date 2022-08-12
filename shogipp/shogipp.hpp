@@ -4581,7 +4581,7 @@ namespace shogipp
                 promotion_string = "";
             ostream
                 << position_to_string(move.destination()) << noncolored_piece_t{ move.source_piece() }.to_string() << promotion_string
-                << "（" << position_to_string(move.source()) << "）" << std::flush;
+                << "(" << position_to_string(move.source()) << ")" << std::flush;
         }
     }
 
@@ -7375,7 +7375,7 @@ namespace shogipp
             const std::shared_ptr<abstract_kishi_t> & winner_evaluator = kishi_list[!kyokumen.color().value()];
             ostream << kyokumen.move_count << "手詰み" << std::endl;
             kyokumen.print(ostream);
-            ostream << (!kyokumen.color()).to_string() << "勝利（" << winner_evaluator->name() << "）" << std::flush;
+            ostream << (!kyokumen.color()).to_string() << "勝利(" << winner_evaluator->name() << ")" << std::flush;
         }
         else
         {

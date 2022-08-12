@@ -5170,6 +5170,12 @@ namespace shogipp
         }
     };
 
+    /**
+     * @breif ”Õ‚ÌˆÍ‚¢‚Ì—ŞŒ^‚ğ”»’è‚·‚éB
+     * @param board ”Õ
+     * @param color è”Ô
+     * @return ”Õ‚ÌˆÍ‚¢‚Ì—ŞŒ^(‹”òÔ/U‚è”òÔ)
+     */
     enclosure_type get_enclosure_type(const board_t & board, color_t color)
     {
         const position_t position = board.find(colored_piece_t{ king, color });
@@ -5181,6 +5187,14 @@ namespace shogipp
     }
 
     using evaluated_enclosure_t = std::pair<const enclosure_evaluator_t *, evaluation_value_t>;
+
+
+    /**
+     * @breif Å‚à‹ß‚¢ˆÍ‚¢‚Æ‚»‚Ì•]‰¿’l‚ğæ“¾‚·‚éB
+     * @param board ”Õ
+     * @param color è”Ô
+     * @return Å‚à‹ß‚¢ˆÍ‚¢‚Æ‚»‚Ì•]‰¿’l
+     */
     evaluated_enclosure_t nearest_enclosure(const board_t & board, color_t color)
     {
         std::vector<evaluated_enclosure_t> evaluated_enclosures;

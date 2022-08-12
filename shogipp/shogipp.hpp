@@ -3158,9 +3158,9 @@ namespace shogipp
         const std::vector<enclosure_evaluator_t> & enclosure_evaluators = defined_enclosure_evaluators[offset];
         for (const enclosure_evaluator_t & enclosure_evaluator : enclosure_evaluators)
             evaluated_enclosures.emplace_back(&enclosure_evaluator, enclosure_evaluator.distance(board, color));
-        const auto comparator = [](const evaluated_enclosure_t & a, const evaluated_enclosure_t & b) -> bool
+        const auto comparator = [](const evaluated_enclosure_t & evaluated_enclosure1, const evaluated_enclosure_t & evaluated_enclosure2) -> bool
         {
-            return a.second < b.second;
+            return evaluated_enclosure1.second < evaluated_enclosure2.second;
         };
         std::sort(evaluated_enclosures.begin(), evaluated_enclosures.end(), comparator);
         SHOGIPP_ASSERT(!evaluated_enclosures.empty());

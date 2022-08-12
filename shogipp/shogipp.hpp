@@ -111,11 +111,11 @@ namespace shogipp
          * @param s 区切られる文字列
          */
         template<typename OutputIterator, typename CharT>
-        inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> s)
+        inline void split_tokens(OutputIterator result, std::basic_string_view<CharT> str)
         {
             std::basic_regex<CharT> separator{ details::split_tokens_literal<CharT>() };
             using regex_token_iterator = std::regex_token_iterator<typename std::basic_string_view<CharT>::const_iterator>;
-            auto iter = regex_token_iterator{ s.begin(), s.end(), separator, -1 };
+            auto iter = regex_token_iterator{ str.begin(), str.end(), separator, -1 };
             auto end = regex_token_iterator{};
             while (iter != end)
                 *result++ = *iter++;
@@ -241,12 +241,12 @@ namespace shogipp
             return false;
         }
 
-        template<std::size_t N>
-        constexpr inline std::uint32_t bool_array_to_32bitmask(const bool(&bool_array)[N]) noexcept
+        template<std::size_t Size>
+        constexpr inline std::uint32_t bool_array_to_32bitmask(const bool(&bool_array)[Size]) noexcept
         {
-            static_assert(N < 32);
+            static_assert(Size < 32);
             std::uint32_t bitmask = 0;
-            for (std::size_t i = 0; i < N; ++i)
+            for (std::size_t i = 0; i < Size; ++i)
                 if (bool_array[i])
                     bitmask |= (1 << i);
             return bitmask;
@@ -258,10 +258,10 @@ namespace shogipp
         }
 
         template<typename Function>
-        inline std::chrono::milliseconds test_time_performance(Function && func, std::size_t n)
+        inline std::chrono::milliseconds test_time_performance(Function && func, std::size_t iteration)
         {
             const std::chrono::system_clock::time_point begin = std::chrono::system_clock::now();
-            for (std::size_t i = 0; i < n; ++i)
+            for (std::size_t i = 0; i < iteration; ++i)
                 func();
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
@@ -285,12 +285,12 @@ namespace shogipp
          * @param b 値2
          * @return 一様交叉された値
          */
-        inline unsigned char uniform_croossover(unsigned char a, unsigned char b)
+        inline unsigned char uniform_croossover(unsigned char byte1, unsigned char byte2)
         {
             unsigned char result = 0;
             const unsigned char random_byte = random<unsigned char>();
-            result |= (a & random_byte);
-            result |= (b & (~random_byte));
+            result |= (byte1 & random_byte);
+            result |= (byte2 & (~random_byte));
             return result;
         }
 
@@ -299,11 +299,11 @@ namespace shogipp
          * @param s 文字列
          * @return bool 値
          */
-        inline std::optional<bool> to_bool(std::string_view s) noexcept
+        inline std::optional<bool> to_bool(std::string_view value_string) noexcept
         {
-            if (s == "true" || s == "enable" || s == "1")
+            if (value_string == "true" || value_string == "enable" || value_string == "1")
                 return true;
-            if (s == "false" || s == "disable" || s == "0")
+            if (value_string == "false" || value_string == "disable" || value_string == "0")
                 return false;
             return std::nullopt;
         }
@@ -319,12 +319,12 @@ namespace shogipp
         }
 
         template<typename Integer>
-        std::optional<Integer> cast_to(const std::string & s) noexcept
+        std::optional<Integer> cast_to(const std::string & string) noexcept
         {
             try
             {
                 Integer integer;
-                std::istringstream stream{ s };
+                std::istringstream stream{ string };
                 stream >> integer;
                 return integer;
             }
@@ -736,6 +736,25 @@ namespace shogipp
     constexpr colored_piece_t white_promoted_silver{ promoted_silver_value + color_distance };
     constexpr colored_piece_t white_promoted_bishop{ promoted_bishop_value + color_distance };
     constexpr colored_piece_t white_promoted_rook  { promoted_rook_value   + color_distance };
+
+    constexpr colored_piece_t _{ empty        .value() };
+    constexpr colored_piece_t P{ black_pawn   .value() };
+    constexpr colored_piece_t p{ white_pawn   .value() };
+    constexpr colored_piece_t L{ black_lance  .value() };
+    constexpr colored_piece_t l{ white_lance  .value() };
+    constexpr colored_piece_t N{ black_knight .value() };
+    constexpr colored_piece_t n{ white_knight .value() };
+    constexpr colored_piece_t S{ black_silver .value() };
+    constexpr colored_piece_t s{ white_silver .value() };
+    constexpr colored_piece_t G{ black_gold   .value() };
+    constexpr colored_piece_t g{ white_gold   .value() };
+    constexpr colored_piece_t B{ black_bishop .value() };
+    constexpr colored_piece_t b{ white_bishop .value() };
+    constexpr colored_piece_t R{ black_rook   .value() };
+    constexpr colored_piece_t r{ white_rook   .value() };
+    constexpr colored_piece_t K{ black_king   .value() };
+    constexpr colored_piece_t k{ white_king   .value() };
+    constexpr colored_piece_t x{ out_of_range .value() };
 
     constexpr piece_value_t captured_piece_size = rook.value() - pawn.value() + 1;
 
@@ -1979,24 +1998,6 @@ namespace shogipp
 
     class kyokumen_rollback_validator_t;
 
-#define _ { empty        .value() }
-#define P { black_pawn   .value() }
-#define p { white_pawn   .value() }
-#define L { black_lance  .value() }
-#define l { white_lance  .value() }
-#define N { black_knight .value() }
-#define n { white_knight .value() }
-#define S { black_silver .value() }
-#define s { white_silver .value() }
-#define G { black_gold   .value() }
-#define g { white_gold   .value() }
-#define B { black_bishop .value() }
-#define b { white_bishop .value() }
-#define R { black_rook   .value() }
-#define r { white_rook   .value() }
-#define K { black_king   .value() }
-#define k { white_king   .value() }
-#define x { out_of_range .value() }
     constexpr colored_piece_t clear_board[]
     {
         x, x, x, x, x, x, x, x, x, x, x,
@@ -2026,24 +2027,6 @@ namespace shogipp
         x, L, N, S, G, K, G, S, N, L, x,
         x, x, x, x, x, x, x, x, x, x, x,
     };
-#undef _
-#undef P
-#undef p
-#undef L
-#undef l
-#undef N
-#undef n
-#undef S
-#undef s
-#undef G
-#undef g
-#undef B
-#undef b
-#undef R
-#undef r
-#undef K
-#undef k
-#undef x
 
     /**
      * @breif 盤
@@ -4426,6 +4409,250 @@ namespace shogipp
         }
         return std::numeric_limits<position_t>::max();
     }
+
+    enclosure_evaluator_t defined_enclosures[]
+    {
+        { // 矢倉囲い（金矢倉）
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, P, P, _, _, _, _, x,
+                x, _, P, S, G, _, _, _, _, _, x,
+                x, _, K, G, B, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 銀矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, P, P, _, _, _, _, x,
+                x, _, P, S, S, _, _, _, _, _, x,
+                x, _, K, G, _, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 片矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, P, P, _, _, _, _, x,
+                x, _, P, S, G, _, _, _, _, _, x,
+                x, _, _, K, G, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 総矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, P, P, _, _, _, _, x,
+                x, _, P, S, G, S, _, _, _, _, x,
+                x, _, K, G, B, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 菊水矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, P, P, _, _, _, _, x,
+                x, _, P, N, G, _, _, _, _, _, x,
+                x, _, S, G, B, _, _, _, _, _, x,
+                x, L, K, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 菊水矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, P, _, _, _, _, _, _, x,
+                x, P, _, S, P, P, _, _, _, _, x,
+                x, _, P, N, G, _, _, _, _, _, x,
+                x, _, S, G, B, _, _, _, _, _, x,
+                x, L, K, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 菱矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, P, _, _, _, _, _, x,
+                x, P, _, P, S, P, _, _, _, _, x,
+                x, _, P, S, G, _, _, _, _, _, x,
+                x, _, K, G, B, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 富士見矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, P, _, _, _, _, x,
+                x, P, _, P, P, S, _, _, _, _, x,
+                x, _, P, S, G, _, _, _, _, _, x,
+                x, _, K, G, B, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 矢倉穴熊
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, P, P, P, _, _, _, _, x,
+                x, P, P, G, _, _, _, _, _, _, x,
+                x, L, S, G, B, _, _, _, _, _, x,
+                x, K, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // へこみ矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, _, P, _, _, _, _, x,
+                x, _, P, S, P, _, _, _, _, _, x,
+                x, _, K, G, G, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 流れ矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, P, P, _, _, _, _, x,
+                x, _, P, N, G, S, _, _, _, _, x,
+                x, _, K, G, _, _, _, _, _, _, x,
+                x, L, _, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 流線矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, P, P, _, _, _, _, x,
+                x, _, P, N, G, S, _, _, _, _, x,
+                x, _, S, G, _, _, _, _, _, _, x,
+                x, L, K, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 角矢倉
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, P, _, _, _, _, _, x,
+                x, _, P, S, B, P, _, _, _, _, x,
+                x, _, K, G, _, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 左美濃囲い
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, _, P, _, P, _, _, _, _, x,
+                x, _, P, B, P, _, _, _, _, _, x,
+                x, _, K, S, _, G, _, _, _, _, x,
+                x, L, N, _, G, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 四枚美濃
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, P, P, P, P, _, _, _, _, x,
+                x, _, K, S, G, _, _, _, _, _, x,
+                x, _, _, S, _, _, _, _, _, _, x,
+                x, L, N, B, G, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+        { // 天守閣美濃
+            {
+                x, x, x, x, x, x, x, x, x, x, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, _, _, _, _, _, _, _, _, _, x,
+                x, P, P, P, _, P, _, _, _, _, x,
+                x, _, K, _, P, _, _, _, _, _, x,
+                x, _, B, S, _, G, _, _, _, _, x,
+                x, L, N, _, G, _, _, _, _, _, x,
+                x, x, x, x, x, x, x, x, x, x, x,
+            }
+        },
+    };
 
     /**
      * @breif 評価関数オブジェクトが呼び出された文脈を表現する。

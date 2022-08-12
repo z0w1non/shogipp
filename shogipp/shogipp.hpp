@@ -355,6 +355,9 @@ namespace shogipp
             constexpr bool default_print_board = true;
             bool print_board = default_print_board;
 
+            constexpr bool default_print_enclosure = false;
+            bool print_enclosure = default_print_enclosure;
+
             constexpr std::chrono::milliseconds default_limit_time{ 10 * 1000 };
             std::chrono::milliseconds limit_time = default_limit_time;
 
@@ -481,6 +484,11 @@ namespace shogipp
         constexpr inline static std::size_t max() noexcept { return 1; }
         constexpr inline static std::size_t size() noexcept { return 2; }
 
+        /**
+         * @breif 先後を表現する文字列を取得する。
+         * @return 先後を表現する文字列
+         */
+        inline const std::string & to_string() const noexcept;
     private:
         value_type m_value;
     };
@@ -488,6 +496,12 @@ namespace shogipp
     constexpr inline color_t::color_t(value_type value) noexcept
         : m_value{ value }
     {
+    }
+
+    inline const std::string & color_t::to_string() const noexcept
+    {
+        const std::string map[]{ "先手", "後手" };
+        return map[m_value];
     }
 
     constexpr color_t black{ 0 };
@@ -1549,17 +1563,6 @@ namespace shogipp
     }
 
     /**
-     * @breif 先後を表現する文字列を取得する。
-     * @param color 先後
-     * @return 先後を表現する文字列
-     */
-    inline const char * color_to_string(color_t color) noexcept
-    {
-        const char * map[]{ "先手", "後手" };
-        return map[color.value()];
-    }
-
-    /**
      * @breif 数値を全角文字列に変換する。
      * @param value 数値
      * @return 全角文字列
@@ -2173,2072 +2176,6 @@ namespace shogipp
                 result += '/';
         }
         return result;
-    }
-
-    inline move_t::move_t(std::string_view sfen_move, const board_t & board)
-        : m_tag{ none_tag }
-    {
-        if (sfen_move.size() < 4)
-            throw invalid_usi_input{ "invalid sfen move" };
-
-        if (sfen_move[1] == '*')
-        {
-            if (sfen_move.size() > 4)
-                throw invalid_usi_input{ "invalid sfen move" };
-            const std::optional<colored_piece_t> optional_piece = char_to_piece(sfen_move[0]);
-            if (!optional_piece)
-                throw invalid_usi_input{ "invalid sfen move" };
-            if (optional_piece->to_color() == white)
-                throw invalid_usi_input{ "invalid sfen move" };
-            const position_t destination = sfen_position_to_position(sfen_move.substr(2, 2));
-
-            m_source = npos;
-            m_destination = destination;
-            m_source_piece = *optional_piece;
-            m_destination_piece = colored_piece_t{};
-            m_promote = false;
-        }
-        else
-        {
-            const position_t source = sfen_position_to_position(sfen_move.substr(0, 2));
-            if (board[source].empty())
-                throw invalid_usi_input{ "invalid sfen move 1" };
-            if (board_t::out(source))
-                throw invalid_usi_input{ "invalid sfen move 2" };
-            const position_t destination = sfen_position_to_position(sfen_move.substr(2, 2));
-            if (board_t::out(destination))
-                throw invalid_usi_input{ "invalid sfen move 3" };
-            bool promote;
-            if (sfen_move.size() == 5 && sfen_move[4] == '+')
-                promote = true;
-            else if (sfen_move.size() == 4)
-                promote = false;
-            else
-                throw invalid_usi_input{ "invalid sfen move" };
-
-            m_source = source;
-            m_destination = destination;
-            m_source_piece = board[source];
-            m_destination_piece = board[destination];
-            m_promote = promote;
-        }
-    }
-
-    /**
-     * @breif 利き
-     */
-    class kiki_t
-    {
-    public:
-        position_t position;    // 利いている駒の座標
-        position_t offset;      // 利かされている駒の座標を基準とする利きの相対座標
-        bool aigoma;            // 合駒が可能か
-    };
-
-    class aigoma_info_t
-        : public std::unordered_map<position_t, std::vector<position_t>>
-    {
-    public:
-        using std::unordered_map<position_t, std::vector<position_t>>::unordered_map;
-
-        inline void print() const
-        {
-            for (const auto & [position, candidates] : *this)
-                std::cout << "合駒：" << position_to_string(position) << std::endl;
-        }
-    };
-
-    /**
-     * @breif 参照される直前に遅延評価する機能を提供する。
-     */
-    template<typename T>
-    class lazy_evaluated_t
-    {
-    public:
-        using value_type = T;
-        using function_type = std::function<void(value_type &)>;
-
-        /**
-         * @breif 参照される直前に遅延評価する機能を提供する。
-         * @param evaluator 遅延評価する関数
-         */
-        inline lazy_evaluated_t(const function_type & evaluator)
-            : m_value{}
-            , m_valid{ false }
-            , m_evaluator{ evaluator }
-        {
-        }
-
-        /**
-         * @breif 参照される直前に遅延評価する機能を提供する。
-         * @return 遅延評価された値
-         */
-        inline value_type & operator *()
-        {
-            evaluate();
-            return m_value;
-        }
-
-        /**
-         * @breif 参照される直前に遅延評価する機能を提供する。
-         * @return 遅延評価された値
-         */
-        inline const value_type & operator *() const
-        {
-            evaluate();
-            return m_value;
-        }
-
-        /**
-         * @breif 参照される直前に遅延評価する機能を提供する。
-         * @return 遅延評価された値
-         */
-        inline value_type * operator ->()
-        {
-            evaluate();
-            return &m_value;
-        }
-
-        /**
-         * @breif 参照される直前に遅延評価する機能を提供する。
-         * @return 遅延評価された値
-         */
-        inline const value_type * operator ->() const
-        {
-            evaluate();
-            return &m_value;
-        }
-
-        /**
-         * @breif 再評価を要求する。
-         */
-        inline void request_reevaluation()
-        {
-            m_valid = false;
-        }
-        
-    //private:
-        mutable value_type m_value;
-        mutable bool m_valid;
-        function_type m_evaluator;
-
-        inline void evaluate() const
-        {
-            if (!m_valid)
-            {
-                m_evaluator(m_value);
-                m_valid = true;
-            }
-        }
-    };
-
-    template<typename Value, typename Hash = std::hash<Value>>
-    class stack_set_t
-    {
-    public:
-        using value_type = Value;
-        using stack_type = std::deque<value_type>;
-        using hash_type = Hash;
-        using unordered_set_type = std::unordered_set<value_type, hash_type>;
-
-        /**
-         * @breif スタックで管理されるキャッシュを構築する。
-         */
-        inline stack_set_t()
-        {
-        }
-
-        inline stack_set_t(const stack_set_t &) = default;
-        inline stack_set_t(stack_set_t &&) = default;
-        inline stack_set_t & operator =(const stack_set_t &) = default;
-        inline stack_set_t & operator =(stack_set_t &&) = default;
-
-        /**
-         * @breif キャッシュを破棄する。
-         */
-        inline void clear()
-        {
-            stack.clear();
-            uset.clear();
-        }
-
-        /**
-         * @breif 値が登録されているか判定する。
-         * @param 値
-         * @retval true 値が登録されている
-         * @retval false 値が登録されていない
-         */
-        inline bool contains(value_type value) const
-        {
-            return uset.find(value) != uset.end();
-        }
-
-        /**
-         * @breif 値を登録する。
-         * @param value 値
-         */
-        inline void push(value_type value)
-        {
-            stack.emplace_back(value);
-            uset.insert(value);
-        }
-
-        inline void pop()
-        {
-            uset.erase(stack.back());
-            stack.pop_back();
-        }
-
-    private:
-        stack_type stack;
-        unordered_set_type uset;
-    };
-
-#ifdef SIZE_OF_HASH
-    using stack_cache_t = stack_set_t<hash_t, basic_hash_hasher_t<SIZE_OF_HASH>>;
-#else
-    using stack_cache_t = stack_set_t<hash_t>;
-#endif
-
-    /**
-     * @breif 局面の追加情報
-     * @details 手番の合法手を検索する過程で手番にかかっている王手が必要になるため、個別にスタック構造を保持する。
-     */
-    class additional_info_t
-    {
-    public:
-        std::vector<std::vector<kiki_t>> check_list_stack;  // 手番にかかっている王手
-        std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
-        position_t king_position_list[color_t::size()]{};   // 王の座標
-        stack_cache_t previously_done_moves;                // 既出の合法手
-    };
-
-    /**
-     * @breif 局面
-     */
-    class kyokumen_t
-    {
-    public:
-        /**
-         * @breif 局面を構築する。
-         */
-        inline kyokumen_t();
-
-        /**
-         * @breif position コマンドで指定された文字列から局面を構築する。
-         */
-        inline kyokumen_t(std::string_view position);
-
-        /**
-         * @breif 駒が移動する場合に成りが可能か判定する。
-         * @param piece 駒
-         * @param source 移動元の座標
-         * @param destination 移動先の座標
-         * @return 成りが可能の場合(駒が既に成っている場合、常にfalse)
-         */
-        inline static bool promotable(colored_piece_t piece, position_t source, position_t destination);
-
-        /**
-         * @breif 駒が移動する場合に成りが必須か判定する。
-         * @param piece 駒
-         * @param destination 移動先の座標
-         * @return 成りが必須の場合(駒が既に成っている場合、常にfalse)
-         */
-        inline static bool must_promote(colored_piece_t piece, position_t destination);
-
-        /**
-         * @breif 移動元の座標から移動可能の移動先を反復的に検索する。
-         * @param result 移動先の座標の出力イテレータ
-         * @param source 移動元の座標
-         * @param offset 移動先の相対座標
-         */
-        template<typename OutputIterator>
-        inline void search_far_destination(OutputIterator result, position_t source, position_t offset) const;
-
-        /**
-         * @breif 移動元の座標から移動可能の移動先を非反復的に検索する。
-         * @param result 移動先の座標の出力イテレータ
-         * @param source 移動元の座標
-         * @param offset 移動先の相対座標
-         */
-        template<typename OutputIterator>
-        inline void search_near_destination(OutputIterator result, position_t source, position_t offset) const;
-
-        /**
-         * @breif 移動元の座標から移動可能の移動先を検索する。
-         * @param result 移動先の座標の出力イテレータ
-         * @param source 移動元の座標
-         * @param color どちらの手番の移動か
-         */
-        template<typename OutputIterator>
-        inline void search_destination(OutputIterator result, position_t source, color_t color) const;
-
-        /**
-         * @breif 持ち駒を移動先の座標に打つことができるか判定する。歩、香、桂に限りfalseを返す可能性がある。
-         * @param piece 持ち駒
-         * @param destination 移動先の座標
-         * @return 置くことができる場合 true
-         */
-        inline bool puttable(captured_piece_t piece, position_t destination) const;
-
-        /**
-         * @breif 移動元の座標を検索する。
-         * @param result 出力イテレータ
-         * @param color どちらの手番の移動か
-         */
-        template<typename OutputIterator>
-        inline void search_source(OutputIterator result, color_t color) const;
-
-        /**
-         * @breif 座標positionから相対座標offset方向に走査し最初に駒が現れる座標を返す。
-         * @param position 走査を開始する座標
-         * @param offset 走査する相対座標
-         * @return 最初に駒が現れる座標(駒が見つからない場合 npos )
-         */
-        inline position_t search(position_t position, position_t offset) const;
-
-        /**
-         * @breif 座標positionを利いている駒あるいは紐を付けている駒を検索する。
-         * @param result 利きの出力イテレータ
-         * @param position 座標
-         * @param offset 利きの相対座標
-         * @param first 利く駒の入力イテレータ(begin)
-         * @param last 利く駒の入力イテレータ(end)
-         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
-         * @param transform (position, offset, aigoma) を出力イテレータに出力する変数に変換する関数
-         */
-        template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-        inline void search_piece_near(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const;
-
-        /**
-         * @breif 座標positionを利いている駒あるいは紐を付けている駒を検索する。
-         * @param result 座標の出力イテレータ
-         * @param position 座標
-         * @param offset 利きの相対座標
-         * @param first 利く駒の入力イテレータ(begin)
-         * @param last 利く駒の入力イテレータ(end)
-         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
-         * @param transform (position, offset, aigoma) を出力イテレータに出力する変数に変換する関数
-         * @sa search_kiki_far
-         */
-        template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-        inline void search_piece_far(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const;
-
-        /**
-         * @breif 座標positionに利いている駒あるいは紐を付けている駒を検索する。
-         * @param result 座標の出力イテレータ
-         * @param position 座標
-         * @param color 先後いずれの視点か
-         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
-         * @param transform (position, offset, aigoma) を出力イテレータに出力する変数に変換する関数
-         */
-        template<typename OutputIterator, typename IsCollected, typename Transform>
-        inline void search_piece(OutputIterator result, position_t position, color_t color, IsCollected is_collected, Transform transform) const;
-
-        /**
-         * @breif 座標positionに紐を付けている駒を検索する。
-         * @param result 座標の出力イテレータ
-         * @param position 座標
-         * @param color 先後いずれの視点か
-         */
-        template<typename OutputIterator>
-        inline void search_himo(OutputIterator result, position_t position, color_t color) const;
-
-        /**
-         * @breif 座標positionに利いている駒を検索する。
-         * @param result 座標の出力イテレータ
-         * @param position 座標
-         * @param color 先後いずれの視点か
-         */
-        template<typename OutputIterator>
-        inline void search_kiki(OutputIterator result, position_t position, color_t color) const;
-
-        /**
-         * @breif 座標positionに利いている駒あるいは紐を付けている駒を検索する。
-         * @param result 座標の出力イテレータ
-         * @param position 座標
-         * @param color 先後いずれの視点か
-         */
-        template<typename OutputIterator>
-        inline void search_kiki_or_himo(OutputIterator result, position_t position, color_t color) const;
-
-        /**
-         * @breif 王手を検索する。
-         * @param result 座標の出力イテレータ
-         * @param color 先後いずれの視点か
-         */
-        template<typename OutputIterator>
-        inline void search_check(OutputIterator result, color_t color) const;
-
-        /**
-         * @breif 王手を検索する。
-         * @param color 先後いずれの視点か
-         * @return 王手
-         */
-        std::vector<kiki_t> search_check(color_t color) const;
-
-        /**
-         * @breif 追加情報をpushする。
-         */
-        inline void push_additional_info();
-
-        /**
-         * @breif 追加情報をpushする。
-         * @param hash ハッシュ値
-         */
-        inline void push_additional_info(hash_t hash);
-
-        /**
-         * @breif 追加情報をpopする。
-         */
-        inline void pop_additional_info();
-
-        /**
-         * @breif 追加情報をclearする。
-         */
-        inline void clear_additional_info();
-
-        /**
-         * @breif 王の座標を更新する。
-         */
-        inline void update_king_position_list();
-
-        /**
-         * @breif 合駒を検索する。
-         * @param aigoma_info 合駒の出力先
-         * @param color 先後いずれの視点か
-         */
-        inline void search_aigoma(aigoma_info_t & aigoma_info, color_t color) const;
-
-        /**
-         * @breif 合駒を検索する。
-         * @param color 先後いずれの視点か
-         * @return 合駒の情報
-         */
-        inline aigoma_info_t search_aigoma(color_t color) const;
-
-        /**
-         * @breif 移動元と移動先の座標から合法手を検索する。
-         * @param result 合法手の出力イテレータ
-         * @param source 移動元の座標
-         * @param destination 移動先の座標
-         * @param tag タグ
-         */
-        template<typename OutputIterator>
-        inline void search_moves_from_positions(OutputIterator result, position_t source, position_t destination, move_t::tag_t tag) const;
-
-        /**
-         * @breif 合法手のうち王手を外さない手を検索する。
-         * @param result 合法手の出力イテレータ
-         * @details 王手されていない場合、この関数により生成される手の集合は合法手全体と完全に一致する。
-         */
-        template<typename OutputIterator>
-        inline void search_moves_nonescapes(OutputIterator result) const;
-
-        /**
-         * @breif 王手を外す手のうち王を移動する手を検索する。
-         * @param result 合法手の出力イテレータ
-         */
-        template<typename OutputIterator>
-        inline void search_moves_escapes_king_move(OutputIterator result) const;
-
-        /**
-         * @breif 王手を外す手のうち合駒する手を検索する。
-         * @param result 合法手の出力イテレータ
-         */
-        template<typename OutputIterator>
-        inline void search_moves_escapes_aigoma(OutputIterator result) const;
-
-        /**
-         * @breif 合法手のうち王手を外す手を検索する。
-         * @param result 合法手の出力イテレータ
-         */
-        template<typename OutputIterator>
-        inline void search_moves_escapes(OutputIterator result) const;
-
-        /**
-         * @breif 王手を外さない手のうち駒を動かす手を検索する。
-         * @param result 合法手の出力イテレータ
-         */
-        template<typename OutputIterator>
-        inline void search_moves_moves(OutputIterator result) const;
-
-        /**
-         * @breif 王手を外さない手のうち持ち駒を打つ手を検索する。
-         * @param result 合法手の出力イテレータ
-         */
-        template<typename OutputIterator>
-        inline void search_moves_puts(OutputIterator result) const;
-
-        /**
-         * @breif 合法手を検索する。
-         * @param result 合法手の出力イテレータ
-         */
-        template<typename OutputIterator>
-        inline void search_moves(OutputIterator result) const;
-
-        /**
-         * @breif 合法手を検索する。
-         * @param result 合法手の出力イテレータ
-         * @details anti_repetition_of_moves == true の場合この関数は strict_search_moves にリダイレクトされる。
-         */
-        inline moves_t search_moves() const;
-
-        /**
-         * @breif 千日手を含む厳密でない合法手を検索する。
-         * @param result 合法手の出力イテレータ
-         */
-        inline moves_t nonstrict_search_moves() const;
-
-        /**
-         * @breif 千日手を含まない厳密な合法手を検索する。
-         * @param result 合法手の出力イテレータ
-         */
-        inline moves_t strict_search_moves() const;
-
-        /**
-         * @breif 局面のハッシュ値を計算する。
-         * @return 局面のハッシュ値
-         */
-        inline hash_t make_hash() const;
-
-        /**
-         * @breif 局面のハッシュ値と合法手から、合法手を実施した後の局面のハッシュ値を計算する。
-         * @param hash 合法手を実施する前の局面のハッシュ値
-         * @param move 実施する合法手
-         * @return 合法手を実施した後の局面のハッシュ値
-         * @details 合法手により発生する差分に基づき計算するため make_hash() より比較的高速に処理される。
-         *          この関数は合法手を実施するより前に呼び出される必要がある。
-         */
-        inline hash_t make_hash(hash_t hash, const move_t & move) const;
-
-        /**
-         * @breif 合法手を出力ストリームに出力する。
-         * @param move 合法手
-         * @param color 後手の合法手か
-         * @param ostream 出力ストリーム
-         */
-        inline void print_move(const move_t & move, color_t color, std::ostream & ostream = std::cout) const;
-
-        /**
-         * @breif 合法手を出力ストリームに出力する。
-         * @param first 合法手の入力イテレータのbegin
-         * @param last 合法手の入力イテレータのend
-         * @param ostream 出力ストリーム
-         */
-        template<typename InputIterator>
-        inline void print_moves(InputIterator first, InputIterator last, std::ostream & ostream = std::cout) const;
-
-        /**
-         * @breif 合法手を出力ストリームに出力する。
-         * @param ostream 出力ストリーム
-         */
-        inline void print_moves(std::ostream & ostream = std::cout) const;
-
-        /**
-         * @breif 王手を出力ストリームに出力する。
-         * @param ostream 出力ストリーム
-         */
-        inline void print_check(std::ostream & ostream = std::cout) const;
-
-        /**
-         * @breif 局面を出力ストリームに出力する。
-         * @param ostream 出力ストリーム
-         */
-        inline void print(std::ostream & ostream = std::cout) const;
-
-        /**
-         * @breif 棋譜を出力ストリームに出力する。
-         * @param ostream 出力ストリーム
-         */
-        inline void print_kifu(std::ostream & ostream = std::cout) const;
-
-        /**
-         * @breif 末尾から指定された手数分の棋譜を出力ストリームに出力する。
-         * @param ostream 出力ストリーム
-         */
-        inline void print_recent_kifu(std::size_t size, std::ostream & ostream = std::cout) const;
-
-        /**
-         * @breif 局面のハッシュ値を返す。
-         * @return 局面のハッシュ値
-         */
-        inline hash_t hash() const;
-
-        inline void validate_board_out();
-
-        /**
-         * @breif 合法手を実行する。
-         * @param move 合法手
-         * @details この関数を呼び出すときに指定した move を指定して undo_move を呼び出すことにより
-         *          この関数を呼び出す前の状態に復元することができる。
-         *          この関数は additional_info のメンバに再割当てを行う可能性があるため、
-         *          この関数を呼び出す前後で additional_info に関連した参照やポインタを継続して使用しないよう注意する。
-         * @sa undo_move
-         */
-        inline void do_move(const move_t & move);
-
-        /**
-         * @breif 合法手を実行する前に戻す。
-         * @param move 合法手
-         * @sa do_move
-         */
-        inline void undo_move(const move_t & move);
-
-        /**
-         * @breif 最後に指された合法手を返す。
-         * @return 最後に指された合法手
-         */
-        inline std::optional<move_t> last_move() const noexcept;
-
-        /**
-         * @breif 手番を取得する。
-         * @return 手番
-         */
-        inline color_t color() const;
-
-        /**
-         * @breif 指定された手数で分岐する局面の数を数える。
-         * @param depth 手数
-         * @return 局面の数
-         */
-        inline search_count_t count_node(move_count_t depth) const;
-
-        /**
-         * @breif 局面をSFEN表記法に準拠した文字列に変換する。
-         * @return SFEN表記法に準拠した文字列
-         */
-        inline std::string sfen_string() const;
-
-        /**
-         * @breif 合法手の集合から千日手を削除する。
-         */
-        inline void remove_repetition_of_moves(moves_t & moves) const noexcept;
-
-        /**
-         * @breif 王の座標を取得する。
-         * @param color 手番
-         * @return 座標
-         */
-        inline position_t king_position(color_t color) const noexcept;
-
-        /**
-         * @breif 手番にかかっている王手を取得する。
-         * @return 手番にかかっている王手
-         */
-        inline const std::vector<kiki_t> & check_list() const noexcept;
-
-        board_t board;                                              // 盤
-        captured_pieces_t captured_pieces_list[color_t::size()];    // 持ち駒
-        move_count_t move_count = 0;                                // 手数
-        std::vector<move_t> kifu;                                   // 棋譜
-        additional_info_t additional_info;                          // 追加情報
-        bool anti_repetition_of_moves = true;                       // 耐千日手
-        std::string initial_sfen_string;                            // 初期状態
-    };
-
-#ifndef NDEBUG
-    /**
-     * @breif コピーコンストラクトされてからデストラクトされるまでに局面が変更されていないことを検証する。
-     */
-    class kyokumen_rollback_validator_t
-    {
-    public:
-        inline kyokumen_rollback_validator_t(const kyokumen_t & kyokumen) noexcept;
-        inline ~kyokumen_rollback_validator_t() noexcept;
-
-    private:
-        const kyokumen_t & kyokumen;
-        colored_piece_t data[position_size];
-        captured_pieces_t captured_pieces_list[color_t::size()];
-    };
-
-    inline kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen) noexcept
-        : kyokumen{ kyokumen }
-    {
-        std::copy(std::begin(kyokumen.board.data), std::end(kyokumen.board.data), std::begin(data));
-        for (const color_t color : colors)
-            captured_pieces_list[color.value()] = kyokumen.captured_pieces_list[color.value()];
-    }
-
-    inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t() noexcept
-    {
-        // 最善手を探索している間に例外が送出された場合、 do_move と対応する undo_move が呼び出されない。
-        // 捕捉されていない例外が存在しない場合のみ、不整合がないか検証する。
-        if (std::uncaught_exceptions() == 0)
-        {
-            for (std::size_t i = 0; i < std::size(data); ++i)
-                SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
-            for (const color_t color : colors)
-                for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                    SHOGIPP_ASSERT(captured_pieces_list[color.value()][captured_piece_t{ piece }] == kyokumen.captured_pieces_list[color.value()][captured_piece_t{ piece }]);
-        }
-    }
-#endif
-
-    inline kyokumen_t::kyokumen_t()
-    {
-        update_king_position_list();
-        push_additional_info();
-        initial_sfen_string = "startpos";
-    }
-
-    inline kyokumen_t::kyokumen_t(std::string_view position)
-    {
-        kyokumen_t temp;
-        bool promoted = false;
-
-        std::vector<std::string> tokens;
-        details::split_tokens(std::back_inserter(tokens), position);
-
-        auto current_token = tokens.begin();
-
-        constexpr std::string_view startpos = "startpos";
-        if (current_token == tokens.end())
-            throw invalid_usi_input{ "unexpected sfen end 1" };
-
-        const bool is_startpos = *current_token == startpos;
-        if (is_startpos)
-        {
-            ++current_token;
-        }
-        else
-        {
-            constexpr std::string_view sfen = "sfen";
-            if (*current_token != sfen)
-                throw invalid_usi_input{ "sfen not found" };
-
-            ++current_token;
-            if (current_token == tokens.end())
-                throw invalid_usi_input{ "unexpected sfen end 2" };
-
-            temp.board.clear();
-            position_t rank = 0, file = 0;
-
-            const std::string_view sfen_string = *current_token;
-            for (const char c : *current_token)
-            {
-                if (c == '+')
-                {
-                    promoted = true;
-                }
-                else if (c == '/')
-                {
-                    if (file != file_size)
-                        throw invalid_usi_input{ "unexpected '/'" };
-                    ++rank;
-                    file = 0;
-                }
-                else if (c >= '1' && c <= '9')
-                {
-                    file += static_cast<position_t>(c - '0');
-                }
-                else
-                {
-                    const std::optional<colored_piece_t> optional_piece = char_to_piece(c);
-                    if (!optional_piece)
-                        throw invalid_usi_input{ "unexpected character 1" };
-                    colored_piece_t piece = *optional_piece;
-                    if (promoted)
-                        piece = piece.to_promoted();
-                    temp.board[file_rank_to_position(file, rank)] = piece;
-                    ++file;
-                }
-            }
-            temp.clear_additional_info();
-            temp.push_additional_info();
-
-            ++current_token;
-        }
-
-        while (current_token != tokens.end())
-        {
-            if (*current_token == "w")
-            {
-                ++current_token;
-                /* unused */;
-            }
-            else if (*current_token == "b")
-            {
-                ++current_token;
-                /* unused */;
-            }
-            else if (*current_token == "moves")
-            {
-                ++current_token;
-                while (current_token != tokens.end())
-                {
-                    const move_t move{ *current_token, temp.board };
-                    if (!move.put() && move.source_piece().to_color() != temp.color())
-                        throw invalid_usi_input{ "invalid source color" };
-                    temp.do_move(move);
-                    ++current_token;
-                }
-            }
-            else if (std::all_of(current_token->begin(), current_token->end(), [](char c) -> bool { return std::isdigit(c); }))
-            {
-                /* unused */;
-                ++current_token;
-            }
-            else
-            {
-                if (*current_token == "-")
-                {
-                    ++current_token;
-                    /* unused */;
-                }
-                else
-                {
-                    captured_pieces_t::size_type count = 1;
-                    for (auto iter = current_token->begin(); iter != current_token->end(); ++iter)
-                    {
-                        if (*iter >= '0' && *iter <= '9')
-                        {
-                            count = 0;
-                            for (; iter != current_token->end() && *iter >= '0' && *iter <= '9'; ++iter)
-                                count = static_cast<captured_pieces_t::size_type>(count * 10 + *iter - '0');
-                        }
-                        else
-                        {
-                            std::optional<colored_piece_t> optional_piece = char_to_piece(*iter);
-                            if (!optional_piece)
-                                throw invalid_usi_input{ "unexpected character 2" };
-                            if (!optional_piece->is_captured())
-                                throw invalid_usi_input{ "unexpected character 3" };
-                            temp.captured_pieces_list[optional_piece->to_color().value()][captured_piece_t{ *optional_piece }] = count;
-                            count = 1;
-                        }
-                    }
-                    ++current_token;
-                }
-            }
-        }
-
-        *this = std::move(temp);
-        initial_sfen_string = position;
-    }
-
-    inline bool kyokumen_t::promotable(colored_piece_t piece, position_t source, position_t destination)
-    {
-        if (!piece.is_promotable())
-            return false;
-        if (piece.to_color() == black)
-            return source < width * (3 + padding_height) || destination < width * (3 + padding_height);
-        return source >= width * (6 + padding_height) || destination >= width * (6 + padding_height);
-    }
-
-    inline bool kyokumen_t::must_promote(colored_piece_t piece, position_t destination)
-    {
-        if (noncolored_piece_t{ piece } == pawn || noncolored_piece_t{ piece } == lance)
-        {
-            if (piece.to_color() == black)
-                return destination < (width * (1 + padding_height));
-            return destination >= width * (8 + padding_height);
-        }
-        else if (noncolored_piece_t{ piece } == knight)
-        {
-            if (piece.to_color() == black)
-                return destination < width * (2 + padding_height);
-            return destination >= width * (7 + padding_height);
-        }
-        return false;
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_far_destination(OutputIterator result, position_t source, position_t offset) const
-    {
-        for (position_t current = source + offset; !board_t::out(current); current += offset)
-        {
-            if (board[current].empty())
-                *result++ = current;
-            else
-            {
-                if (board[source].to_color() == board[current].to_color()) break;
-                *result++ = current;
-                if (board[source].to_color() != board[current].to_color()) break;
-            }
-        }
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_near_destination(OutputIterator result, position_t source, position_t offset) const
-    {
-        const position_t current = source + offset;
-        if (!board_t::out(current) && (board[current].empty() || board[current].to_color() != board[source].to_color()))
-            *result++ = current;
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_destination(OutputIterator result, position_t source, color_t color) const
-    {
-        const noncolored_piece_t piece{ board[source] };
-        for (const position_t * offset = far_move_offsets(piece); *offset; ++offset)
-            search_far_destination(result, source, *offset * reverse(color));
-        for (const position_t * offset = near_move_offsets(piece); *offset; ++offset)
-            search_near_destination(result, source, *offset * reverse(color));
-    }
-
-    inline bool kyokumen_t::puttable(captured_piece_t piece, position_t destination) const
-    {
-        if (!board[destination].empty())
-            return false;
-        if (color() == black)
-        {
-            if ((piece == captured_pawn || piece == captured_lance) && destination < width * (padding_height + 1))
-                return false;
-            if (piece == captured_knight && destination < width * (padding_height + 2))
-                return false;
-        }
-        else
-        {
-            if ((piece == captured_pawn || piece == captured_lance) && destination >= width * (padding_height + 8))
-                return false;
-            if (piece == captured_knight && destination >= width * (padding_height + 7))
-                return false;
-        }
-        if (piece == captured_pawn)
-        {
-            const position_t file = position_to_file(destination);
-
-            // 二歩
-            for (position_t rank = 0; rank < rank_size; ++rank)
-            {
-                const colored_piece_t current = board[file_rank_to_position(file, rank)];
-                if (!current.empty() && noncolored_piece_t{ current } == pawn && color() == current.to_color())
-                    return false;
-            }
-
-            // 打ち歩詰め
-            const position_t position = destination + front * (reverse(color()));
-            if (!board_t::out(position) && !board[position].empty() && noncolored_piece_t{ board[position] } == king && board[position].to_color() != color())
-            {
-                const move_t move{ destination, piece };
-                moves_t moves;
-                {
-                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
-                    const_cast<kyokumen_t &>(*this).do_move(move);
-                    moves = search_moves();
-                    const_cast<kyokumen_t &>(*this).undo_move(move);
-                }
-                if (moves.empty())
-                    return false;
-            }
-        }
-        return true;
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_source(OutputIterator result, color_t color) const
-    {
-        for (position_t position = position_begin; position < position_end; ++position)
-            if (!board_t::out(position) && !board[position].empty() && board[position].to_color() == color)
-                *result++ = position;
-    }
-
-    inline position_t kyokumen_t::search(position_t position, position_t offset) const
-    {
-        position_t current;
-        for (current = position + offset; !board_t::out(current) && board[current].empty(); current += offset);
-        if (board_t::out(current))
-            return npos;
-        return current;
-    }
-    
-    template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_piece_near(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
-    {
-        if (position_t current = position + offset; !board_t::out(current) && !board[current].empty())
-            if (is_collected(board[current].to_color()) && std::find(first, last, noncolored_piece_t{ board[current] }) != last)
-                *result++ = transform(current, offset, false);
-    }
-
-    template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_piece_far(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
-    {
-        if (position_t found = search(position, offset); found != npos && found != position + offset && !board[found].empty())
-            if (is_collected(board[found].to_color()) && std::find(first, last, noncolored_piece_t{ board[found] }) != last)
-                *result++ = transform(found, offset, true);
-    }
-
-    template<typename OutputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_piece(OutputIterator result, position_t position, color_t color, IsCollected is_collected, Transform transform) const
-    {
-        for (const auto & [offset, candidates] : near_kiki_list)
-            search_piece_near(result, position, offset * reverse(color), candidates.begin(), candidates.end(), is_collected, transform);
-        for (const auto & [offset, candidates] : far_kiki_list_synmmetric)
-            search_piece_far(result, position, offset, candidates.begin(), candidates.end(), is_collected, transform);
-        for (const auto & [offset, candidates] : far_kiki_list_asynmmetric)
-            search_piece_far(result, position, offset * reverse(color), candidates.begin(), candidates.end(), is_collected, transform);
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_himo(OutputIterator result, position_t position, color_t color) const
-    {
-        search_piece(result, position, color,
-            [color](color_t g) { return g == color; },
-            [](position_t position, position_t offset, bool aigoma) -> position_t { return position; });
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_kiki(OutputIterator result, position_t position, color_t color) const
-    {
-        search_piece(result, position, color,
-            [color](color_t g) { return g != color; },
-            [](position_t position, position_t offset, bool aigoma) -> kiki_t { return { position, offset, aigoma }; });
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_kiki_or_himo(OutputIterator result, position_t position, color_t color) const
-    {
-        search_piece(result, position, color,
-            [](color_t) { return true; },
-            [](position_t position, position_t offset, bool aigoma) -> position_t { return position; });
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_check(OutputIterator result, color_t color) const
-    {
-        search_kiki(result, additional_info.king_position_list[color.value()], color);
-    }
-
-    std::vector<kiki_t> kyokumen_t::search_check(color_t color) const
-    {
-        std::vector<kiki_t> check_list;
-        search_check(std::back_inserter(check_list), color);
-        return check_list;
-    }
-
-    inline void kyokumen_t::push_additional_info()
-    {
-        push_additional_info(make_hash());
-    }
-
-    inline void kyokumen_t::push_additional_info(hash_t hash)
-    {
-        additional_info.check_list_stack.push_back(search_check(color()));
-        additional_info.hash_stack.push_back(hash);
-        if (!kifu.empty())
-        {
-            const hash_t hash = this->hash() ^ hash_table.move_hash(kifu.back(), !color());
-            additional_info.previously_done_moves.push(hash);
-        }
-    }
-
-    inline void kyokumen_t::pop_additional_info()
-    {
-        SHOGIPP_ASSERT(!additional_info.check_list_stack.empty());
-        SHOGIPP_ASSERT(!additional_info.hash_stack.empty());
-        additional_info.check_list_stack.pop_back();
-        additional_info.hash_stack.pop_back();
-        additional_info.previously_done_moves.pop();
-    }
-
-    inline void kyokumen_t::clear_additional_info()
-    {
-        additional_info.check_list_stack.clear();
-        additional_info.hash_stack.clear();
-        update_king_position_list();
-        additional_info.previously_done_moves.clear();
-    }
-
-    inline void kyokumen_t::update_king_position_list()
-    {
-        for (position_t position = position_begin; position < position_end; ++position)
-            if (!board_t::out(position) && !board[position].empty() && noncolored_piece_t{ board[position] } == king)
-                additional_info.king_position_list[board[position].to_color().value()] = position;
-    }
-
-    inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, color_t color) const
-    {
-        using pair = std::pair<position_t, std::vector<noncolored_piece_t>>;
-        static const std::vector<pair> table
-        {
-            { front      , { lance, rook, promoted_rook } },
-            { left       , { rook, promoted_rook } },
-            { right      , { rook, promoted_rook } },
-            { back       , { rook, promoted_rook } },
-            { front_left , { bishop, promoted_bishop } },
-            { front_right, { bishop, promoted_bishop } },
-            { back_left  , { bishop, promoted_bishop } },
-            { back_right , { bishop, promoted_bishop } },
-        };
-
-        const position_t king_position = additional_info.king_position_list[color.value()];
-        for (const auto & [offset, hashirigoma_list] : table)
-        {
-            const position_t reversed_offset = offset * reverse(color);
-            const position_t first = search(king_position, reversed_offset);
-            if (first != npos && board[first].to_color() == color)
-            {
-                const position_t second = search(first, reversed_offset);
-                if (second != npos && board[second].to_color() != color)
-                {
-                    const noncolored_piece_t kind = noncolored_piece_t{ board[second] };
-                    bool match = std::find(hashirigoma_list.begin(), hashirigoma_list.end(), kind) != hashirigoma_list.end();
-                    if (match)
-                    {
-                        std::vector<position_t> candidates;
-                        for (position_t candidate = second; candidate != king_position; candidate -= reversed_offset)
-                            candidates.push_back(candidate);
-                        aigoma_info[first] = std::move(candidates);
-                    }
-                }
-            }
-        }
-    }
-
-    inline aigoma_info_t kyokumen_t::search_aigoma(color_t color) const
-    {
-        aigoma_info_t aigoma_info;
-        search_aigoma(aigoma_info, color);
-        return aigoma_info;
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_from_positions(OutputIterator result, position_t source, position_t destination, move_t::tag_t tag) const
-    {
-        if (promotable(board[source], source, destination))
-            *result++ = { source, destination, board[source], board[destination], true, static_cast<move_t::tag_t>(tag | move_t::promote_tag) };
-        if (!must_promote(board[source], destination))
-            *result++ = { source, destination, board[source], board[destination], false, tag };
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_nonescapes(OutputIterator result) const
-    {
-        search_moves_moves(result);
-        search_moves_puts(result);
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_escapes_king_move(OutputIterator result) const
-    {
-        const position_t source = additional_info.king_position_list[color().value()];
-        for (const position_t * ptr = near_move_offsets(king); *ptr; ++ptr)
-        {
-            const position_t destination = source + *ptr * reverse(color());
-            if (!board_t::out(destination)
-                && (board[destination].empty() || board[destination].to_color() != color()))
-            {
-                const move_t move{ source, destination, board[source], board[destination], false, move_t::escape_tag };
-                std::vector<kiki_t> kiki;
-                {
-                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
-                    kyokumen_t & nonconst_this = const_cast<kyokumen_t &>(*this);
-                    const colored_piece_t captured = board[destination];
-                    nonconst_this.board[destination] = board[source];
-                    nonconst_this.board[source] = colored_piece_t{};
-                    search_kiki(std::back_inserter(kiki), destination, color());
-                    nonconst_this.board[source] = board[destination];
-                    nonconst_this.board[destination] = captured;
-                }
-                if (kiki.empty())
-                    *result++ = move;
-            }
-        }
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_escapes_aigoma(OutputIterator result) const
-    {
-        const aigoma_info_t aigoma_info = search_aigoma(color());
-        const position_t king_pos = additional_info.king_position_list[color().value()];
-        
-        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
-        const std::size_t saved_count = check_list().size();
-
-        // 合駒を打つ際に打ち歩詰めを判定するため puttable は do_move / undo_move を呼び出す。
-        // ここで additional_info.check_list_stack の要素の参照をローカル変数として保持してはならない。
-        if (check_list().size() == 1)
-        {
-            if (check_list().front().aigoma)
-            {
-                const position_t offset = check_list().front().offset;
-                for (position_t destination = king_pos + offset; !board_t::out(destination) && board[destination].empty(); destination += offset)
-                {
-                    // 駒を移動させる合駒
-                    std::vector<kiki_t> kiki_list;
-                    search_kiki(std::back_inserter(kiki_list), destination, !color());
-                    for (const kiki_t & kiki : kiki_list)
-                    {
-                        // 王で合駒はできない。
-                        if (noncolored_piece_t{ board[kiki.position] } != king)
-                        {
-                            // 既に合駒として使っている駒は移動できない。
-                            const auto aigoma_iter = aigoma_info.find(kiki.position);
-                            const bool is_aigoma = aigoma_iter != aigoma_info.end();
-                            if (!is_aigoma)
-                                search_moves_from_positions(result, kiki.position, destination, move_t::escape_tag | move_t::capture_tag);
-                        }
-                    }
-
-                    // 駒を打つ合駒
-                    for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                        if (captured_pieces_list[color().value()][piece])
-                            if (puttable(piece, destination))
-                                *result++ = { destination, piece, move_t::escape_tag | move_t::aigoma_tag | move_t::put_tag };
-                }
-            }
-
-            if (check_list().size() != saved_count)
-                std::cerr << sfen_string() << std::endl;
-            // 王手している駒を取る手を検索する。
-            const position_t destination = check_list().front().position;
-            std::vector<kiki_t> kiki_list;
-            search_kiki(std::back_inserter(kiki_list), destination, !color());
-            for (const kiki_t & kiki : kiki_list)
-            {
-                // 王を動かす手は既に検索済み
-                if (noncolored_piece_t{ board[kiki.position] } != king)
-                {
-                    // 既に合駒として使っている駒は移動できない。
-                    const auto aigoma_iter = aigoma_info.find(kiki.position);
-                    const bool is_aigoma = aigoma_iter != aigoma_info.end();
-                    if (!is_aigoma)
-                        search_moves_from_positions(result, kiki.position, destination, move_t::escape_tag | move_t::capture_tag);
-                }
-            }
-        }
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_escapes(OutputIterator result) const
-    {
-        search_moves_escapes_king_move(result);
-        search_moves_escapes_aigoma(result);
-    }
-
-    /**
-     * @breif 王手を外さない手のうち駒を動かす手を検索する。
-     * @param result 合法手の出力イテレータ
-     */
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_moves(OutputIterator result) const
-    {
-        const aigoma_info_t aigoma_info = search_aigoma(color());
-        std::vector<position_t> source_list;
-        source_list.reserve(position_size);
-        search_source(std::back_inserter(source_list), color());
-        for (const position_t source : source_list)
-        {
-            std::vector<position_t> destination_list;
-            destination_list.reserve(position_size);
-            search_destination(std::back_inserter(destination_list), source, color());
-            const auto aigoma_iter = aigoma_info.find(source);
-            const bool is_aigoma = aigoma_iter != aigoma_info.end();
-
-            for (const position_t destination : destination_list)
-            {
-#ifndef NDEBUG
-                if (!board[destination].empty() && noncolored_piece_t { board[destination] } == king)
-                {
-                    board.print();
-                    std::cout << position_to_string(source) << std::endl;
-                    const move_t move{ source, destination, board[source], board[destination], false };
-                    print_move(move, color());
-                    std::cout << std::endl;
-                    print_kifu();
-                    SHOGIPP_ASSERT(false);
-                }
-#endif
-
-                // 合駒は利きの範囲にしか移動できない。
-                if (is_aigoma)
-                {
-                    const std::vector<position_t> & candidates = aigoma_iter->second;
-                    if (std::find(candidates.begin(), candidates.end(), destination) == candidates.end())
-                        continue;
-                }
-
-                // 利いている場所に王を移動させてはならない
-                if (noncolored_piece_t{ board[source] } == king)
-                {
-                    std::vector<kiki_t> kiki_list;
-                    search_kiki(std::back_inserter(kiki_list), destination, color());
-                    if (kiki_list.size() > 0)
-                        continue;
-                }
-
-                search_moves_from_positions(result, source, destination, move_t::none_tag);
-            }
-        }
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_puts(OutputIterator result) const
-    {
-        for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-            if (captured_pieces_list[color().value()][piece])
-                for (position_t destination = position_begin; destination < position_end; ++destination)
-                    if (puttable(piece, destination))
-                        *result++ = { destination, piece };
-    }
-
-    template<typename OutputIterator>
-    inline void kyokumen_t::search_moves(OutputIterator result) const
-    {
-        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
-        auto & check_list = additional_info.check_list_stack[move_count];
-        if (check_list.empty())
-            search_moves_nonescapes(result);
-        else
-            search_moves_escapes(result);
-    }
-
-    inline moves_t kyokumen_t::search_moves() const
-    {
-        if (anti_repetition_of_moves)
-            return strict_search_moves();
-        return nonstrict_search_moves();
-    }
-
-    inline moves_t kyokumen_t::nonstrict_search_moves() const
-    {
-        moves_t moves;
-        search_moves(std::back_inserter(moves));
-        return moves;
-    }
-
-    inline moves_t kyokumen_t::strict_search_moves() const
-    {
-        moves_t moves;
-        search_moves(std::back_inserter(moves));
-        remove_repetition_of_moves(moves);
-        return moves;
-    }
-
-    inline hash_t kyokumen_t::make_hash() const
-    {
-        hash_t hash{};
-
-        // 盤上の駒のハッシュ値をXOR演算
-        for (position_t position = position_begin; position < position_end; ++position)
-            if (!board_t::out(position))
-                if (const colored_piece_t piece = board[position]; !piece.empty())
-                    hash ^= hash_table.piece_hash(piece, position);
-
-        // 持ち駒のハッシュ値をXOR演算
-        for (const color_t color : colors)
-            for (piece_value_t piece = pawn.value(); piece <= rook.value(); ++piece)
-                hash ^= hash_table.captured_piece_hash(captured_piece_t{ piece }, captured_pieces_list[color.value()][captured_piece_t{ piece }], color);
-
-        // 手番のハッシュ値をXOR演算
-        hash ^= hash_table.color_hash(color());
-        hash ^= hash_table.color_hash(!color());
-
-        return hash;
-    }
-
-    inline hash_t kyokumen_t::make_hash(hash_t hash, const move_t & move) const
-    {
-        if (move.put())
-        {
-            const captured_pieces_t::size_type count = captured_pieces_list[color().value()][move.captured_piece()];
-            SHOGIPP_ASSERT(count > 0);
-            const colored_piece_t piece{ move.captured_piece(), color() };
-            hash ^= hash_table.piece_hash(piece, move.destination());
-            hash ^= hash_table.captured_piece_hash(move.captured_piece(), count, color());
-            hash ^= hash_table.captured_piece_hash(move.captured_piece(), count - 1, color());
-        }
-        else
-        {
-            SHOGIPP_ASSERT(!(!move.source_piece().is_promotable() && move.promote()));
-            hash ^= hash_table.piece_hash(move.source_piece(), move.source());
-            if (!move.destination_piece().empty())
-            {
-                const captured_piece_t new_captured_piece{ move.destination_piece() };
-                const captured_pieces_t::size_type count = captured_pieces_list[color().value()][new_captured_piece];
-                hash ^= hash_table.captured_piece_hash(new_captured_piece, count, color());
-                hash ^= hash_table.captured_piece_hash(new_captured_piece, count + 1, color());
-                hash ^= hash_table.piece_hash(move.destination_piece(), move.destination());
-            }
-            const colored_piece_t new_destination_piece = move.promote() ? move.source_piece().to_promoted() : move.source_piece();
-            hash ^= hash_table.piece_hash(new_destination_piece, move.destination());
-        }
-        hash ^= hash_table.color_hash(!color());
-        hash ^= hash_table.color_hash(color());
-        return hash;
-    }
-
-    inline void kyokumen_t::print_move(const move_t & move, color_t color, std::ostream & ostream) const
-    {
-        ostream << (color == black ? "▲" : "△");
-        if (move.put())
-        {
-            ostream << position_to_string(move.destination()) << move.captured_piece().to_string() << "打" << std::flush;
-        }
-        else
-        {
-            const char * promotion_string;
-            if (promotable(move.source_piece(), move.source(), move.destination()))
-            {
-                if (move.promote())
-                    promotion_string = "成";
-                else
-                    promotion_string = "不成";
-            }
-            else
-                promotion_string = "";
-            ostream
-                << position_to_string(move.destination()) << noncolored_piece_t{ move.source_piece() }.to_string() << promotion_string
-                << "（" << position_to_string(move.source()) << "）" << std::flush;
-        }
-    }
-
-    template<typename InputIterator>
-    inline void kyokumen_t::print_moves(InputIterator first, InputIterator last, std::ostream & ostream) const
-    {
-        for (std::size_t i = 0; first != last; ++i)
-        {
-            const std::ios::fmtflags flags = ostream.flags();
-            ostream << "#" << std::setw(3) << (i + 1);
-            ostream.flags(flags);
-            print_move(*first++, color(), ostream);
-            ostream << std::endl;
-        }
-    }
-
-    inline void kyokumen_t::print_moves(std::ostream & ostream) const
-    {
-        const kyokumen_t temp = *this;
-        const moves_t moves = temp.strict_search_moves();
-        print_moves(moves.begin(), moves.end(), ostream);
-    }
-
-    inline void kyokumen_t::print_check(std::ostream & ostream) const
-    {
-        if (details::program_options::print_check)
-        {
-            SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
-            auto & check_list = additional_info.check_list_stack[move_count];
-            if (!check_list.empty())
-            {
-                ostream << "王手：";
-                for (std::size_t i = 0; i < check_list.size(); ++i)
-                {
-                    const kiki_t & kiki = check_list[i];
-                    if (i > 0)
-                        ostream << "　";
-                    ostream << position_to_string(kiki.position) << noncolored_piece_t{ board[kiki.position] }.to_string() << std::endl;
-                }
-            }
-        }
-    }
-
-    inline void kyokumen_t::print(std::ostream & ostream) const
-    {
-        if (details::program_options::print_board)
-        {
-            ostream << "後手持ち駒：";
-            captured_pieces_list[white.value()].print(ostream);
-            board.print(ostream);
-            ostream << "先手持ち駒：";
-            captured_pieces_list[black.value()].print(ostream);
-        }
-    }
-
-    inline void kyokumen_t::print_kifu(std::ostream & ostream) const
-    {
-        for (move_count_t i = 0; i < static_cast<move_count_t>(kifu.size()); ++i)
-        {
-            const move_count_t diff = static_cast<move_count_t>(kifu.size() - i);
-            print_move(kifu[i], diff % color_t::size() == 0 ? color() : !color(), ostream);
-            ostream << std::endl;
-        }
-    }
-
-    inline void kyokumen_t::print_recent_kifu(std::size_t size, std::ostream & ostream) const
-    {
-        size = std::min(size, kifu.size());
-        for (move_count_t i = 0; i < size; ++i)
-        {
-            if (i > 0)
-                ostream << "　";
-            std::size_t index = kifu.size() - size + i;
-            const move_count_t diff = static_cast<move_count_t>(kifu.size() - index);
-            print_move(kifu[index], diff % color_t::size() == 0 ? color() : !color(), ostream);
-        }
-        ostream << std::flush;
-    }
-
-    inline hash_t kyokumen_t::hash() const
-    {
-        SHOGIPP_ASSERT(move_count < additional_info.hash_stack.size());
-        return additional_info.hash_stack[move_count];
-    }
-
-    inline void kyokumen_t::validate_board_out()
-    {
-        for (position_t position = 0; position < position_size; ++position)
-            if (board_t::out(position))
-                SHOGIPP_ASSERT(board[position].value() == out_of_range.value());
-    }
-
-    inline void kyokumen_t::do_move(const move_t & move)
-    {
-        hash_t hash = make_hash(this->hash(), move);
-        if (move.put())
-        {
-            SHOGIPP_ASSERT(captured_pieces_list[color().value()][move.captured_piece()] > 0);
-            board[move.destination()] = colored_piece_t{ move.captured_piece(), color() };
-            --captured_pieces_list[color().value()][move.captured_piece()];
-        }
-        else
-        {
-            SHOGIPP_ASSERT(!(!move.source_piece().is_promotable() && move.promote()));
-            if (!board[move.destination()].empty())
-                ++captured_pieces_list[color().value()][captured_piece_t{ board[move.destination()] }];
-            board[move.destination()] = move.promote() ? board[move.source()].to_promoted() : board[move.source()];
-            board[move.source()] = colored_piece_t{};
-            if (noncolored_piece_t{ move.source_piece() } == king)
-                additional_info.king_position_list[color().value()] = move.destination();
-        }
-        ++move_count;
-        kifu.push_back(move);
-        push_additional_info(hash);
-        validate_board_out();
-    }
-
-    inline void kyokumen_t::undo_move(const move_t & move)
-    {
-        SHOGIPP_ASSERT(move_count > 0);
-        --move_count;
-        if (move.put())
-        {
-            ++captured_pieces_list[color().value()][move.captured_piece()];
-            board[move.destination()] = colored_piece_t{};
-        }
-        else
-        {
-            if (noncolored_piece_t{ move.source_piece() } == king)
-                additional_info.king_position_list[color().value()] = move.source();
-            board[move.source()] = move.source_piece();
-            board[move.destination()] = move.destination_piece();
-            if (!move.destination_piece().empty())
-                --captured_pieces_list[color().value()][captured_piece_t{ move.destination_piece() }];
-        }
-        kifu.pop_back();
-        pop_additional_info();
-    }
-
-    inline std::optional<move_t> kyokumen_t::last_move() const noexcept
-    {
-        if (kifu.empty())
-            return std::nullopt;
-        return kifu.back();
-    }
-
-    inline color_t kyokumen_t::color() const
-    {
-        return static_cast<color_t>(move_count % 2);
-    }
-
-    inline search_count_t kyokumen_t::count_node(move_count_t depth) const
-    {
-        if (depth == 0)
-            return 1;
-
-        search_count_t count = 0;
-        for (const move_t & move : search_moves())
-        {
-            VALIDATE_KYOKUMEN_ROLLBACK(*this);
-            const_cast<kyokumen_t &>(*this).do_move(move);
-            count += count_node(depth - 1);
-            const_cast<kyokumen_t &>(*this).undo_move(move);
-        }
-        return count;
-    }
-
-    inline std::string kyokumen_t::sfen_string() const
-    {
-        std::string result;
-        result += initial_sfen_string;
-        result += ' ';
-        result += color_to_color_char(color());
-        result += ' ';
-        result += std::to_string(move_count + 1);
-        if (!kifu.empty())
-        {
-            result += " moves";
-            for (const move_t & move : kifu)
-            {
-                result += ' ';
-                result += move.sfen_string();
-            }
-        }
-        return result;
-    }
-
-    inline void kyokumen_t::remove_repetition_of_moves(moves_t & moves) const noexcept
-    {
-        const hash_t hash = this->hash();
-        const color_t color = this->color();
-        moves.erase(std::remove_if(moves.begin(), moves.end(), [&](const auto & i) -> bool
-            {
-                return additional_info.previously_done_moves.contains(
-                    hash_table.move_hash(i, color) ^ hash
-                );
-            }
-        ), moves.end());
-    }
-
-    inline position_t kyokumen_t::king_position(color_t color) const noexcept
-    {
-        return additional_info.king_position_list[color.value()];
-    }
-
-    inline const std::vector<kiki_t> & kyokumen_t::check_list() const noexcept
-    {
-        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
-        return additional_info.check_list_stack[move_count];
-    }
-
-    template<typename Key, typename Value, typename Hash = std::hash<Key>>
-    class lru_cache_t
-    {
-    public:
-        using key_type = Key;
-        using value_type = Value;
-        using pair_type = std::pair<key_type, value_type>;
-        using list_type = std::list<pair_type>;
-        using hash_type = Hash;
-        using unordered_map_type = std::unordered_map<key_type, typename list_type::iterator, hash_type>;
-
-        /**
-         * @breif LRUで管理されるキャッシュを構築する。
-         * @param capacity 最大要素数
-         */
-        inline lru_cache_t(std::size_t capacity)
-            : capacity{ capacity }
-        {
-        }
-
-        inline lru_cache_t(const lru_cache_t &) = default;
-        inline lru_cache_t(lru_cache_t &&) = default;
-        inline lru_cache_t & operator =(const lru_cache_t &) = default;
-        inline lru_cache_t & operator =(lru_cache_t &&) = default;
-
-        /**
-         * @breif キャッシュを破棄する。
-         */
-        inline void clear()
-        {
-            list.clear();
-            umap.clear();
-        }
-
-        /**
-         * @breif キーと対応する値を取得する。
-         * @param key キー
-         * @return キーと対応する値
-         */
-        inline std::optional<Value> get(key_type key)
-        {
-            typename unordered_map_type::iterator iter = umap.find(key);
-            if (iter == umap.end())
-                return std::nullopt;
-            value_type value = iter->second->second;
-            list.erase(iter->second);
-            list.emplace_front(key, value);
-            umap[key] = list.begin();
-            return value;
-        }
-
-        /**
-         * @breif キーと値を登録する。
-         * @param key キー
-         * @param value 値
-         */
-        inline void push(key_type key, value_type value)
-        {
-            typename unordered_map_type::iterator iter = umap.find(key);
-            if (iter != umap.end())
-                list.erase(iter->second);
-            list.emplace_front(key, value);
-            umap[key] = list.begin();
-            if (list.size() > capacity)
-            {
-                umap.erase(list.rbegin()->first);
-                list.pop_back();
-            }
-        }
-
-    private:
-        list_type list;
-        unordered_map_type umap;
-        std::size_t capacity;
-    };
-
-#ifdef SIZE_OF_HASH
-    using cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hasher_t<SIZE_OF_HASH>>;
-#else
-    using cache_t = lru_cache_t<hash_t, evaluation_value_t>;
-#endif
-
-    /**
-     * @breif 盤の2駒の組と対応する評価値の統計
-     */
-    class piece_pair_statistics_t
-    {
-    public:
-        using value_type = unsigned long long;
-        constexpr static std::size_t piece_category_size = (piece_size / 2) * piece_size;
-        constexpr static std::size_t relative_position9x9_size = file_size * rank_size - 1;
-
-        class element_t
-        {
-        public:
-            colored_piece_t piece1{};
-            colored_piece_t piece2{};
-            position_t relative_position{};
-            value_type value{};
-        };
-
-        /**
-         * @breif 盤の2駒の組と対応する評価値の統計を構築する。
-         * @details 全ての評価値は 0 で初期化される。
-         */
-        constexpr inline piece_pair_statistics_t() noexcept = default;
-        constexpr inline piece_pair_statistics_t(const piece_pair_statistics_t &) noexcept = default;
-        constexpr inline piece_pair_statistics_t(piece_pair_statistics_t &&) noexcept = default;
-        constexpr inline piece_pair_statistics_t & operator =(const piece_pair_statistics_t &) noexcept = default;
-        constexpr inline piece_pair_statistics_t & operator =(piece_pair_statistics_t &&) noexcept = default;
-
-        /**
-         * @breif 駒と座標の組を正規化する。
-         *        座標2 >= 座標1 を満たすように組を入れ替える。
-         *        相対的な筋は常に正の値に変換される。換言すれば、この関数は位置関係を左右対称に扱う。
-         *        また、駒1と駒2の関係(同手番である、あるいは医)を維持したまま駒1を先手の駒に変換する。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @return 並び替えた後の座標1を基準とした1-81の相対座標
-         */
-        inline static position_t canonicalize(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
-        {
-            SHOGIPP_ASSERT(position1 != position2);
-
-            if (position1 > position2)
-            {
-                std::swap(piece1, piece2);
-                std::swap(position1, position2);
-            }
-            position_t relative_file = position_to_file(position2) - position_to_file(position1);
-            if (relative_file < 0) // abs
-                relative_file = -relative_file;
-            const position_t relative_rank = position_to_rank(position2) - position_to_rank(position1);
-
-            if (piece1.to_color() == white)
-            {
-                piece1 = colored_piece_t{ noncolored_piece_t{ piece1 }, black };
-                piece2 = colored_piece_t{ noncolored_piece_t{ piece2 }, !piece2.to_color() };
-            }
-
-            return relative_rank * file_size + relative_file;
-        }
-
-        /**
-         * @breif 盤の2駒の組の出現回数のオフセットを取得する。
-         * @param piece1 駒1
-         * @param piece2 駒2
-         * @param relative_position 1 以上 81 未満の相対座標
-         * @return 盤の2駒の組と対応する出現回数のオフセット
-         */
-        inline static std::size_t offset(noncolored_piece_t piece1, colored_piece_t piece2, position_t relative_position)
-        {
-            std::size_t offset = 0;
-            offset += piece1.index();
-            offset *= piece_size;
-            offset += piece2.index();
-            offset *= relative_position9x9_size;
-            offset += relative_position - 1;
-            return offset;
-        }
-
-        /**
-         * @breif 盤の2駒の組の出現回数のオフセットを取得する。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @return 盤の2駒の組と対応する出現回数のオフセット
-         */
-        inline static std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
-        {
-            const position_t relative_position = canonicalize(piece1, position1, piece2, position2);
-            return offset(noncolored_piece_t{ piece1.value() }, piece2, relative_position);
-        }
-
-        inline value_type & piece_category_denominators(noncolored_piece_t piece1, colored_piece_t piece2)
-        {
-            std::size_t offset = 0;
-            offset += piece1.index();
-            offset *= piece_size;
-            offset += piece2.index();
-            return m_piece_category_denominators[offset];
-        }
-
-        inline const value_type & piece_category_denominators(noncolored_piece_t piece1, colored_piece_t piece2) const
-        {
-            std::size_t offset = 0;
-            offset += piece1.index();
-            offset *= piece_size;
-            offset += piece2.index();
-            return m_piece_category_denominators[offset];
-        }
-
-        /**
-         * @breif 盤の2駒の組と対応する評価値を取得する。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @return 盤の2駒の組と対応する評価値
-         * @details この関数は先手から見て有利な状況を正とする評価値を返す。
-         */
-        inline evaluation_value_t get_evaluation_value(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
-        {
-            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(m_counts));
-            value_type temp = m_counts[offset];
-            // 筋が異なる場合、左右対称の駒関係の出現回数が合算されるため、ここで補正する。
-            if (position_to_file(position1) != position_to_file(position2))
-                temp /= 2;
-            temp *= reverse(piece1.to_color());
-            return static_cast<evaluation_value_t>(temp);
-        }
-
-        /**
-         * @breif 盤の全ての2駒の組み合わせを引数に callback を呼び出す。
-         * @param board 盤
-         * @param callback コールバック関数 void (colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
-         */
-        template<typename Callback>
-        inline static void for_each(const board_t & board, Callback callback)
-        {
-            for (position_t position1 = position_begin; position1 < position_end; ++position1)
-                for (position_t position2 = position1 + 1; position2 < position_end; ++position2)
-                    if (position1 != position2
-                        && !board_t::out(position1)
-                        && !board_t::out(position2)
-                        && !board[position1].empty()
-                        && !board[position2].empty())
-                        callback(board[position1], position1, board[position2], position2);
-        }
-
-        /**
-         * @breif 指定された駒を一方とする盤の全ての2駒の組み合わせを引数に callback を呼び出す。
-         * @param board 盤
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param callback コールバック関数 void (colored_piece_t piece2, position_t position2)
-         */
-        template<typename Callback>
-        inline static void for_each(const board_t & board, colored_piece_t piece1, position_t position1, Callback callback)
-        {
-            for (position_t position2 = position_begin; position2 < position_end; ++position2)
-                if (position1 != position2
-                    && !board_t::out(position1)
-                    && !board_t::out(position2)
-                    && !piece1.empty()
-                    && !board[position2].empty())
-                    callback(board[position2], position2);
-        }
-
-        /**
-         * @breif 盤の2駒の組と対応する評価値を 1 加算する。
-         * @param piece1 駒1
-         * @param position1 座標1
-         * @param piece2 駒2
-         * @param position2 座標2
-         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
-         */
-        inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
-        {
-            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
-            SHOGIPP_ASSERT(offset < std::size(m_counts));
-            value_type piece_category_denominator = piece_category_denominators(piece1, piece2);
-            if (piece_category_denominator == std::numeric_limits<value_type>::max())
-                normalize();
-            ++m_counts[offset];
-            ++piece_category_denominator;
-        }
-
-        /**
-         * @breif 盤の全ての2駒の組と対応する評価値を 1 加算する。
-         * @param board 盤
-         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
-         */
-        inline void increase(const board_t & board)
-        {
-            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
-            {
-                increase(piece1, position1, piece2, position2);
-            };
-            for_each(board, callback);
-        }
-
-        /**
-         * @breif 盤の評価値を取得する。
-         * @param board 盤
-         * @return 盤の評価値
-         */
-        inline value_type accumulate(const board_t & board) const
-        {
-            value_type accumulated_value = 0;
-            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
-            {
-                accumulated_value += get_evaluation_value(piece1, position1, piece2, position2);
-            };
-            for_each(board, callback);
-            return accumulated_value;
-        }
-
-        /**
-         * @breif 合法手を実行した際の評価値の差分を取得する。
-         * @param board 合法手を実行した後の盤
-         * @param move 合法手
-         * @return 合法手を実行した際の評価値の差分
-         */
-        inline value_type accumulate_diff(const board_t & board, const move_t & move) const
-        {
-            value_type accumulated_value = 0;
-
-            // 移動先にある駒の評価値を加算する。
-            const colored_piece_t piece1 = board[move.destination()];
-            const position_t position1 = move.destination();
-            {
-                const auto callback = [&](colored_piece_t piece2, position_t position2)
-                {
-                    accumulated_value += get_evaluation_value(piece1, position1, board[position2], position2);
-                };
-                for_each(board, piece1, position1, callback);
-            }
-
-            if (!move.put())
-            {
-                // 移動先にあった駒の評価値を減算する。
-                if (!move.destination_piece().empty())
-                {
-                    const colored_piece_t piece1 = move.destination_piece();
-                    const position_t position1 = move.destination();
-                    const auto callback = [&](colored_piece_t piece2, position_t position2)
-                    {
-                        accumulated_value -= get_evaluation_value(piece1, position1, board[position2], position2);
-                    };
-                    for_each(board, piece1, position1, callback);
-                }
-
-                // 移動元にあった駒の評価値を減算する。
-                const colored_piece_t piece1 = move.source_piece();
-                const position_t position1 = move.source();
-                const auto callback = [&](colored_piece_t piece2, position_t position2)
-                {
-                    accumulated_value -= get_evaluation_value(piece1, position1, board[position2], position2);
-                };
-                for_each(board, piece1, position1, callback);
-            }
-
-            return accumulated_value;
-        }
-
-        /**
-         * @breif 駒関係の要素を取得する。
-         * @param offset 要素の添字
-         * @return 駒関係の要素
-         */
-        inline element_t get_element(std::size_t offset) const
-        {
-            std::size_t temp = offset;
-            element_t element;
-            element.piece2 = colored_piece_t{ (temp % piece_size) + pawn_value };
-            temp /= piece_size;
-            element.piece1 = colored_piece_t{ (temp % (piece_size / 2)) + pawn_value };
-            temp /= piece_size / 2;
-            element.relative_position = static_cast<position_t>(temp + 1);
-            element.value = m_counts[offset];
-            return element;
-        }
-
-        /**
-         * @breif 出現回数の多い駒関係のうち上位 n 件を出力する。
-         * @param n 表示する件数
-         * @param ostream 出力ストリーム
-         */
-        inline void print_most_frequent(std::size_t n, std::ostream & ostream = std::cout) const
-        {
-            std::vector<element_t> elements;
-            for (std::size_t i = 0; i < std::size(m_counts); ++i)
-            {
-                elements.push_back(get_element(i));
-            }
-
-            const auto comparator = [](const element_t & a, const element_t & b) -> bool
-            {
-                return a.value > b.value;
-            };
-
-            std::sort(elements.begin(), elements.end(), comparator);
-
-            for (std::size_t i = 0; i < n; ++i)
-            {
-                const element_t & element = elements[i];
-                board_t board;
-                board.clear();
-                const position_t relative_file = element.relative_position % file_size;
-                const position_t relative_rank = element.relative_position / file_size;
-                constexpr position_t position1 = file_rank_to_position(0, rank_size - 1);
-                const position_t position2 = file_rank_to_position(0 + relative_file, rank_size - 1 - relative_rank);
-                board[position1] = element.piece1;
-                board[position2] = element.piece2;
-                board.print(ostream);
-                ostream << "count: " << element.value << std::endl << std::endl;
-            }
-        }
-
-        /**
-         * @breif ファイルを読み込む。
-         * @param path ファイルのパス
-         */
-        inline void read_file(const std::filesystem::path & path)
-        {
-            std::ifstream out(path, std::ios_base::in | std::ios::binary);
-            out.read(reinterpret_cast<char *>(m_counts), sizeof(m_counts));
-            for (std::size_t i = 0; i < std::size(m_counts); ++i)
-                m_piece_category_denominators[i / relative_position9x9_size] += m_counts[i];
-        }
-
-        /**
-         * @breif ファイルに書き出す。
-         * @param path ファイルのパス
-         */
-        inline void write_file(const std::filesystem::path & path) const
-        {
-            std::ofstream out(path, std::ios_base::out | std::ios::binary);
-            out.write(reinterpret_cast<const char *>(m_counts), sizeof(m_counts));
-        }
-
-    private:
-        value_type m_counts[piece_category_size * relative_position9x9_size]{};
-        value_type m_piece_category_denominators[piece_category_size]{};
-
-        /**
-         * @breif 評価値を加算してもオーバーフローが発生しないよう、全ての評価値をそれらの比率を維持したまま減らす。
-         */
-        inline void normalize() noexcept
-        {
-            constexpr value_type d = 2;
-            for (value_type & value : m_counts)
-                value /= d;
-            for (value_type & value : m_piece_category_denominators)
-                value /= d;
-        }
-    };
-
-    namespace details
-    {
-        piece_pair_statistics_t piece_pair_statistics;
     }
 
     /**
@@ -5207,6 +3144,2091 @@ namespace shogipp
         std::sort(evaluated_enclosures.begin(), evaluated_enclosures.end(), comparator);
         SHOGIPP_ASSERT(!evaluated_enclosures.empty());
         return evaluated_enclosures.front();
+    }
+
+    inline move_t::move_t(std::string_view sfen_move, const board_t & board)
+        : m_tag{ none_tag }
+    {
+        if (sfen_move.size() < 4)
+            throw invalid_usi_input{ "invalid sfen move" };
+
+        if (sfen_move[1] == '*')
+        {
+            if (sfen_move.size() > 4)
+                throw invalid_usi_input{ "invalid sfen move" };
+            const std::optional<colored_piece_t> optional_piece = char_to_piece(sfen_move[0]);
+            if (!optional_piece)
+                throw invalid_usi_input{ "invalid sfen move" };
+            if (optional_piece->to_color() == white)
+                throw invalid_usi_input{ "invalid sfen move" };
+            const position_t destination = sfen_position_to_position(sfen_move.substr(2, 2));
+
+            m_source = npos;
+            m_destination = destination;
+            m_source_piece = *optional_piece;
+            m_destination_piece = colored_piece_t{};
+            m_promote = false;
+        }
+        else
+        {
+            const position_t source = sfen_position_to_position(sfen_move.substr(0, 2));
+            if (board[source].empty())
+                throw invalid_usi_input{ "invalid sfen move 1" };
+            if (board_t::out(source))
+                throw invalid_usi_input{ "invalid sfen move 2" };
+            const position_t destination = sfen_position_to_position(sfen_move.substr(2, 2));
+            if (board_t::out(destination))
+                throw invalid_usi_input{ "invalid sfen move 3" };
+            bool promote;
+            if (sfen_move.size() == 5 && sfen_move[4] == '+')
+                promote = true;
+            else if (sfen_move.size() == 4)
+                promote = false;
+            else
+                throw invalid_usi_input{ "invalid sfen move" };
+
+            m_source = source;
+            m_destination = destination;
+            m_source_piece = board[source];
+            m_destination_piece = board[destination];
+            m_promote = promote;
+        }
+    }
+
+    /**
+     * @breif 利き
+     */
+    class kiki_t
+    {
+    public:
+        position_t position;    // 利いている駒の座標
+        position_t offset;      // 利かされている駒の座標を基準とする利きの相対座標
+        bool aigoma;            // 合駒が可能か
+    };
+
+    class aigoma_info_t
+        : public std::unordered_map<position_t, std::vector<position_t>>
+    {
+    public:
+        using std::unordered_map<position_t, std::vector<position_t>>::unordered_map;
+
+        inline void print() const
+        {
+            for (const auto & [position, candidates] : *this)
+                std::cout << "合駒：" << position_to_string(position) << std::endl;
+        }
+    };
+
+    /**
+     * @breif 参照される直前に遅延評価する機能を提供する。
+     */
+    template<typename T>
+    class lazy_evaluated_t
+    {
+    public:
+        using value_type = T;
+        using function_type = std::function<void(value_type &)>;
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @param evaluator 遅延評価する関数
+         */
+        inline lazy_evaluated_t(const function_type & evaluator)
+            : m_value{}
+            , m_valid{ false }
+            , m_evaluator{ evaluator }
+        {
+        }
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @return 遅延評価された値
+         */
+        inline value_type & operator *()
+        {
+            evaluate();
+            return m_value;
+        }
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @return 遅延評価された値
+         */
+        inline const value_type & operator *() const
+        {
+            evaluate();
+            return m_value;
+        }
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @return 遅延評価された値
+         */
+        inline value_type * operator ->()
+        {
+            evaluate();
+            return &m_value;
+        }
+
+        /**
+         * @breif 参照される直前に遅延評価する機能を提供する。
+         * @return 遅延評価された値
+         */
+        inline const value_type * operator ->() const
+        {
+            evaluate();
+            return &m_value;
+        }
+
+        /**
+         * @breif 再評価を要求する。
+         */
+        inline void request_reevaluation()
+        {
+            m_valid = false;
+        }
+        
+    //private:
+        mutable value_type m_value;
+        mutable bool m_valid;
+        function_type m_evaluator;
+
+        inline void evaluate() const
+        {
+            if (!m_valid)
+            {
+                m_evaluator(m_value);
+                m_valid = true;
+            }
+        }
+    };
+
+    template<typename Value, typename Hash = std::hash<Value>>
+    class stack_set_t
+    {
+    public:
+        using value_type = Value;
+        using stack_type = std::deque<value_type>;
+        using hash_type = Hash;
+        using unordered_set_type = std::unordered_set<value_type, hash_type>;
+
+        /**
+         * @breif スタックで管理されるキャッシュを構築する。
+         */
+        inline stack_set_t()
+        {
+        }
+
+        inline stack_set_t(const stack_set_t &) = default;
+        inline stack_set_t(stack_set_t &&) = default;
+        inline stack_set_t & operator =(const stack_set_t &) = default;
+        inline stack_set_t & operator =(stack_set_t &&) = default;
+
+        /**
+         * @breif キャッシュを破棄する。
+         */
+        inline void clear()
+        {
+            stack.clear();
+            uset.clear();
+        }
+
+        /**
+         * @breif 値が登録されているか判定する。
+         * @param 値
+         * @retval true 値が登録されている
+         * @retval false 値が登録されていない
+         */
+        inline bool contains(value_type value) const
+        {
+            return uset.find(value) != uset.end();
+        }
+
+        /**
+         * @breif 値を登録する。
+         * @param value 値
+         */
+        inline void push(value_type value)
+        {
+            stack.emplace_back(value);
+            uset.insert(value);
+        }
+
+        inline void pop()
+        {
+            uset.erase(stack.back());
+            stack.pop_back();
+        }
+
+    private:
+        stack_type stack;
+        unordered_set_type uset;
+    };
+
+#ifdef SIZE_OF_HASH
+    using stack_cache_t = stack_set_t<hash_t, basic_hash_hasher_t<SIZE_OF_HASH>>;
+#else
+    using stack_cache_t = stack_set_t<hash_t>;
+#endif
+
+    /**
+     * @breif 局面の追加情報
+     * @details 手番の合法手を検索する過程で手番にかかっている王手が必要になるため、個別にスタック構造を保持する。
+     */
+    class additional_info_t
+    {
+    public:
+        std::vector<std::vector<kiki_t>> check_list_stack;  // 手番にかかっている王手
+        std::vector<hash_t> hash_stack;                     // 局面のハッシュ値
+        position_t king_position_list[color_t::size()]{};   // 王の座標
+        stack_cache_t previously_done_moves;                // 既出の合法手
+    };
+
+    /**
+     * @breif 局面
+     */
+    class kyokumen_t
+    {
+    public:
+        /**
+         * @breif 局面を構築する。
+         */
+        inline kyokumen_t();
+
+        /**
+         * @breif position コマンドで指定された文字列から局面を構築する。
+         */
+        inline kyokumen_t(std::string_view position);
+
+        /**
+         * @breif 駒が移動する場合に成りが可能か判定する。
+         * @param piece 駒
+         * @param source 移動元の座標
+         * @param destination 移動先の座標
+         * @return 成りが可能の場合(駒が既に成っている場合、常にfalse)
+         */
+        inline static bool promotable(colored_piece_t piece, position_t source, position_t destination);
+
+        /**
+         * @breif 駒が移動する場合に成りが必須か判定する。
+         * @param piece 駒
+         * @param destination 移動先の座標
+         * @return 成りが必須の場合(駒が既に成っている場合、常にfalse)
+         */
+        inline static bool must_promote(colored_piece_t piece, position_t destination);
+
+        /**
+         * @breif 移動元の座標から移動可能の移動先を反復的に検索する。
+         * @param result 移動先の座標の出力イテレータ
+         * @param source 移動元の座標
+         * @param offset 移動先の相対座標
+         */
+        template<typename OutputIterator>
+        inline void search_far_destination(OutputIterator result, position_t source, position_t offset) const;
+
+        /**
+         * @breif 移動元の座標から移動可能の移動先を非反復的に検索する。
+         * @param result 移動先の座標の出力イテレータ
+         * @param source 移動元の座標
+         * @param offset 移動先の相対座標
+         */
+        template<typename OutputIterator>
+        inline void search_near_destination(OutputIterator result, position_t source, position_t offset) const;
+
+        /**
+         * @breif 移動元の座標から移動可能の移動先を検索する。
+         * @param result 移動先の座標の出力イテレータ
+         * @param source 移動元の座標
+         * @param color どちらの手番の移動か
+         */
+        template<typename OutputIterator>
+        inline void search_destination(OutputIterator result, position_t source, color_t color) const;
+
+        /**
+         * @breif 持ち駒を移動先の座標に打つことができるか判定する。歩、香、桂に限りfalseを返す可能性がある。
+         * @param piece 持ち駒
+         * @param destination 移動先の座標
+         * @return 置くことができる場合 true
+         */
+        inline bool puttable(captured_piece_t piece, position_t destination) const;
+
+        /**
+         * @breif 移動元の座標を検索する。
+         * @param result 出力イテレータ
+         * @param color どちらの手番の移動か
+         */
+        template<typename OutputIterator>
+        inline void search_source(OutputIterator result, color_t color) const;
+
+        /**
+         * @breif 座標positionから相対座標offset方向に走査し最初に駒が現れる座標を返す。
+         * @param position 走査を開始する座標
+         * @param offset 走査する相対座標
+         * @return 最初に駒が現れる座標(駒が見つからない場合 npos )
+         */
+        inline position_t search(position_t position, position_t offset) const;
+
+        /**
+         * @breif 座標positionを利いている駒あるいは紐を付けている駒を検索する。
+         * @param result 利きの出力イテレータ
+         * @param position 座標
+         * @param offset 利きの相対座標
+         * @param first 利く駒の入力イテレータ(begin)
+         * @param last 利く駒の入力イテレータ(end)
+         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
+         * @param transform (position, offset, aigoma) を出力イテレータに出力する変数に変換する関数
+         */
+        template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
+        inline void search_piece_near(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const;
+
+        /**
+         * @breif 座標positionを利いている駒あるいは紐を付けている駒を検索する。
+         * @param result 座標の出力イテレータ
+         * @param position 座標
+         * @param offset 利きの相対座標
+         * @param first 利く駒の入力イテレータ(begin)
+         * @param last 利く駒の入力イテレータ(end)
+         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
+         * @param transform (position, offset, aigoma) を出力イテレータに出力する変数に変換する関数
+         * @sa search_kiki_far
+         */
+        template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
+        inline void search_piece_far(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const;
+
+        /**
+         * @breif 座標positionに利いている駒あるいは紐を付けている駒を検索する。
+         * @param result 座標の出力イテレータ
+         * @param position 座標
+         * @param color 先後いずれの視点か
+         * @param is_collected 見つかった駒の手番に対して出力イテレータに出力するか判定する叙述関数(bool(bool))
+         * @param transform (position, offset, aigoma) を出力イテレータに出力する変数に変換する関数
+         */
+        template<typename OutputIterator, typename IsCollected, typename Transform>
+        inline void search_piece(OutputIterator result, position_t position, color_t color, IsCollected is_collected, Transform transform) const;
+
+        /**
+         * @breif 座標positionに紐を付けている駒を検索する。
+         * @param result 座標の出力イテレータ
+         * @param position 座標
+         * @param color 先後いずれの視点か
+         */
+        template<typename OutputIterator>
+        inline void search_himo(OutputIterator result, position_t position, color_t color) const;
+
+        /**
+         * @breif 座標positionに利いている駒を検索する。
+         * @param result 座標の出力イテレータ
+         * @param position 座標
+         * @param color 先後いずれの視点か
+         */
+        template<typename OutputIterator>
+        inline void search_kiki(OutputIterator result, position_t position, color_t color) const;
+
+        /**
+         * @breif 座標positionに利いている駒あるいは紐を付けている駒を検索する。
+         * @param result 座標の出力イテレータ
+         * @param position 座標
+         * @param color 先後いずれの視点か
+         */
+        template<typename OutputIterator>
+        inline void search_kiki_or_himo(OutputIterator result, position_t position, color_t color) const;
+
+        /**
+         * @breif 王手を検索する。
+         * @param result 座標の出力イテレータ
+         * @param color 先後いずれの視点か
+         */
+        template<typename OutputIterator>
+        inline void search_check(OutputIterator result, color_t color) const;
+
+        /**
+         * @breif 王手を検索する。
+         * @param color 先後いずれの視点か
+         * @return 王手
+         */
+        std::vector<kiki_t> search_check(color_t color) const;
+
+        /**
+         * @breif 追加情報をpushする。
+         */
+        inline void push_additional_info();
+
+        /**
+         * @breif 追加情報をpushする。
+         * @param hash ハッシュ値
+         */
+        inline void push_additional_info(hash_t hash);
+
+        /**
+         * @breif 追加情報をpopする。
+         */
+        inline void pop_additional_info();
+
+        /**
+         * @breif 追加情報をclearする。
+         */
+        inline void clear_additional_info();
+
+        /**
+         * @breif 王の座標を更新する。
+         */
+        inline void update_king_position_list();
+
+        /**
+         * @breif 合駒を検索する。
+         * @param aigoma_info 合駒の出力先
+         * @param color 先後いずれの視点か
+         */
+        inline void search_aigoma(aigoma_info_t & aigoma_info, color_t color) const;
+
+        /**
+         * @breif 合駒を検索する。
+         * @param color 先後いずれの視点か
+         * @return 合駒の情報
+         */
+        inline aigoma_info_t search_aigoma(color_t color) const;
+
+        /**
+         * @breif 移動元と移動先の座標から合法手を検索する。
+         * @param result 合法手の出力イテレータ
+         * @param source 移動元の座標
+         * @param destination 移動先の座標
+         * @param tag タグ
+         */
+        template<typename OutputIterator>
+        inline void search_moves_from_positions(OutputIterator result, position_t source, position_t destination, move_t::tag_t tag) const;
+
+        /**
+         * @breif 合法手のうち王手を外さない手を検索する。
+         * @param result 合法手の出力イテレータ
+         * @details 王手されていない場合、この関数により生成される手の集合は合法手全体と完全に一致する。
+         */
+        template<typename OutputIterator>
+        inline void search_moves_nonescapes(OutputIterator result) const;
+
+        /**
+         * @breif 王手を外す手のうち王を移動する手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_moves_escapes_king_move(OutputIterator result) const;
+
+        /**
+         * @breif 王手を外す手のうち合駒する手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_moves_escapes_aigoma(OutputIterator result) const;
+
+        /**
+         * @breif 合法手のうち王手を外す手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_moves_escapes(OutputIterator result) const;
+
+        /**
+         * @breif 王手を外さない手のうち駒を動かす手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_moves_moves(OutputIterator result) const;
+
+        /**
+         * @breif 王手を外さない手のうち持ち駒を打つ手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_moves_puts(OutputIterator result) const;
+
+        /**
+         * @breif 合法手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        template<typename OutputIterator>
+        inline void search_moves(OutputIterator result) const;
+
+        /**
+         * @breif 合法手を検索する。
+         * @param result 合法手の出力イテレータ
+         * @details anti_repetition_of_moves == true の場合この関数は strict_search_moves にリダイレクトされる。
+         */
+        inline moves_t search_moves() const;
+
+        /**
+         * @breif 千日手を含む厳密でない合法手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        inline moves_t nonstrict_search_moves() const;
+
+        /**
+         * @breif 千日手を含まない厳密な合法手を検索する。
+         * @param result 合法手の出力イテレータ
+         */
+        inline moves_t strict_search_moves() const;
+
+        /**
+         * @breif 局面のハッシュ値を計算する。
+         * @return 局面のハッシュ値
+         */
+        inline hash_t make_hash() const;
+
+        /**
+         * @breif 局面のハッシュ値と合法手から、合法手を実施した後の局面のハッシュ値を計算する。
+         * @param hash 合法手を実施する前の局面のハッシュ値
+         * @param move 実施する合法手
+         * @return 合法手を実施した後の局面のハッシュ値
+         * @details 合法手により発生する差分に基づき計算するため make_hash() より比較的高速に処理される。
+         *          この関数は合法手を実施するより前に呼び出される必要がある。
+         */
+        inline hash_t make_hash(hash_t hash, const move_t & move) const;
+
+        /**
+         * @breif 合法手を出力ストリームに出力する。
+         * @param move 合法手
+         * @param color 後手の合法手か
+         * @param ostream 出力ストリーム
+         */
+        inline void print_move(const move_t & move, color_t color, std::ostream & ostream = std::cout) const;
+
+        /**
+         * @breif 合法手を出力ストリームに出力する。
+         * @param first 合法手の入力イテレータのbegin
+         * @param last 合法手の入力イテレータのend
+         * @param ostream 出力ストリーム
+         */
+        template<typename InputIterator>
+        inline void print_moves(InputIterator first, InputIterator last, std::ostream & ostream = std::cout) const;
+
+        /**
+         * @breif 合法手を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
+         */
+        inline void print_moves(std::ostream & ostream = std::cout) const;
+
+        /**
+         * @breif 王手を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
+         */
+        inline void print_check(std::ostream & ostream = std::cout) const;
+
+        /**
+         * @breif 囲いを出力ストリームに出力する。
+         * @param color 手番
+         * @param ostream 出力ストリーム
+         */
+        inline void print_enclosure(color_t color, std::ostream & ostream = std::cout) const;
+
+        /**
+         * @breif 局面を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
+         */
+        inline void print(std::ostream & ostream = std::cout) const;
+
+        /**
+         * @breif 棋譜を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
+         */
+        inline void print_kifu(std::ostream & ostream = std::cout) const;
+
+        /**
+         * @breif 末尾から指定された手数分の棋譜を出力ストリームに出力する。
+         * @param ostream 出力ストリーム
+         */
+        inline void print_recent_kifu(std::size_t size, std::ostream & ostream = std::cout) const;
+
+        /**
+         * @breif 局面のハッシュ値を返す。
+         * @return 局面のハッシュ値
+         */
+        inline hash_t hash() const;
+
+        inline void validate_board_out();
+
+        /**
+         * @breif 合法手を実行する。
+         * @param move 合法手
+         * @details この関数を呼び出すときに指定した move を指定して undo_move を呼び出すことにより
+         *          この関数を呼び出す前の状態に復元することができる。
+         *          この関数は additional_info のメンバに再割当てを行う可能性があるため、
+         *          この関数を呼び出す前後で additional_info に関連した参照やポインタを継続して使用しないよう注意する。
+         * @sa undo_move
+         */
+        inline void do_move(const move_t & move);
+
+        /**
+         * @breif 合法手を実行する前に戻す。
+         * @param move 合法手
+         * @sa do_move
+         */
+        inline void undo_move(const move_t & move);
+
+        /**
+         * @breif 最後に指された合法手を返す。
+         * @return 最後に指された合法手
+         */
+        inline std::optional<move_t> last_move() const noexcept;
+
+        /**
+         * @breif 手番を取得する。
+         * @return 手番
+         */
+        inline color_t color() const;
+
+        /**
+         * @breif 指定された手数で分岐する局面の数を数える。
+         * @param depth 手数
+         * @return 局面の数
+         */
+        inline search_count_t count_node(move_count_t depth) const;
+
+        /**
+         * @breif 局面をSFEN表記法に準拠した文字列に変換する。
+         * @return SFEN表記法に準拠した文字列
+         */
+        inline std::string sfen_string() const;
+
+        /**
+         * @breif 合法手の集合から千日手を削除する。
+         */
+        inline void remove_repetition_of_moves(moves_t & moves) const noexcept;
+
+        /**
+         * @breif 王の座標を取得する。
+         * @param color 手番
+         * @return 座標
+         */
+        inline position_t king_position(color_t color) const noexcept;
+
+        /**
+         * @breif 手番にかかっている王手を取得する。
+         * @return 手番にかかっている王手
+         */
+        inline const std::vector<kiki_t> & check_list() const noexcept;
+
+        board_t board;                                              // 盤
+        captured_pieces_t captured_pieces_list[color_t::size()];    // 持ち駒
+        move_count_t move_count = 0;                                // 手数
+        std::vector<move_t> kifu;                                   // 棋譜
+        additional_info_t additional_info;                          // 追加情報
+        bool anti_repetition_of_moves = true;                       // 耐千日手
+        std::string initial_sfen_string;                            // 初期状態
+    };
+
+#ifndef NDEBUG
+    /**
+     * @breif コピーコンストラクトされてからデストラクトされるまでに局面が変更されていないことを検証する。
+     */
+    class kyokumen_rollback_validator_t
+    {
+    public:
+        inline kyokumen_rollback_validator_t(const kyokumen_t & kyokumen) noexcept;
+        inline ~kyokumen_rollback_validator_t() noexcept;
+
+    private:
+        const kyokumen_t & kyokumen;
+        colored_piece_t data[position_size];
+        captured_pieces_t captured_pieces_list[color_t::size()];
+    };
+
+    inline kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen) noexcept
+        : kyokumen{ kyokumen }
+    {
+        std::copy(std::begin(kyokumen.board.data), std::end(kyokumen.board.data), std::begin(data));
+        for (const color_t color : colors)
+            captured_pieces_list[color.value()] = kyokumen.captured_pieces_list[color.value()];
+    }
+
+    inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t() noexcept
+    {
+        // 最善手を探索している間に例外が送出された場合、 do_move と対応する undo_move が呼び出されない。
+        // 捕捉されていない例外が存在しない場合のみ、不整合がないか検証する。
+        if (std::uncaught_exceptions() == 0)
+        {
+            for (std::size_t i = 0; i < std::size(data); ++i)
+                SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
+            for (const color_t color : colors)
+                for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
+                    SHOGIPP_ASSERT(captured_pieces_list[color.value()][captured_piece_t{ piece }] == kyokumen.captured_pieces_list[color.value()][captured_piece_t{ piece }]);
+        }
+    }
+#endif
+
+    inline kyokumen_t::kyokumen_t()
+    {
+        update_king_position_list();
+        push_additional_info();
+        initial_sfen_string = "startpos";
+    }
+
+    inline kyokumen_t::kyokumen_t(std::string_view position)
+    {
+        kyokumen_t temp;
+        bool promoted = false;
+
+        std::vector<std::string> tokens;
+        details::split_tokens(std::back_inserter(tokens), position);
+
+        auto current_token = tokens.begin();
+
+        constexpr std::string_view startpos = "startpos";
+        if (current_token == tokens.end())
+            throw invalid_usi_input{ "unexpected sfen end 1" };
+
+        const bool is_startpos = *current_token == startpos;
+        if (is_startpos)
+        {
+            ++current_token;
+        }
+        else
+        {
+            constexpr std::string_view sfen = "sfen";
+            if (*current_token != sfen)
+                throw invalid_usi_input{ "sfen not found" };
+
+            ++current_token;
+            if (current_token == tokens.end())
+                throw invalid_usi_input{ "unexpected sfen end 2" };
+
+            temp.board.clear();
+            position_t rank = 0, file = 0;
+
+            const std::string_view sfen_string = *current_token;
+            for (const char c : *current_token)
+            {
+                if (c == '+')
+                {
+                    promoted = true;
+                }
+                else if (c == '/')
+                {
+                    if (file != file_size)
+                        throw invalid_usi_input{ "unexpected '/'" };
+                    ++rank;
+                    file = 0;
+                }
+                else if (c >= '1' && c <= '9')
+                {
+                    file += static_cast<position_t>(c - '0');
+                }
+                else
+                {
+                    const std::optional<colored_piece_t> optional_piece = char_to_piece(c);
+                    if (!optional_piece)
+                        throw invalid_usi_input{ "unexpected character 1" };
+                    colored_piece_t piece = *optional_piece;
+                    if (promoted)
+                        piece = piece.to_promoted();
+                    temp.board[file_rank_to_position(file, rank)] = piece;
+                    ++file;
+                }
+            }
+            temp.clear_additional_info();
+            temp.push_additional_info();
+
+            ++current_token;
+        }
+
+        while (current_token != tokens.end())
+        {
+            if (*current_token == "w")
+            {
+                ++current_token;
+                /* unused */;
+            }
+            else if (*current_token == "b")
+            {
+                ++current_token;
+                /* unused */;
+            }
+            else if (*current_token == "moves")
+            {
+                ++current_token;
+                while (current_token != tokens.end())
+                {
+                    const move_t move{ *current_token, temp.board };
+                    if (!move.put() && move.source_piece().to_color() != temp.color())
+                        throw invalid_usi_input{ "invalid source color" };
+                    temp.do_move(move);
+                    ++current_token;
+                }
+            }
+            else if (std::all_of(current_token->begin(), current_token->end(), [](char c) -> bool { return std::isdigit(c); }))
+            {
+                /* unused */;
+                ++current_token;
+            }
+            else
+            {
+                if (*current_token == "-")
+                {
+                    ++current_token;
+                    /* unused */;
+                }
+                else
+                {
+                    captured_pieces_t::size_type count = 1;
+                    for (auto iter = current_token->begin(); iter != current_token->end(); ++iter)
+                    {
+                        if (*iter >= '0' && *iter <= '9')
+                        {
+                            count = 0;
+                            for (; iter != current_token->end() && *iter >= '0' && *iter <= '9'; ++iter)
+                                count = static_cast<captured_pieces_t::size_type>(count * 10 + *iter - '0');
+                        }
+                        else
+                        {
+                            std::optional<colored_piece_t> optional_piece = char_to_piece(*iter);
+                            if (!optional_piece)
+                                throw invalid_usi_input{ "unexpected character 2" };
+                            if (!optional_piece->is_captured())
+                                throw invalid_usi_input{ "unexpected character 3" };
+                            temp.captured_pieces_list[optional_piece->to_color().value()][captured_piece_t{ *optional_piece }] = count;
+                            count = 1;
+                        }
+                    }
+                    ++current_token;
+                }
+            }
+        }
+
+        *this = std::move(temp);
+        initial_sfen_string = position;
+    }
+
+    inline bool kyokumen_t::promotable(colored_piece_t piece, position_t source, position_t destination)
+    {
+        if (!piece.is_promotable())
+            return false;
+        if (piece.to_color() == black)
+            return source < width * (3 + padding_height) || destination < width * (3 + padding_height);
+        return source >= width * (6 + padding_height) || destination >= width * (6 + padding_height);
+    }
+
+    inline bool kyokumen_t::must_promote(colored_piece_t piece, position_t destination)
+    {
+        if (noncolored_piece_t{ piece } == pawn || noncolored_piece_t{ piece } == lance)
+        {
+            if (piece.to_color() == black)
+                return destination < (width * (1 + padding_height));
+            return destination >= width * (8 + padding_height);
+        }
+        else if (noncolored_piece_t{ piece } == knight)
+        {
+            if (piece.to_color() == black)
+                return destination < width * (2 + padding_height);
+            return destination >= width * (7 + padding_height);
+        }
+        return false;
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_far_destination(OutputIterator result, position_t source, position_t offset) const
+    {
+        for (position_t current = source + offset; !board_t::out(current); current += offset)
+        {
+            if (board[current].empty())
+                *result++ = current;
+            else
+            {
+                if (board[source].to_color() == board[current].to_color()) break;
+                *result++ = current;
+                if (board[source].to_color() != board[current].to_color()) break;
+            }
+        }
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_near_destination(OutputIterator result, position_t source, position_t offset) const
+    {
+        const position_t current = source + offset;
+        if (!board_t::out(current) && (board[current].empty() || board[current].to_color() != board[source].to_color()))
+            *result++ = current;
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_destination(OutputIterator result, position_t source, color_t color) const
+    {
+        const noncolored_piece_t piece{ board[source] };
+        for (const position_t * offset = far_move_offsets(piece); *offset; ++offset)
+            search_far_destination(result, source, *offset * reverse(color));
+        for (const position_t * offset = near_move_offsets(piece); *offset; ++offset)
+            search_near_destination(result, source, *offset * reverse(color));
+    }
+
+    inline bool kyokumen_t::puttable(captured_piece_t piece, position_t destination) const
+    {
+        if (!board[destination].empty())
+            return false;
+        if (color() == black)
+        {
+            if ((piece == captured_pawn || piece == captured_lance) && destination < width * (padding_height + 1))
+                return false;
+            if (piece == captured_knight && destination < width * (padding_height + 2))
+                return false;
+        }
+        else
+        {
+            if ((piece == captured_pawn || piece == captured_lance) && destination >= width * (padding_height + 8))
+                return false;
+            if (piece == captured_knight && destination >= width * (padding_height + 7))
+                return false;
+        }
+        if (piece == captured_pawn)
+        {
+            const position_t file = position_to_file(destination);
+
+            // 二歩
+            for (position_t rank = 0; rank < rank_size; ++rank)
+            {
+                const colored_piece_t current = board[file_rank_to_position(file, rank)];
+                if (!current.empty() && noncolored_piece_t{ current } == pawn && color() == current.to_color())
+                    return false;
+            }
+
+            // 打ち歩詰め
+            const position_t position = destination + front * (reverse(color()));
+            if (!board_t::out(position) && !board[position].empty() && noncolored_piece_t{ board[position] } == king && board[position].to_color() != color())
+            {
+                const move_t move{ destination, piece };
+                moves_t moves;
+                {
+                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
+                    const_cast<kyokumen_t &>(*this).do_move(move);
+                    moves = search_moves();
+                    const_cast<kyokumen_t &>(*this).undo_move(move);
+                }
+                if (moves.empty())
+                    return false;
+            }
+        }
+        return true;
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_source(OutputIterator result, color_t color) const
+    {
+        for (position_t position = position_begin; position < position_end; ++position)
+            if (!board_t::out(position) && !board[position].empty() && board[position].to_color() == color)
+                *result++ = position;
+    }
+
+    inline position_t kyokumen_t::search(position_t position, position_t offset) const
+    {
+        position_t current;
+        for (current = position + offset; !board_t::out(current) && board[current].empty(); current += offset);
+        if (board_t::out(current))
+            return npos;
+        return current;
+    }
+    
+    template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
+    inline void kyokumen_t::search_piece_near(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
+    {
+        if (position_t current = position + offset; !board_t::out(current) && !board[current].empty())
+            if (is_collected(board[current].to_color()) && std::find(first, last, noncolored_piece_t{ board[current] }) != last)
+                *result++ = transform(current, offset, false);
+    }
+
+    template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
+    inline void kyokumen_t::search_piece_far(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
+    {
+        if (position_t found = search(position, offset); found != npos && found != position + offset && !board[found].empty())
+            if (is_collected(board[found].to_color()) && std::find(first, last, noncolored_piece_t{ board[found] }) != last)
+                *result++ = transform(found, offset, true);
+    }
+
+    template<typename OutputIterator, typename IsCollected, typename Transform>
+    inline void kyokumen_t::search_piece(OutputIterator result, position_t position, color_t color, IsCollected is_collected, Transform transform) const
+    {
+        for (const auto & [offset, candidates] : near_kiki_list)
+            search_piece_near(result, position, offset * reverse(color), candidates.begin(), candidates.end(), is_collected, transform);
+        for (const auto & [offset, candidates] : far_kiki_list_synmmetric)
+            search_piece_far(result, position, offset, candidates.begin(), candidates.end(), is_collected, transform);
+        for (const auto & [offset, candidates] : far_kiki_list_asynmmetric)
+            search_piece_far(result, position, offset * reverse(color), candidates.begin(), candidates.end(), is_collected, transform);
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_himo(OutputIterator result, position_t position, color_t color) const
+    {
+        search_piece(result, position, color,
+            [color](color_t g) { return g == color; },
+            [](position_t position, position_t offset, bool aigoma) -> position_t { return position; });
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_kiki(OutputIterator result, position_t position, color_t color) const
+    {
+        search_piece(result, position, color,
+            [color](color_t g) { return g != color; },
+            [](position_t position, position_t offset, bool aigoma) -> kiki_t { return { position, offset, aigoma }; });
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_kiki_or_himo(OutputIterator result, position_t position, color_t color) const
+    {
+        search_piece(result, position, color,
+            [](color_t) { return true; },
+            [](position_t position, position_t offset, bool aigoma) -> position_t { return position; });
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_check(OutputIterator result, color_t color) const
+    {
+        search_kiki(result, additional_info.king_position_list[color.value()], color);
+    }
+
+    std::vector<kiki_t> kyokumen_t::search_check(color_t color) const
+    {
+        std::vector<kiki_t> check_list;
+        search_check(std::back_inserter(check_list), color);
+        return check_list;
+    }
+
+    inline void kyokumen_t::push_additional_info()
+    {
+        push_additional_info(make_hash());
+    }
+
+    inline void kyokumen_t::push_additional_info(hash_t hash)
+    {
+        additional_info.check_list_stack.push_back(search_check(color()));
+        additional_info.hash_stack.push_back(hash);
+        if (!kifu.empty())
+        {
+            const hash_t hash = this->hash() ^ hash_table.move_hash(kifu.back(), !color());
+            additional_info.previously_done_moves.push(hash);
+        }
+    }
+
+    inline void kyokumen_t::pop_additional_info()
+    {
+        SHOGIPP_ASSERT(!additional_info.check_list_stack.empty());
+        SHOGIPP_ASSERT(!additional_info.hash_stack.empty());
+        additional_info.check_list_stack.pop_back();
+        additional_info.hash_stack.pop_back();
+        additional_info.previously_done_moves.pop();
+    }
+
+    inline void kyokumen_t::clear_additional_info()
+    {
+        additional_info.check_list_stack.clear();
+        additional_info.hash_stack.clear();
+        update_king_position_list();
+        additional_info.previously_done_moves.clear();
+    }
+
+    inline void kyokumen_t::update_king_position_list()
+    {
+        for (position_t position = position_begin; position < position_end; ++position)
+            if (!board_t::out(position) && !board[position].empty() && noncolored_piece_t{ board[position] } == king)
+                additional_info.king_position_list[board[position].to_color().value()] = position;
+    }
+
+    inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, color_t color) const
+    {
+        using pair = std::pair<position_t, std::vector<noncolored_piece_t>>;
+        static const std::vector<pair> table
+        {
+            { front      , { lance, rook, promoted_rook } },
+            { left       , { rook, promoted_rook } },
+            { right      , { rook, promoted_rook } },
+            { back       , { rook, promoted_rook } },
+            { front_left , { bishop, promoted_bishop } },
+            { front_right, { bishop, promoted_bishop } },
+            { back_left  , { bishop, promoted_bishop } },
+            { back_right , { bishop, promoted_bishop } },
+        };
+
+        const position_t king_position = additional_info.king_position_list[color.value()];
+        for (const auto & [offset, hashirigoma_list] : table)
+        {
+            const position_t reversed_offset = offset * reverse(color);
+            const position_t first = search(king_position, reversed_offset);
+            if (first != npos && board[first].to_color() == color)
+            {
+                const position_t second = search(first, reversed_offset);
+                if (second != npos && board[second].to_color() != color)
+                {
+                    const noncolored_piece_t kind = noncolored_piece_t{ board[second] };
+                    bool match = std::find(hashirigoma_list.begin(), hashirigoma_list.end(), kind) != hashirigoma_list.end();
+                    if (match)
+                    {
+                        std::vector<position_t> candidates;
+                        for (position_t candidate = second; candidate != king_position; candidate -= reversed_offset)
+                            candidates.push_back(candidate);
+                        aigoma_info[first] = std::move(candidates);
+                    }
+                }
+            }
+        }
+    }
+
+    inline aigoma_info_t kyokumen_t::search_aigoma(color_t color) const
+    {
+        aigoma_info_t aigoma_info;
+        search_aigoma(aigoma_info, color);
+        return aigoma_info;
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_moves_from_positions(OutputIterator result, position_t source, position_t destination, move_t::tag_t tag) const
+    {
+        if (promotable(board[source], source, destination))
+            *result++ = { source, destination, board[source], board[destination], true, static_cast<move_t::tag_t>(tag | move_t::promote_tag) };
+        if (!must_promote(board[source], destination))
+            *result++ = { source, destination, board[source], board[destination], false, tag };
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_moves_nonescapes(OutputIterator result) const
+    {
+        search_moves_moves(result);
+        search_moves_puts(result);
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_moves_escapes_king_move(OutputIterator result) const
+    {
+        const position_t source = additional_info.king_position_list[color().value()];
+        for (const position_t * ptr = near_move_offsets(king); *ptr; ++ptr)
+        {
+            const position_t destination = source + *ptr * reverse(color());
+            if (!board_t::out(destination)
+                && (board[destination].empty() || board[destination].to_color() != color()))
+            {
+                const move_t move{ source, destination, board[source], board[destination], false, move_t::escape_tag };
+                std::vector<kiki_t> kiki;
+                {
+                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
+                    kyokumen_t & nonconst_this = const_cast<kyokumen_t &>(*this);
+                    const colored_piece_t captured = board[destination];
+                    nonconst_this.board[destination] = board[source];
+                    nonconst_this.board[source] = colored_piece_t{};
+                    search_kiki(std::back_inserter(kiki), destination, color());
+                    nonconst_this.board[source] = board[destination];
+                    nonconst_this.board[destination] = captured;
+                }
+                if (kiki.empty())
+                    *result++ = move;
+            }
+        }
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_moves_escapes_aigoma(OutputIterator result) const
+    {
+        const aigoma_info_t aigoma_info = search_aigoma(color());
+        const position_t king_pos = additional_info.king_position_list[color().value()];
+        
+        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
+        const std::size_t saved_count = check_list().size();
+
+        // 合駒を打つ際に打ち歩詰めを判定するため puttable は do_move / undo_move を呼び出す。
+        // ここで additional_info.check_list_stack の要素の参照をローカル変数として保持してはならない。
+        if (check_list().size() == 1)
+        {
+            if (check_list().front().aigoma)
+            {
+                const position_t offset = check_list().front().offset;
+                for (position_t destination = king_pos + offset; !board_t::out(destination) && board[destination].empty(); destination += offset)
+                {
+                    // 駒を移動させる合駒
+                    std::vector<kiki_t> kiki_list;
+                    search_kiki(std::back_inserter(kiki_list), destination, !color());
+                    for (const kiki_t & kiki : kiki_list)
+                    {
+                        // 王で合駒はできない。
+                        if (noncolored_piece_t{ board[kiki.position] } != king)
+                        {
+                            // 既に合駒として使っている駒は移動できない。
+                            const auto aigoma_iter = aigoma_info.find(kiki.position);
+                            const bool is_aigoma = aigoma_iter != aigoma_info.end();
+                            if (!is_aigoma)
+                                search_moves_from_positions(result, kiki.position, destination, move_t::escape_tag | move_t::capture_tag);
+                        }
+                    }
+
+                    // 駒を打つ合駒
+                    for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
+                        if (captured_pieces_list[color().value()][piece])
+                            if (puttable(piece, destination))
+                                *result++ = { destination, piece, move_t::escape_tag | move_t::aigoma_tag | move_t::put_tag };
+                }
+            }
+
+            if (check_list().size() != saved_count)
+                std::cerr << sfen_string() << std::endl;
+            // 王手している駒を取る手を検索する。
+            const position_t destination = check_list().front().position;
+            std::vector<kiki_t> kiki_list;
+            search_kiki(std::back_inserter(kiki_list), destination, !color());
+            for (const kiki_t & kiki : kiki_list)
+            {
+                // 王を動かす手は既に検索済み
+                if (noncolored_piece_t{ board[kiki.position] } != king)
+                {
+                    // 既に合駒として使っている駒は移動できない。
+                    const auto aigoma_iter = aigoma_info.find(kiki.position);
+                    const bool is_aigoma = aigoma_iter != aigoma_info.end();
+                    if (!is_aigoma)
+                        search_moves_from_positions(result, kiki.position, destination, move_t::escape_tag | move_t::capture_tag);
+                }
+            }
+        }
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_moves_escapes(OutputIterator result) const
+    {
+        search_moves_escapes_king_move(result);
+        search_moves_escapes_aigoma(result);
+    }
+
+    /**
+     * @breif 王手を外さない手のうち駒を動かす手を検索する。
+     * @param result 合法手の出力イテレータ
+     */
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_moves_moves(OutputIterator result) const
+    {
+        const aigoma_info_t aigoma_info = search_aigoma(color());
+        std::vector<position_t> source_list;
+        source_list.reserve(position_size);
+        search_source(std::back_inserter(source_list), color());
+        for (const position_t source : source_list)
+        {
+            std::vector<position_t> destination_list;
+            destination_list.reserve(position_size);
+            search_destination(std::back_inserter(destination_list), source, color());
+            const auto aigoma_iter = aigoma_info.find(source);
+            const bool is_aigoma = aigoma_iter != aigoma_info.end();
+
+            for (const position_t destination : destination_list)
+            {
+#ifndef NDEBUG
+                if (!board[destination].empty() && noncolored_piece_t { board[destination] } == king)
+                {
+                    board.print();
+                    std::cout << position_to_string(source) << std::endl;
+                    const move_t move{ source, destination, board[source], board[destination], false };
+                    print_move(move, color());
+                    std::cout << std::endl;
+                    print_kifu();
+                    SHOGIPP_ASSERT(false);
+                }
+#endif
+
+                // 合駒は利きの範囲にしか移動できない。
+                if (is_aigoma)
+                {
+                    const std::vector<position_t> & candidates = aigoma_iter->second;
+                    if (std::find(candidates.begin(), candidates.end(), destination) == candidates.end())
+                        continue;
+                }
+
+                // 利いている場所に王を移動させてはならない
+                if (noncolored_piece_t{ board[source] } == king)
+                {
+                    std::vector<kiki_t> kiki_list;
+                    search_kiki(std::back_inserter(kiki_list), destination, color());
+                    if (kiki_list.size() > 0)
+                        continue;
+                }
+
+                search_moves_from_positions(result, source, destination, move_t::none_tag);
+            }
+        }
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_moves_puts(OutputIterator result) const
+    {
+        for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
+            if (captured_pieces_list[color().value()][piece])
+                for (position_t destination = position_begin; destination < position_end; ++destination)
+                    if (puttable(piece, destination))
+                        *result++ = { destination, piece };
+    }
+
+    template<typename OutputIterator>
+    inline void kyokumen_t::search_moves(OutputIterator result) const
+    {
+        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
+        auto & check_list = additional_info.check_list_stack[move_count];
+        if (check_list.empty())
+            search_moves_nonescapes(result);
+        else
+            search_moves_escapes(result);
+    }
+
+    inline moves_t kyokumen_t::search_moves() const
+    {
+        if (anti_repetition_of_moves)
+            return strict_search_moves();
+        return nonstrict_search_moves();
+    }
+
+    inline moves_t kyokumen_t::nonstrict_search_moves() const
+    {
+        moves_t moves;
+        search_moves(std::back_inserter(moves));
+        return moves;
+    }
+
+    inline moves_t kyokumen_t::strict_search_moves() const
+    {
+        moves_t moves;
+        search_moves(std::back_inserter(moves));
+        remove_repetition_of_moves(moves);
+        return moves;
+    }
+
+    inline hash_t kyokumen_t::make_hash() const
+    {
+        hash_t hash{};
+
+        // 盤上の駒のハッシュ値をXOR演算
+        for (position_t position = position_begin; position < position_end; ++position)
+            if (!board_t::out(position))
+                if (const colored_piece_t piece = board[position]; !piece.empty())
+                    hash ^= hash_table.piece_hash(piece, position);
+
+        // 持ち駒のハッシュ値をXOR演算
+        for (const color_t color : colors)
+            for (piece_value_t piece = pawn.value(); piece <= rook.value(); ++piece)
+                hash ^= hash_table.captured_piece_hash(captured_piece_t{ piece }, captured_pieces_list[color.value()][captured_piece_t{ piece }], color);
+
+        // 手番のハッシュ値をXOR演算
+        hash ^= hash_table.color_hash(color());
+        hash ^= hash_table.color_hash(!color());
+
+        return hash;
+    }
+
+    inline hash_t kyokumen_t::make_hash(hash_t hash, const move_t & move) const
+    {
+        if (move.put())
+        {
+            const captured_pieces_t::size_type count = captured_pieces_list[color().value()][move.captured_piece()];
+            SHOGIPP_ASSERT(count > 0);
+            const colored_piece_t piece{ move.captured_piece(), color() };
+            hash ^= hash_table.piece_hash(piece, move.destination());
+            hash ^= hash_table.captured_piece_hash(move.captured_piece(), count, color());
+            hash ^= hash_table.captured_piece_hash(move.captured_piece(), count - 1, color());
+        }
+        else
+        {
+            SHOGIPP_ASSERT(!(!move.source_piece().is_promotable() && move.promote()));
+            hash ^= hash_table.piece_hash(move.source_piece(), move.source());
+            if (!move.destination_piece().empty())
+            {
+                const captured_piece_t new_captured_piece{ move.destination_piece() };
+                const captured_pieces_t::size_type count = captured_pieces_list[color().value()][new_captured_piece];
+                hash ^= hash_table.captured_piece_hash(new_captured_piece, count, color());
+                hash ^= hash_table.captured_piece_hash(new_captured_piece, count + 1, color());
+                hash ^= hash_table.piece_hash(move.destination_piece(), move.destination());
+            }
+            const colored_piece_t new_destination_piece = move.promote() ? move.source_piece().to_promoted() : move.source_piece();
+            hash ^= hash_table.piece_hash(new_destination_piece, move.destination());
+        }
+        hash ^= hash_table.color_hash(!color());
+        hash ^= hash_table.color_hash(color());
+        return hash;
+    }
+
+    inline void kyokumen_t::print_move(const move_t & move, color_t color, std::ostream & ostream) const
+    {
+        ostream << (color == black ? "▲" : "△");
+        if (move.put())
+        {
+            ostream << position_to_string(move.destination()) << move.captured_piece().to_string() << "打" << std::flush;
+        }
+        else
+        {
+            const char * promotion_string;
+            if (promotable(move.source_piece(), move.source(), move.destination()))
+            {
+                if (move.promote())
+                    promotion_string = "成";
+                else
+                    promotion_string = "不成";
+            }
+            else
+                promotion_string = "";
+            ostream
+                << position_to_string(move.destination()) << noncolored_piece_t{ move.source_piece() }.to_string() << promotion_string
+                << "（" << position_to_string(move.source()) << "）" << std::flush;
+        }
+    }
+
+    template<typename InputIterator>
+    inline void kyokumen_t::print_moves(InputIterator first, InputIterator last, std::ostream & ostream) const
+    {
+        for (std::size_t i = 0; first != last; ++i)
+        {
+            const std::ios::fmtflags flags = ostream.flags();
+            ostream << "#" << std::setw(3) << (i + 1);
+            ostream.flags(flags);
+            print_move(*first++, color(), ostream);
+            ostream << std::endl;
+        }
+    }
+
+    inline void kyokumen_t::print_moves(std::ostream & ostream) const
+    {
+        const kyokumen_t temp = *this;
+        const moves_t moves = temp.strict_search_moves();
+        print_moves(moves.begin(), moves.end(), ostream);
+    }
+
+    inline void kyokumen_t::print_check(std::ostream & ostream) const
+    {
+        if (details::program_options::print_check)
+        {
+            SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
+            auto & check_list = additional_info.check_list_stack[move_count];
+            if (!check_list.empty())
+            {
+                ostream << "王手：";
+                for (std::size_t i = 0; i < check_list.size(); ++i)
+                {
+                    const kiki_t & kiki = check_list[i];
+                    if (i > 0)
+                        ostream << "　";
+                    ostream << position_to_string(kiki.position) << noncolored_piece_t{ board[kiki.position] }.to_string() << std::endl;
+                }
+            }
+        }
+    }
+
+    inline void kyokumen_t::print_enclosure(color_t color, std::ostream & ostream) const
+    {
+        if (details::program_options::print_enclosure)
+        {
+            ostream << color.to_string() << "：";
+            const evaluated_enclosure_t evaluated_enclosure = nearest_enclosure(board, color);
+            ostream << evaluated_enclosure.first->name() << "(" << evaluated_enclosure.second << ")" << std::endl;
+        }
+    }
+
+    inline void kyokumen_t::print(std::ostream & ostream) const
+    {
+        if (details::program_options::print_board)
+        {
+            print_enclosure(white, ostream);
+            ostream << "後手持ち駒：";
+            captured_pieces_list[white.value()].print(ostream);
+            board.print(ostream);
+            ostream << "先手持ち駒：";
+            captured_pieces_list[black.value()].print(ostream);
+            print_enclosure(black, ostream);
+        }
+    }
+
+    inline void kyokumen_t::print_kifu(std::ostream & ostream) const
+    {
+        for (move_count_t i = 0; i < static_cast<move_count_t>(kifu.size()); ++i)
+        {
+            const move_count_t diff = static_cast<move_count_t>(kifu.size() - i);
+            print_move(kifu[i], diff % color_t::size() == 0 ? color() : !color(), ostream);
+            ostream << std::endl;
+        }
+    }
+
+    inline void kyokumen_t::print_recent_kifu(std::size_t size, std::ostream & ostream) const
+    {
+        size = std::min(size, kifu.size());
+        for (move_count_t i = 0; i < size; ++i)
+        {
+            if (i > 0)
+                ostream << "　";
+            std::size_t index = kifu.size() - size + i;
+            const move_count_t diff = static_cast<move_count_t>(kifu.size() - index);
+            print_move(kifu[index], diff % color_t::size() == 0 ? color() : !color(), ostream);
+        }
+        ostream << std::flush;
+    }
+
+    inline hash_t kyokumen_t::hash() const
+    {
+        SHOGIPP_ASSERT(move_count < additional_info.hash_stack.size());
+        return additional_info.hash_stack[move_count];
+    }
+
+    inline void kyokumen_t::validate_board_out()
+    {
+        for (position_t position = 0; position < position_size; ++position)
+            if (board_t::out(position))
+                SHOGIPP_ASSERT(board[position].value() == out_of_range.value());
+    }
+
+    inline void kyokumen_t::do_move(const move_t & move)
+    {
+        hash_t hash = make_hash(this->hash(), move);
+        if (move.put())
+        {
+            SHOGIPP_ASSERT(captured_pieces_list[color().value()][move.captured_piece()] > 0);
+            board[move.destination()] = colored_piece_t{ move.captured_piece(), color() };
+            --captured_pieces_list[color().value()][move.captured_piece()];
+        }
+        else
+        {
+            SHOGIPP_ASSERT(!(!move.source_piece().is_promotable() && move.promote()));
+            if (!board[move.destination()].empty())
+                ++captured_pieces_list[color().value()][captured_piece_t{ board[move.destination()] }];
+            board[move.destination()] = move.promote() ? board[move.source()].to_promoted() : board[move.source()];
+            board[move.source()] = colored_piece_t{};
+            if (noncolored_piece_t{ move.source_piece() } == king)
+                additional_info.king_position_list[color().value()] = move.destination();
+        }
+        ++move_count;
+        kifu.push_back(move);
+        push_additional_info(hash);
+        validate_board_out();
+    }
+
+    inline void kyokumen_t::undo_move(const move_t & move)
+    {
+        SHOGIPP_ASSERT(move_count > 0);
+        --move_count;
+        if (move.put())
+        {
+            ++captured_pieces_list[color().value()][move.captured_piece()];
+            board[move.destination()] = colored_piece_t{};
+        }
+        else
+        {
+            if (noncolored_piece_t{ move.source_piece() } == king)
+                additional_info.king_position_list[color().value()] = move.source();
+            board[move.source()] = move.source_piece();
+            board[move.destination()] = move.destination_piece();
+            if (!move.destination_piece().empty())
+                --captured_pieces_list[color().value()][captured_piece_t{ move.destination_piece() }];
+        }
+        kifu.pop_back();
+        pop_additional_info();
+    }
+
+    inline std::optional<move_t> kyokumen_t::last_move() const noexcept
+    {
+        if (kifu.empty())
+            return std::nullopt;
+        return kifu.back();
+    }
+
+    inline color_t kyokumen_t::color() const
+    {
+        return static_cast<color_t>(move_count % 2);
+    }
+
+    inline search_count_t kyokumen_t::count_node(move_count_t depth) const
+    {
+        if (depth == 0)
+            return 1;
+
+        search_count_t count = 0;
+        for (const move_t & move : search_moves())
+        {
+            VALIDATE_KYOKUMEN_ROLLBACK(*this);
+            const_cast<kyokumen_t &>(*this).do_move(move);
+            count += count_node(depth - 1);
+            const_cast<kyokumen_t &>(*this).undo_move(move);
+        }
+        return count;
+    }
+
+    inline std::string kyokumen_t::sfen_string() const
+    {
+        std::string result;
+        result += initial_sfen_string;
+        result += ' ';
+        result += color_to_color_char(color());
+        result += ' ';
+        result += std::to_string(move_count + 1);
+        if (!kifu.empty())
+        {
+            result += " moves";
+            for (const move_t & move : kifu)
+            {
+                result += ' ';
+                result += move.sfen_string();
+            }
+        }
+        return result;
+    }
+
+    inline void kyokumen_t::remove_repetition_of_moves(moves_t & moves) const noexcept
+    {
+        const hash_t hash = this->hash();
+        const color_t color = this->color();
+        moves.erase(std::remove_if(moves.begin(), moves.end(), [&](const auto & i) -> bool
+            {
+                return additional_info.previously_done_moves.contains(
+                    hash_table.move_hash(i, color) ^ hash
+                );
+            }
+        ), moves.end());
+    }
+
+    inline position_t kyokumen_t::king_position(color_t color) const noexcept
+    {
+        return additional_info.king_position_list[color.value()];
+    }
+
+    inline const std::vector<kiki_t> & kyokumen_t::check_list() const noexcept
+    {
+        SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
+        return additional_info.check_list_stack[move_count];
+    }
+
+    template<typename Key, typename Value, typename Hash = std::hash<Key>>
+    class lru_cache_t
+    {
+    public:
+        using key_type = Key;
+        using value_type = Value;
+        using pair_type = std::pair<key_type, value_type>;
+        using list_type = std::list<pair_type>;
+        using hash_type = Hash;
+        using unordered_map_type = std::unordered_map<key_type, typename list_type::iterator, hash_type>;
+
+        /**
+         * @breif LRUで管理されるキャッシュを構築する。
+         * @param capacity 最大要素数
+         */
+        inline lru_cache_t(std::size_t capacity)
+            : capacity{ capacity }
+        {
+        }
+
+        inline lru_cache_t(const lru_cache_t &) = default;
+        inline lru_cache_t(lru_cache_t &&) = default;
+        inline lru_cache_t & operator =(const lru_cache_t &) = default;
+        inline lru_cache_t & operator =(lru_cache_t &&) = default;
+
+        /**
+         * @breif キャッシュを破棄する。
+         */
+        inline void clear()
+        {
+            list.clear();
+            umap.clear();
+        }
+
+        /**
+         * @breif キーと対応する値を取得する。
+         * @param key キー
+         * @return キーと対応する値
+         */
+        inline std::optional<Value> get(key_type key)
+        {
+            typename unordered_map_type::iterator iter = umap.find(key);
+            if (iter == umap.end())
+                return std::nullopt;
+            value_type value = iter->second->second;
+            list.erase(iter->second);
+            list.emplace_front(key, value);
+            umap[key] = list.begin();
+            return value;
+        }
+
+        /**
+         * @breif キーと値を登録する。
+         * @param key キー
+         * @param value 値
+         */
+        inline void push(key_type key, value_type value)
+        {
+            typename unordered_map_type::iterator iter = umap.find(key);
+            if (iter != umap.end())
+                list.erase(iter->second);
+            list.emplace_front(key, value);
+            umap[key] = list.begin();
+            if (list.size() > capacity)
+            {
+                umap.erase(list.rbegin()->first);
+                list.pop_back();
+            }
+        }
+
+    private:
+        list_type list;
+        unordered_map_type umap;
+        std::size_t capacity;
+    };
+
+#ifdef SIZE_OF_HASH
+    using cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hasher_t<SIZE_OF_HASH>>;
+#else
+    using cache_t = lru_cache_t<hash_t, evaluation_value_t>;
+#endif
+
+    /**
+     * @breif 盤の2駒の組と対応する評価値の統計
+     */
+    class piece_pair_statistics_t
+    {
+    public:
+        using value_type = unsigned long long;
+        constexpr static std::size_t piece_category_size = (piece_size / 2) * piece_size;
+        constexpr static std::size_t relative_position9x9_size = file_size * rank_size - 1;
+
+        class element_t
+        {
+        public:
+            colored_piece_t piece1{};
+            colored_piece_t piece2{};
+            position_t relative_position{};
+            value_type value{};
+        };
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値の統計を構築する。
+         * @details 全ての評価値は 0 で初期化される。
+         */
+        constexpr inline piece_pair_statistics_t() noexcept = default;
+        constexpr inline piece_pair_statistics_t(const piece_pair_statistics_t &) noexcept = default;
+        constexpr inline piece_pair_statistics_t(piece_pair_statistics_t &&) noexcept = default;
+        constexpr inline piece_pair_statistics_t & operator =(const piece_pair_statistics_t &) noexcept = default;
+        constexpr inline piece_pair_statistics_t & operator =(piece_pair_statistics_t &&) noexcept = default;
+
+        /**
+         * @breif 駒と座標の組を正規化する。
+         *        座標2 >= 座標1 を満たすように組を入れ替える。
+         *        相対的な筋は常に正の値に変換される。換言すれば、この関数は位置関係を左右対称に扱う。
+         *        また、駒1と駒2の関係(同手番である、あるいは医)を維持したまま駒1を先手の駒に変換する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 並び替えた後の座標1を基準とした1-81の相対座標
+         */
+        inline static position_t canonicalize(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
+        {
+            SHOGIPP_ASSERT(position1 != position2);
+
+            if (position1 > position2)
+            {
+                std::swap(piece1, piece2);
+                std::swap(position1, position2);
+            }
+            position_t relative_file = position_to_file(position2) - position_to_file(position1);
+            if (relative_file < 0) // abs
+                relative_file = -relative_file;
+            const position_t relative_rank = position_to_rank(position2) - position_to_rank(position1);
+
+            if (piece1.to_color() == white)
+            {
+                piece1 = colored_piece_t{ noncolored_piece_t{ piece1 }, black };
+                piece2 = colored_piece_t{ noncolored_piece_t{ piece2 }, !piece2.to_color() };
+            }
+
+            return relative_rank * file_size + relative_file;
+        }
+
+        /**
+         * @breif 盤の2駒の組の出現回数のオフセットを取得する。
+         * @param piece1 駒1
+         * @param piece2 駒2
+         * @param relative_position 1 以上 81 未満の相対座標
+         * @return 盤の2駒の組と対応する出現回数のオフセット
+         */
+        inline static std::size_t offset(noncolored_piece_t piece1, colored_piece_t piece2, position_t relative_position)
+        {
+            std::size_t offset = 0;
+            offset += piece1.index();
+            offset *= piece_size;
+            offset += piece2.index();
+            offset *= relative_position9x9_size;
+            offset += relative_position - 1;
+            return offset;
+        }
+
+        /**
+         * @breif 盤の2駒の組の出現回数のオフセットを取得する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 盤の2駒の組と対応する出現回数のオフセット
+         */
+        inline static std::size_t offset(colored_piece_t & piece1, position_t & position1, colored_piece_t & piece2, position_t & position2)
+        {
+            const position_t relative_position = canonicalize(piece1, position1, piece2, position2);
+            return offset(noncolored_piece_t{ piece1.value() }, piece2, relative_position);
+        }
+
+        inline value_type & piece_category_denominators(noncolored_piece_t piece1, colored_piece_t piece2)
+        {
+            std::size_t offset = 0;
+            offset += piece1.index();
+            offset *= piece_size;
+            offset += piece2.index();
+            return m_piece_category_denominators[offset];
+        }
+
+        inline const value_type & piece_category_denominators(noncolored_piece_t piece1, colored_piece_t piece2) const
+        {
+            std::size_t offset = 0;
+            offset += piece1.index();
+            offset *= piece_size;
+            offset += piece2.index();
+            return m_piece_category_denominators[offset];
+        }
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値を取得する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @return 盤の2駒の組と対応する評価値
+         * @details この関数は先手から見て有利な状況を正とする評価値を返す。
+         */
+        inline evaluation_value_t get_evaluation_value(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2) const
+        {
+            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            SHOGIPP_ASSERT(offset < std::size(m_counts));
+            value_type temp = m_counts[offset];
+            // 筋が異なる場合、左右対称の駒関係の出現回数が合算されるため、ここで補正する。
+            if (position_to_file(position1) != position_to_file(position2))
+                temp /= 2;
+            temp *= reverse(piece1.to_color());
+            return static_cast<evaluation_value_t>(temp);
+        }
+
+        /**
+         * @breif 盤の全ての2駒の組み合わせを引数に callback を呼び出す。
+         * @param board 盤
+         * @param callback コールバック関数 void (colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+         */
+        template<typename Callback>
+        inline static void for_each(const board_t & board, Callback callback)
+        {
+            for (position_t position1 = position_begin; position1 < position_end; ++position1)
+                for (position_t position2 = position1 + 1; position2 < position_end; ++position2)
+                    if (position1 != position2
+                        && !board_t::out(position1)
+                        && !board_t::out(position2)
+                        && !board[position1].empty()
+                        && !board[position2].empty())
+                        callback(board[position1], position1, board[position2], position2);
+        }
+
+        /**
+         * @breif 指定された駒を一方とする盤の全ての2駒の組み合わせを引数に callback を呼び出す。
+         * @param board 盤
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param callback コールバック関数 void (colored_piece_t piece2, position_t position2)
+         */
+        template<typename Callback>
+        inline static void for_each(const board_t & board, colored_piece_t piece1, position_t position1, Callback callback)
+        {
+            for (position_t position2 = position_begin; position2 < position_end; ++position2)
+                if (position1 != position2
+                    && !board_t::out(position1)
+                    && !board_t::out(position2)
+                    && !piece1.empty()
+                    && !board[position2].empty())
+                    callback(board[position2], position2);
+        }
+
+        /**
+         * @breif 盤の2駒の組と対応する評価値を 1 加算する。
+         * @param piece1 駒1
+         * @param position1 座標1
+         * @param piece2 駒2
+         * @param position2 座標2
+         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
+         */
+        inline void increase(colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+        {
+            const std::size_t offset = this->offset(piece1, position1, piece2, position2);
+            SHOGIPP_ASSERT(offset < std::size(m_counts));
+            value_type piece_category_denominator = piece_category_denominators(piece1, piece2);
+            if (piece_category_denominator == std::numeric_limits<value_type>::max())
+                normalize();
+            ++m_counts[offset];
+            ++piece_category_denominator;
+        }
+
+        /**
+         * @breif 盤の全ての2駒の組と対応する評価値を 1 加算する。
+         * @param board 盤
+         * @details 加算により評価値がオーバーフローする場合、この関数は加算の前に全ての評価値をそれらの比率を維持したまま減らす。
+         */
+        inline void increase(const board_t & board)
+        {
+            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+            {
+                increase(piece1, position1, piece2, position2);
+            };
+            for_each(board, callback);
+        }
+
+        /**
+         * @breif 盤の評価値を取得する。
+         * @param board 盤
+         * @return 盤の評価値
+         */
+        inline value_type accumulate(const board_t & board) const
+        {
+            value_type accumulated_value = 0;
+            const auto callback = [&](colored_piece_t piece1, position_t position1, colored_piece_t piece2, position_t position2)
+            {
+                accumulated_value += get_evaluation_value(piece1, position1, piece2, position2);
+            };
+            for_each(board, callback);
+            return accumulated_value;
+        }
+
+        /**
+         * @breif 合法手を実行した際の評価値の差分を取得する。
+         * @param board 合法手を実行した後の盤
+         * @param move 合法手
+         * @return 合法手を実行した際の評価値の差分
+         */
+        inline value_type accumulate_diff(const board_t & board, const move_t & move) const
+        {
+            value_type accumulated_value = 0;
+
+            // 移動先にある駒の評価値を加算する。
+            const colored_piece_t piece1 = board[move.destination()];
+            const position_t position1 = move.destination();
+            {
+                const auto callback = [&](colored_piece_t piece2, position_t position2)
+                {
+                    accumulated_value += get_evaluation_value(piece1, position1, board[position2], position2);
+                };
+                for_each(board, piece1, position1, callback);
+            }
+
+            if (!move.put())
+            {
+                // 移動先にあった駒の評価値を減算する。
+                if (!move.destination_piece().empty())
+                {
+                    const colored_piece_t piece1 = move.destination_piece();
+                    const position_t position1 = move.destination();
+                    const auto callback = [&](colored_piece_t piece2, position_t position2)
+                    {
+                        accumulated_value -= get_evaluation_value(piece1, position1, board[position2], position2);
+                    };
+                    for_each(board, piece1, position1, callback);
+                }
+
+                // 移動元にあった駒の評価値を減算する。
+                const colored_piece_t piece1 = move.source_piece();
+                const position_t position1 = move.source();
+                const auto callback = [&](colored_piece_t piece2, position_t position2)
+                {
+                    accumulated_value -= get_evaluation_value(piece1, position1, board[position2], position2);
+                };
+                for_each(board, piece1, position1, callback);
+            }
+
+            return accumulated_value;
+        }
+
+        /**
+         * @breif 駒関係の要素を取得する。
+         * @param offset 要素の添字
+         * @return 駒関係の要素
+         */
+        inline element_t get_element(std::size_t offset) const
+        {
+            std::size_t temp = offset;
+            element_t element;
+            element.piece2 = colored_piece_t{ (temp % piece_size) + pawn_value };
+            temp /= piece_size;
+            element.piece1 = colored_piece_t{ (temp % (piece_size / 2)) + pawn_value };
+            temp /= piece_size / 2;
+            element.relative_position = static_cast<position_t>(temp + 1);
+            element.value = m_counts[offset];
+            return element;
+        }
+
+        /**
+         * @breif 出現回数の多い駒関係のうち上位 n 件を出力する。
+         * @param n 表示する件数
+         * @param ostream 出力ストリーム
+         */
+        inline void print_most_frequent(std::size_t n, std::ostream & ostream = std::cout) const
+        {
+            std::vector<element_t> elements;
+            for (std::size_t i = 0; i < std::size(m_counts); ++i)
+            {
+                elements.push_back(get_element(i));
+            }
+
+            const auto comparator = [](const element_t & a, const element_t & b) -> bool
+            {
+                return a.value > b.value;
+            };
+
+            std::sort(elements.begin(), elements.end(), comparator);
+
+            for (std::size_t i = 0; i < n; ++i)
+            {
+                const element_t & element = elements[i];
+                board_t board;
+                board.clear();
+                const position_t relative_file = element.relative_position % file_size;
+                const position_t relative_rank = element.relative_position / file_size;
+                constexpr position_t position1 = file_rank_to_position(0, rank_size - 1);
+                const position_t position2 = file_rank_to_position(0 + relative_file, rank_size - 1 - relative_rank);
+                board[position1] = element.piece1;
+                board[position2] = element.piece2;
+                board.print(ostream);
+                ostream << "count: " << element.value << std::endl << std::endl;
+            }
+        }
+
+        /**
+         * @breif ファイルを読み込む。
+         * @param path ファイルのパス
+         */
+        inline void read_file(const std::filesystem::path & path)
+        {
+            std::ifstream out(path, std::ios_base::in | std::ios::binary);
+            out.read(reinterpret_cast<char *>(m_counts), sizeof(m_counts));
+            for (std::size_t i = 0; i < std::size(m_counts); ++i)
+                m_piece_category_denominators[i / relative_position9x9_size] += m_counts[i];
+        }
+
+        /**
+         * @breif ファイルに書き出す。
+         * @param path ファイルのパス
+         */
+        inline void write_file(const std::filesystem::path & path) const
+        {
+            std::ofstream out(path, std::ios_base::out | std::ios::binary);
+            out.write(reinterpret_cast<const char *>(m_counts), sizeof(m_counts));
+        }
+
+    private:
+        value_type m_counts[piece_category_size * relative_position9x9_size]{};
+        value_type m_piece_category_denominators[piece_category_size]{};
+
+        /**
+         * @breif 評価値を加算してもオーバーフローが発生しないよう、全ての評価値をそれらの比率を維持したまま減らす。
+         */
+        inline void normalize() noexcept
+        {
+            constexpr value_type d = 2;
+            for (value_type & value : m_counts)
+                value /= d;
+            for (value_type & value : m_piece_category_denominators)
+                value /= d;
+        }
+    };
+
+    namespace details
+    {
+        piece_pair_statistics_t piece_pair_statistics;
     }
 
     /**
@@ -7322,7 +7344,7 @@ namespace shogipp
         if (kyokumen.move_count == 0)
         {
             for (const color_t color : colors)
-                ostream << color_to_string(static_cast<color_t>(color)) << "：" << kishi_list[color.value()]->name() << std::endl;
+                ostream << color.to_string() << "：" << kishi_list[color.value()]->name() << std::endl;
             ostream << std::endl;
         }
 
@@ -7331,12 +7353,12 @@ namespace shogipp
             const std::shared_ptr<abstract_kishi_t> & winner_evaluator = kishi_list[!kyokumen.color().value()];
             ostream << kyokumen.move_count << "手詰み" << std::endl;
             kyokumen.print(ostream);
-            ostream << color_to_string(!kyokumen.color()) << "勝利（" << winner_evaluator->name() << "）" << std::flush;
+            ostream << (!kyokumen.color()).to_string() << "勝利（" << winner_evaluator->name() << "）" << std::flush;
         }
         else
         {
             const bool is_computer = kishi_list[kyokumen.color().value()]->is_computer();
-            ostream << (kyokumen.move_count + 1) << "手目" << color_to_string(kyokumen.color()) << "番" << std::endl;
+            ostream << (kyokumen.move_count + 1) << "手目" << kyokumen.color().to_string() << "番" << std::endl;
             kyokumen.print(ostream);
             if (!is_computer || details::program_options::print_moves)
                 kyokumen.print_moves(ostream);
@@ -8089,6 +8111,14 @@ namespace shogipp
                         details::program_options::print_check = *value;
                     else
                         std::cerr << "invalid print-check parameter" << std::endl;
+                }
+                else if (option == "print-enclosure" && !params.empty())
+                {
+                    const std::optional<bool> value = details::to_bool(params[0]);
+                    if (value)
+                        details::program_options::print_enclosure = *value;
+                    else
+                        std::cerr << "invalid print-enclosure parameter" << std::endl;
                 }
                 else if (option == "black" && !params.empty())
                 {

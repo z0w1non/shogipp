@@ -2242,8 +2242,6 @@ namespace shogipp
 
     inline enclosure_evaluator_t::positions_t::positions_t(const board_t & board)
     {
-        //return; // TODO
-
         std::fill(std::begin(pawn_destination), std::end(pawn_destination), npos);
         std::fill(std::begin(lance_destination), std::end(lance_destination), npos);
         std::fill(std::begin(knight_destination), std::end(knight_destination), npos);
@@ -2363,9 +2361,6 @@ namespace shogipp
                     }
                 }
             }
-            //std::cout << "”½“]ŒãF" << std::endl;
-            //temp.print();
-            //std::cout << std::endl;
 
             evaluation_value_t result = m_positions.distance(positions_t{ temp });
             return result;
@@ -3145,8 +3140,8 @@ namespace shogipp
         SHOGIPP_ASSERT(position != npos);
         const position_t file = position_to_file(position);
         if (color == black)
-            return (file <= file_size / 2 + 1) ? enclosure_type::static_rook : enclosure_type::ranging_rook;
-        return (file >= file_size / 2 + 1) ? enclosure_type::static_rook : enclosure_type::ranging_rook;
+            return (file <= file_size / 2) ? enclosure_type::static_rook : enclosure_type::ranging_rook;
+        return (file >= file_size / 2) ? enclosure_type::static_rook : enclosure_type::ranging_rook;
     }
 
     using evaluated_enclosure_t = std::pair<const enclosure_evaluator_t *, evaluation_value_t>;

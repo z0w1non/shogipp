@@ -4251,7 +4251,7 @@ namespace shogipp
          * @biref 盤から囲いを構築する。
          * @param board 先手の駒を含む盤
          */
-        inline enclosure_evaluator_t(const board_t & board);
+        inline enclosure_evaluator_t(const std::string & name, const board_t & board);
 
         /**
          * @breif 盤と囲いの距離を計算する。
@@ -4277,6 +4277,7 @@ namespace shogipp
             position_t king_destination;
         };
 
+        std::string name;
         positions_t positions;
     };
 
@@ -4370,8 +4371,9 @@ namespace shogipp
         return result;
     }
 
-    inline enclosure_evaluator_t::enclosure_evaluator_t(const board_t & board)
-        : positions{ board }
+    inline enclosure_evaluator_t::enclosure_evaluator_t(const std::string & name, const board_t & board)
+        : name{ name }
+        , positions{ board }
     {
     }
 
@@ -4412,7 +4414,8 @@ namespace shogipp
 
     enclosure_evaluator_t defined_enclosures[]
     {
-        { // 金矢倉
+        {
+            "金矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4427,7 +4430,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 銀矢倉
+        {
+            "銀矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4442,7 +4446,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 片矢倉
+        {
+            "片矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4457,7 +4462,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 総矢倉
+        {
+            "総矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4472,7 +4478,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 菊水矢倉
+        {
+            "菊水矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4487,7 +4494,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 菊水矢倉
+        {
+            "銀立ち矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4496,13 +4504,14 @@ namespace shogipp
                 x, _, _, _, _, _, _, _, _, _, x,
                 x, _, _, P, _, _, _, _, _, _, x,
                 x, P, _, S, P, P, _, _, _, _, x,
-                x, _, P, N, G, _, _, _, _, _, x,
-                x, _, S, G, B, _, _, _, _, _, x,
-                x, L, K, _, _, _, _, _, _, _, x,
+                x, _, P, _, G, _, _, _, _, _, x,
+                x, _, K, G, B, _, _, _, _, _, x,
+                x, L, N, _, _, _, _, _, _, _, x,
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 菱矢倉
+        {
+            "菱矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4517,7 +4526,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 富士見矢倉
+        {
+            "富士見矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4532,7 +4542,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 矢倉穴熊
+        {
+            "矢倉穴熊",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4547,7 +4558,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // へこみ矢倉
+        {
+            "へこみ矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4562,7 +4574,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 流れ矢倉
+        {
+            "流れ矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4577,7 +4590,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 流線矢倉
+        {
+            "流線矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4592,7 +4606,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 角矢倉
+        {
+            "角矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4607,7 +4622,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 左美濃囲い
+        {
+            "左美濃囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4622,7 +4638,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 四枚美濃
+        {
+            "四枚美濃",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4637,7 +4654,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 天守閣美濃
+        {
+            "天守閣美濃",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4652,7 +4670,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 居飛車穴熊
+        {
+            "居飛車穴熊",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4667,7 +4686,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 船囲い
+        {
+            "船囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4682,7 +4702,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 雁木囲い
+        {
+            "雁木囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4697,7 +4718,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // ミレニアム囲い
+        {
+            "ミレニアム囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4712,7 +4734,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 串カツ囲い
+        {
+            "串カツ囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4727,7 +4750,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 船囲い
+        {
+            "船囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4742,7 +4766,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 中住まい
+        {
+            "中住まい",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4757,7 +4782,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 中原囲い
+        {
+            "中原囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4772,7 +4798,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // カニ囲い
+        {
+            "カニ囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4787,7 +4814,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // ボナンザ囲い
+        {
+            "ボナンザ囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4802,7 +4830,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 空中楼閣型
+        {
+            "空中楼閣型",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4817,7 +4846,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 四段端玉型
+        {
+            "四段端玉型",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4832,7 +4862,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // elmo囲い
+        {
+            "elmo囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4847,7 +4878,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 美濃囲い
+        {
+            "美濃囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4862,7 +4894,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 高美濃
+        {
+            "高美濃",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4877,7 +4910,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 銀冠
+        {
+            "銀冠",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4892,7 +4926,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 銀美濃
+        {
+            "銀美濃",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4907,7 +4942,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 四枚美濃
+        {
+            "四枚美濃",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4922,7 +4958,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 木村美濃
+        {
+            "木村美濃",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4937,7 +4974,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 片美濃
+        {
+            "片美濃",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4952,7 +4990,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // ちょんまげ美濃
+        {
+            "ちょんまげ美濃",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4967,7 +5006,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 振り飛車穴熊
+        {
+            "振り飛車穴熊",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4982,7 +5022,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 銀冠穴熊
+        {
+            "銀冠穴熊",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4997,7 +5038,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // ビッグ４
+        {
+            "ビッグ４",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -5012,7 +5054,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 右矢倉
+        {
+            "右矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -5027,7 +5070,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 右矢倉
+        {
+            "右矢倉",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -5042,7 +5086,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 金無双
+        {
+            "金無双",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -5057,7 +5102,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 早囲い
+        {
+            "早囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -5072,7 +5118,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 三手囲い
+        {
+            "三手囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -5087,7 +5134,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 金多伝囲い
+        {
+            "金多伝囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -5102,7 +5150,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
-        { // 銀多伝囲い
+        {
+            "銀多伝囲い",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,

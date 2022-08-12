@@ -4266,14 +4266,14 @@ namespace shogipp
     public:
         inline enclosure_evaluator_t(const board_t & board);
 
-        inline position_t distance(const board_t & board, color_t color) const;
+        inline evaluation_value_t distance(const board_t & board, color_t color) const;
 
     private:
         class positions_t
         {
         public:
             inline positions_t(const board_t & board);
-            inline position_t distance(const positions_t & positions) const;
+            inline evaluation_value_t distance(const positions_t & positions) const;
            
             position_t pawn_destination[file_size];
             position_t lance_destination[2];
@@ -4350,7 +4350,7 @@ namespace shogipp
         bishop_destination = map[black_bishop][0];
     }
 
-    inline position_t enclosure_evaluator_t::positions_t::distance(const positions_t & positions) const
+    inline evaluation_value_t enclosure_evaluator_t::positions_t::distance(const positions_t & positions) const
     {
         const auto impl = [](position_t position1, position_t position2) -> position_t
         {
@@ -4359,7 +4359,7 @@ namespace shogipp
             return shogipp::distance(position1, position2);
         };
 
-        position_t result = 0;
+        evaluation_value_t result = 0;
 
         for (std::size_t i = 0; i < std::size(pawn_destination); ++i)
             result += impl(pawn_destination[i], positions.pawn_destination[i]);
@@ -4382,7 +4382,7 @@ namespace shogipp
     {
     }
 
-    inline position_t enclosure_evaluator_t::distance(const board_t & board, color_t color) const
+    inline evaluation_value_t enclosure_evaluator_t::distance(const board_t & board, color_t color) const
     {
         const board_t temp{ board };
         // TODO: ŒãŽè”Ô‚Ìê‡”½“]‚³‚¹‚é

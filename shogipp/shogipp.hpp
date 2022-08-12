@@ -355,7 +355,7 @@ namespace shogipp
             constexpr bool default_print_board = true;
             bool print_board = default_print_board;
 
-            constexpr bool default_print_enclosure = false;
+            constexpr bool default_print_enclosure = true;
             bool print_enclosure = default_print_enclosure;
 
             constexpr std::chrono::milliseconds default_limit_time{ 10 * 1000 };
@@ -488,7 +488,7 @@ namespace shogipp
          * @breif 先後を表現する文字列を取得する。
          * @return 先後を表現する文字列
          */
-        inline const std::string & to_string() const noexcept;
+        inline std::string to_string() const noexcept;
     private:
         value_type m_value;
     };
@@ -498,9 +498,13 @@ namespace shogipp
     {
     }
 
-    inline const std::string & color_t::to_string() const noexcept
+    inline std::string color_t::to_string() const noexcept
     {
-        const std::string map[]{ "先手", "後手" };
+        const std::string map[]
+        {
+            "先手",
+            "後手"
+        };
         return map[m_value];
     }
 
@@ -1118,32 +1122,44 @@ namespace shogipp
 
     /**
      * @breif 2つの座標間の距離を計算する。
-     * @param a 座標A
-     * @param b 座標B
+     * @param position1 座標1
+     * @param position2 座標2
      * @return 2つの座標間の距離
      */
-    inline position_t distance(position_t a, position_t b) noexcept
+    inline position_t distance(position_t position1, position_t position2) noexcept
     {
-        const position_t file_a = position_to_file(a);
-        const position_t rank_a = position_to_rank(a);
-        const position_t file_b = position_to_file(b);
-        const position_t rank_b = position_to_rank(b);
-        return static_cast<position_t>(std::max((file_a - file_b), (rank_a - rank_b)));
+        const position_t file1 = position_to_file(position1);
+        const position_t rank1 = position_to_rank(position1);
+        const position_t file2 = position_to_file(position2);
+        const position_t rank2 = position_to_rank(position2);
+        position_t file_diff = file1 - file2;
+        if (file_diff < 0)
+            file_diff = -file_diff;
+        position_t rank_diff = rank1 - rank2;
+        if (rank_diff < 0)
+            rank_diff = -rank_diff;
+        return std::max(file_diff, rank_diff);
     }
 
     /**
      * @breif 2つの座標間のマンハッタン距離を計算する。
-     * @param a 座標A
-     * @param b 座標B
+     * @param position1 座標1
+     * @param position2 座標2
      * @return 2つの座標間のマンハッタン距離
      */
-    inline position_t manhattan_distance(position_t a, position_t b) noexcept
+    inline position_t manhattan_distance(position_t position1, position_t position2) noexcept
     {
-        const position_t file_a = position_to_file(a);
-        const position_t rank_a = position_to_rank(a);
-        const position_t file_b = position_to_file(b);
-        const position_t rank_b = position_to_rank(b);
-        return static_cast<position_t>(std::abs(file_a - file_b) + std::abs(rank_a - rank_b));
+        const position_t file1 = position_to_file(position1);
+        const position_t rank1 = position_to_rank(position1);
+        const position_t file2 = position_to_file(position2);
+        const position_t rank2 = position_to_rank(position2);
+        position_t file_diff = file1 - file2;
+        if (file_diff < 0)
+            file_diff = -file_diff;
+        position_t rank_diff = rank1 - rank2;
+        if (rank_diff < 0)
+            rank_diff = -rank_diff;
+        return static_cast<position_t>(file_diff + rank_diff);
     }
 
     /**
@@ -2226,7 +2242,7 @@ namespace shogipp
 
     inline enclosure_evaluator_t::positions_t::positions_t(const board_t & board)
     {
-        return; // TODO
+        //return; // TODO
 
         std::fill(std::begin(pawn_destination), std::end(pawn_destination), npos);
         std::fill(std::begin(lance_destination), std::end(lance_destination), npos);
@@ -2284,9 +2300,10 @@ namespace shogipp
             throw invalid_enclosure{ "map[black_gold].size() > std::size(gold_destination)" };
         std::copy(map[black_gold].begin(), map[black_gold].end(), std::begin(gold_destination));
 
-        if (map[black_bishop].size() != 1)
-            throw invalid_enclosure{ "map[black_bishop].size() != 1" };
-        bishop_destination = map[black_bishop][0];
+        if (map[black_bishop].size() > 1)
+            throw invalid_enclosure{ "map[black_bishop].size() > 1" };
+        if (map[black_bishop].size() == 1)
+            bishop_destination = map[black_bishop][0];
     }
 
     inline evaluation_value_t enclosure_evaluator_t::positions_t::distance(const positions_t & positions) const
@@ -2341,11 +2358,14 @@ namespace shogipp
                         if (color == black)
                             destination = source;
                         else
-                            destination = position_end - 1 - source;
+                            destination = position_size - 1 - source;
                         temp[destination] = colored_piece_t{ noncolored_piece_t{ piece }, black };
                     }
                 }
             }
+            //std::cout << "反転後：" << std::endl;
+            //temp.print();
+            //std::cout << std::endl;
 
             evaluation_value_t result = m_positions.distance(positions_t{ temp });
             return result;
@@ -2362,13 +2382,6 @@ namespace shogipp
         return m_name;
     }
 
-    enum class enclosure_type
-    {
-        static_rook,    // 居飛車
-        ranging_rook,   // 振り飛車
-        size,
-    };
-    
     const std::vector<enclosure_evaluator_t> defined_enclosure_evaluators[]
     {
         { // static_rook
@@ -2887,7 +2900,7 @@ namespace shogipp
                 }
             },
             {
-                "四枚美濃",
+                "ダイヤモンド美濃",
                 {
                     x, x, x, x, x, x, x, x, x, x, x,
                     x, _, _, _, _, _, _, _, _, _, x,
@@ -2897,7 +2910,7 @@ namespace shogipp
                     x, _, _, _, _, _, _, _, _, _, x,
                     x, _, _, _, _, _, P, _, _, P, x,
                     x, _, _, _, _, P, S, P, P, _, x,
-                    x, _, _, _, _, S, _, S, K, _, x,
+                    x, _, _, _, _, G, _, S, K, _, x,
                     x, _, _, _, _, _, G, _, N, L, x,
                     x, x, x, x, x, x, x, x, x, x, x,
                 }
@@ -3113,6 +3126,13 @@ namespace shogipp
         }
     };
 
+    enum class enclosure_type
+    {
+        static_rook,    // 居飛車
+        ranging_rook,   // 振り飛車
+        size,
+    };
+
     /**
      * @breif 盤の囲いの類型を判定する。
      * @param board 盤
@@ -3140,7 +3160,8 @@ namespace shogipp
     evaluated_enclosure_t nearest_enclosure(const board_t & board, color_t color)
     {
         std::vector<evaluated_enclosure_t> evaluated_enclosures;
-        const std::vector<enclosure_evaluator_t> & enclosure_evaluators = defined_enclosure_evaluators[static_cast<std::size_t>(get_enclosure_type(board, color))];
+        const auto offset = static_cast<std::size_t>(get_enclosure_type(board, color));
+        const std::vector<enclosure_evaluator_t> & enclosure_evaluators = defined_enclosure_evaluators[offset];
         for (const enclosure_evaluator_t & enclosure_evaluator : enclosure_evaluators)
             evaluated_enclosures.emplace_back(&enclosure_evaluator, enclosure_evaluator.distance(board, color));
         const auto comparator = [](const evaluated_enclosure_t & a, const evaluated_enclosure_t & b) -> bool

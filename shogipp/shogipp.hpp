@@ -4261,6 +4261,8 @@ namespace shogipp
          */
         inline evaluation_value_t distance(const board_t & board, color_t color) const;
 
+        inline const std::string & name() const;
+
     private:
         class positions_t
         {
@@ -4277,8 +4279,8 @@ namespace shogipp
             position_t king_destination;
         };
 
-        std::string name;
-        positions_t positions;
+        std::string m_name;
+        positions_t m_positions;
     };
 
     inline enclosure_evaluator_t::positions_t::positions_t(const board_t & board)
@@ -4372,8 +4374,8 @@ namespace shogipp
     }
 
     inline enclosure_evaluator_t::enclosure_evaluator_t(const std::string & name, const board_t & board)
-        : name{ name }
-        , positions{ board }
+        : m_name{ name }
+        , m_positions{ board }
     {
     }
 
@@ -4402,7 +4404,7 @@ namespace shogipp
                 }
             }
 
-            evaluation_value_t result = positions.distance(positions_t{ temp });
+            evaluation_value_t result = m_positions.distance(positions_t{ temp });
             return result;
         }
         catch (const invalid_enclosure &)
@@ -4410,6 +4412,11 @@ namespace shogipp
             ;
         }
         return std::numeric_limits<position_t>::max();
+    }
+
+    inline const std::string & enclosure_evaluator_t::name() const
+    {
+        return m_name;
     }
 
     enclosure_evaluator_t defined_enclosures[]

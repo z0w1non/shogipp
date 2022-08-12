@@ -2198,6 +2198,10 @@ namespace shogipp
          */
         inline evaluation_value_t distance(const board_t & board, color_t color) const;
 
+        /**
+         * @breif ˆÍ‚¢‚Ì–¼‘O‚ğæ“¾‚·‚éB
+         * @return ˆÍ‚¢‚Ì–¼‘O
+         */
         inline const std::string & name() const;
 
     private:

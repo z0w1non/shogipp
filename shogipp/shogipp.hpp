@@ -4423,10 +4423,10 @@ namespace shogipp
     {
         static_rook,    // 居飛車
         ranging_rook,   // 振り飛車
-        size
+        size,
     };
     
-    const std::vector<enclosure_evaluator_t> defined_enclosures[]
+    const std::vector<enclosure_evaluator_t> defined_enclosure_evaluators[]
     {
         { // static_rook
             {
@@ -5169,6 +5169,32 @@ namespace shogipp
             },
         }
     };
+
+    enclosure_type get_enclosure_type(const board_t & board, color_t color)
+    {
+        const position_t position = board.find(colored_piece_t{ king, color });
+        SHOGIPP_ASSERT(position != npos);
+        const position_t file = position_to_file(position);
+        if (color == black)
+            return (file <= file_size / 2 + 1) ? enclosure_type::static_rook : enclosure_type::ranging_rook;
+        return (file >= file_size / 2 + 1) ? enclosure_type::static_rook : enclosure_type::ranging_rook;
+    }
+
+    using evaluated_enclosure_t = std::pair<const enclosure_evaluator_t *, evaluation_value_t>;
+    evaluated_enclosure_t nearest_enclosure(const board_t & board, color_t color)
+    {
+        std::vector<evaluated_enclosure_t> evaluated_enclosures;
+        const std::vector<enclosure_evaluator_t> & enclosure_evaluators = defined_enclosure_evaluators[static_cast<std::size_t>(get_enclosure_type(board, color))];
+        for (const enclosure_evaluator_t & enclosure_evaluator : enclosure_evaluators)
+            evaluated_enclosures.emplace_back(&enclosure_evaluator, enclosure_evaluator.distance(board, color));
+        const auto comparator = [](const evaluated_enclosure_t & a, const evaluated_enclosure_t & b) -> bool
+        {
+            return a.second < b.second;
+        };
+        std::sort(evaluated_enclosures.begin(), evaluated_enclosures.end(), comparator);
+        SHOGIPP_ASSERT(!evaluated_enclosures.empty());
+        return evaluated_enclosures.front();
+    }
 
     /**
      * @breif 評価関数オブジェクトが呼び出された文脈を表現する。

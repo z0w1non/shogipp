@@ -55,6 +55,8 @@
 
 #endif
 
+#define SHOGIPP_THROW(expr, except) do { if (expr) throw except{ #expr }; } while (false)
+
 #ifdef NDEBUG
 #define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen)
 #else
@@ -448,6 +450,12 @@ namespace shogipp
     };
 
     class invalid_usi_input
+        : public std::runtime_error
+    {
+        using std::runtime_error::runtime_error;
+    };
+
+    class invalid_enclosure
         : public std::runtime_error
     {
         using std::runtime_error::runtime_error;
@@ -4252,12 +4260,82 @@ namespace shogipp
     public:
         inline enclosure_evaluator_t(const board_t & board)
         {
+            std::fill(std::begin(pawn_destination), std::end(pawn_destination), npos);
+            lance_destination = npos;
+            knight_destination = npos;
+            std::fill(std::begin(silver_destination), std::end(silver_destination), npos);
+            std::fill(std::begin(gold_destination), std::end(gold_destination), npos);
+            bishop_destination = npos;
+            king_destination = npos;
+
             std::map<colored_piece_t, std::vector<position_t>> map;
             for (piece_value_t piece = pawn_value; piece <= king_value; ++piece)
                 for (position_t position = position_begin; position != position_end; ++position)
                     if (!board_t::out(position) && board[position] == colored_piece_t{ piece })
                         map[piece].push_back(position);
+
+            if (map[black_king].size() != 1)
+                throw invalid_enclosure{ "map[black_king].size() != 1" };
+            king_destination = map[black_king][0];
+
+            is_right_side = position_to_file(map[black_king][0]) > file_size / 2;
+
+            // 囲いから近い駒の座標、囲いから遠い駒の座標の順に並び替える。
+            const auto comparator = [this](position_t position1, position_t position2) -> bool
+            {
+                const position_t file1 = position_to_file(position1);
+                const position_t file2 = position_to_file(position2);
+                if (file1 < file2)
+                    return true ^ is_right_side;
+                if (file1 > file2)
+                    return false ^ is_right_side;
+                const position_t rank1 = position_to_rank(position1);
+                const position_t rank2 = position_to_rank(position2);
+                if (file1 <= file_size / 2)
+                    return (rank1 < rank2) ^ is_right_side;
+                return (rank1 > rank2) ^ is_right_side;
+            };
+            for (auto & [colored_piece, positions] : map)
+                std::sort(positions.begin(), positions.end(), comparator);
+
+            if (map[black_pawn].size() > std::size(pawn_destination))
+                throw invalid_enclosure{ "map[black_pawn].size() > std::size(pawn_destination)" };
+            std::copy(map[black_pawn].begin(), map[black_pawn].end(), std::begin(pawn_destination));
+
+            if (map[black_lance].size() != 1)
+                throw invalid_enclosure{ "map[black_lance].size() != 1" };
+            lance_destination = map[black_lance][0];
+
+            if (map[black_knight].size() != 1)
+                throw invalid_enclosure{ "map[black_knight].size() != 1" };
+            knight_destination = map[black_knight][0];
+
+            if (map[black_silver].size() > std::size(silver_destination))
+                throw invalid_enclosure{ "map[black_silver].size() > std::size(silver_destination)" };
+            std::copy(map[black_silver].begin(), map[black_silver].end(), std::begin(silver_destination));
+
+            if (map[black_gold].size() > std::size(gold_destination))
+                throw invalid_enclosure{ "map[black_gold].size() > std::size(gold_destination)" };
+            std::copy(map[black_gold].begin(), map[black_gold].end(), std::begin(gold_destination));
+
+            if (map[black_bishop].size() != 1)
+                throw invalid_enclosure{ "map[black_bishop].size() != 1" };
+            bishop_destination = map[black_bishop][0];
         }
+
+        inline position_t distance(const board_t & board, color_t color) const
+        {
+        }
+
+    private:
+        bool is_right_side;
+        position_t pawn_destination[file_size / 2 + 1];
+        position_t lance_destination;
+        position_t knight_destination;
+        position_t silver_destination[2];
+        position_t gold_destination[2];
+        position_t bishop_destination;
+        position_t king_destination;
     };
 
     /**

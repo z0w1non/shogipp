@@ -2278,9 +2278,13 @@ namespace shogipp
         for (auto & [colored_piece, positions] : map)
             std::sort(positions.begin(), positions.end(), comparator);
 
-        if (map[black_pawn].size() > std::size(pawn_destination))
-            throw invalid_enclosure{ "map[black_pawn].size() > std::size(pawn_destination)" };
-        std::copy(map[black_pawn].begin(), map[black_pawn].end(), std::begin(pawn_destination));
+        {
+            const std::vector<position_t> & pawn_positions = map[black_pawn];
+            if (pawn_positions.size() > std::size(pawn_destination))
+                throw invalid_enclosure{ "pawn_positions.size() > std::size(pawn_destination)" };
+            for (std::size_t i = 0; i < pawn_positions.size(); ++i)
+                pawn_destination[position_to_file(pawn_positions[i])] = pawn_positions[i];
+        }
 
         if (map[black_lance].size() > std::size(lance_destination))
             throw invalid_enclosure{ "map[black_lance].size() > std::size(lance_destination)" };

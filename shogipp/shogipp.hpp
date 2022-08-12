@@ -2278,6 +2278,11 @@ namespace shogipp
         for (auto & [colored_piece, positions] : map)
             std::sort(positions.begin(), positions.end(), comparator);
 
+        const auto is_left_side = [](position_t position) -> bool
+        {
+            return position_to_file(position) <= file_size / 2;
+        };
+
         {
             const std::vector<position_t> & pawn_positions = map[black_pawn];
             if (pawn_positions.size() > std::size(pawn_destination))
@@ -2286,21 +2291,57 @@ namespace shogipp
                 pawn_destination[position_to_file(pawn_positions[i])] = pawn_positions[i];
         }
 
-        if (map[black_lance].size() > std::size(lance_destination))
-            throw invalid_enclosure{ "map[black_lance].size() > std::size(lance_destination)" };
-        std::copy(map[black_lance].begin(), map[black_lance].end(), std::begin(lance_destination));
+        {
+            const std::vector<position_t> & lance_positions = map[black_lance];
+            if (lance_positions.size() > std::size(lance_destination))
+                throw invalid_enclosure{ "lance_positions.size() > std::size(lance_destination)" };
+            if (lance_positions.size() == std::size(lance_destination))
+                std::copy(lance_positions.begin(), lance_positions.end(), std::begin(lance_destination));
+            else if (lance_positions.size() == 1)
+            {
+                const std::size_t offset = is_left_side(lance_positions[0]) ? 0 : 1;
+                lance_destination[offset] = lance_positions[0];
+            }
+        }
 
-        if (map[black_knight].size() > std::size(knight_destination))
-            throw invalid_enclosure{ "map[black_knight].size() > std::size(knight_destination)" };
-        std::copy(map[black_knight].begin(), map[black_knight].end(), std::begin(knight_destination));
+        {
+            const std::vector<position_t> & knight_positions = map[black_knight];
+            if (knight_positions.size() > std::size(knight_destination))
+                throw invalid_enclosure{ "knight_positions.size() > std::size(knight_destination)" };
+            if (knight_positions.size() == std::size(knight_destination))
+                std::copy(knight_positions.begin(), knight_positions.end(), std::begin(knight_destination));
+            else if (knight_positions.size() == 1)
+            {
+                const std::size_t offset = is_left_side(knight_positions[0]) ? 0 : 1;
+                knight_destination[offset] = knight_positions[0];
+            }
+        }
 
-        if (map[black_silver].size() > std::size(silver_destination))
-            throw invalid_enclosure{ "map[black_silver].size() > std::size(silver_destination)" };
-        std::copy(map[black_silver].begin(), map[black_silver].end(), std::begin(silver_destination));
+        {
+            const std::vector<position_t> & silver_positions = map[black_silver];
+            if (silver_positions.size() > std::size(silver_destination))
+                throw invalid_enclosure{ "silver_positions.size() > std::size(silver_destination)" };
+            if (silver_positions.size() == std::size(silver_destination))
+                std::copy(silver_positions.begin(), silver_positions.end(), std::begin(silver_destination));
+            else if (silver_positions.size() == 1)
+            {
+                const std::size_t offset = is_left_side(silver_positions[0]) ? 0 : 1;
+                silver_destination[offset] = silver_positions[0];
+            }
+        }
 
-        if (map[black_gold].size() > std::size(gold_destination))
-            throw invalid_enclosure{ "map[black_gold].size() > std::size(gold_destination)" };
-        std::copy(map[black_gold].begin(), map[black_gold].end(), std::begin(gold_destination));
+        {
+            const std::vector<position_t> & gold_positions = map[black_gold];
+            if (gold_positions.size() > std::size(gold_destination))
+                throw invalid_enclosure{ "gold_positions.size() > std::size(gold_destination)" };
+            if (gold_positions.size() == std::size(gold_destination))
+                std::copy(gold_positions.begin(), gold_positions.end(), std::begin(gold_destination));
+            else if (gold_positions.size() == 1)
+            {
+                const std::size_t offset = is_left_side(gold_positions[0]) ? 0 : 1;
+                gold_destination[offset] = gold_positions[0];
+            }
+        }
 
         if (map[black_bishop].size() > 1)
             throw invalid_enclosure{ "map[black_bishop].size() > 1" };
@@ -2310,11 +2351,11 @@ namespace shogipp
 
     inline evaluation_value_t enclosure_evaluator_t::positions_t::distance(const positions_t & positions) const
     {
-        const auto impl = [](position_t position1, position_t position2) -> position_t
+        const auto impl = [](position_t enclosure_position, position_t position) -> position_t
         {
-            if (position1 == npos || position2 == npos)
+            if (enclosure_position == npos || position == npos)
                 return 0;
-            return shogipp::distance(position1, position2);
+            return shogipp::distance(enclosure_position, position);
         };
 
         evaluation_value_t result = 0;

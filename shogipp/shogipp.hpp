@@ -4419,24 +4419,32 @@ namespace shogipp
         return m_name;
     }
 
-    const enclosure_evaluator_t defined_enclosures[]
+    enum class enclosure_type
     {
-        {
-            "ã‡ñÓëq",
+        static_rook,    // ãèîÚé‘
+        ranging_rook,   // êUÇËîÚé‘
+        size
+    };
+    
+    const std::vector<enclosure_evaluator_t> defined_enclosures[]
+    {
+        { // static_rook
             {
-                x, x, x, x, x, x, x, x, x, x, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, _, _, _, _, _, _, _, _, _, x,
-                x, P, _, P, P, P, _, _, _, _, x,
-                x, _, P, S, G, _, _, _, _, _, x,
-                x, _, K, G, B, _, _, _, _, _, x,
-                x, L, N, _, _, _, _, _, _, _, x,
-                x, x, x, x, x, x, x, x, x, x, x,
-            }
-        },
+                "ã‡ñÓëq",
+                {
+                    x, x, x, x, x, x, x, x, x, x, x,
+                    x, _, _, _, _, _, _, _, _, _, x,
+                    x, _, _, _, _, _, _, _, _, _, x,
+                    x, _, _, _, _, _, _, _, _, _, x,
+                    x, _, _, _, _, _, _, _, _, _, x,
+                    x, _, _, _, _, _, _, _, _, _, x,
+                    x, P, _, P, P, P, _, _, _, _, x,
+                    x, _, P, S, G, _, _, _, _, _, x,
+                    x, _, K, G, B, _, _, _, _, _, x,
+                    x, L, N, _, _, _, _, _, _, _, x,
+                    x, x, x, x, x, x, x, x, x, x, x,
+                }
+            },
         {
             "ã‚ñÓëq",
             {
@@ -4885,6 +4893,8 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
+    },
+    { // ranging_rook
         {
             "î¸îZàÕÇ¢",
             {
@@ -5173,6 +5183,7 @@ namespace shogipp
                 x, x, x, x, x, x, x, x, x, x, x,
             }
         },
+    }
     };
 
     /**

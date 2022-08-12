@@ -5188,7 +5188,6 @@ namespace shogipp
 
     using evaluated_enclosure_t = std::pair<const enclosure_evaluator_t *, evaluation_value_t>;
 
-
     /**
      * @breif Å‚à‹ß‚¢ˆÍ‚¢‚Æ‚»‚Ì•]‰¿’l‚ğæ“¾‚·‚éB
      * @param board ”Õ

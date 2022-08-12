@@ -3125,7 +3125,6 @@ namespace shogipp
     {
         static_rook,    // ‹”òÔ
         ranging_rook,   // U‚è”òÔ
-        size,
     };
 
     /**

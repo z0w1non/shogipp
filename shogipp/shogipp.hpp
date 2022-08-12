@@ -4419,7 +4419,7 @@ namespace shogipp
         return m_name;
     }
 
-    enclosure_evaluator_t defined_enclosures[]
+    const enclosure_evaluator_t defined_enclosures[]
     {
         {
             "‹à–î‘q",
@@ -4838,7 +4838,7 @@ namespace shogipp
             }
         },
         {
-            "‹ó’†˜OŠtŒ^",
+            "’†’i‹Ê‹ó’†˜OŠtŒ^",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,
@@ -4854,7 +4854,7 @@ namespace shogipp
             }
         },
         {
-            "Žl’i’[‹ÊŒ^",
+            "’†’i‹ÊŽl’i’[‹ÊŒ^",
             {
                 x, x, x, x, x, x, x, x, x, x, x,
                 x, _, _, _, _, _, _, _, _, _, x,

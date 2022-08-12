@@ -2362,7 +2362,7 @@ namespace shogipp
                 }
             }
 
-            evaluation_value_t result = m_positions.distance(positions_t{ temp });
+            const evaluation_value_t result = m_positions.distance(positions_t{ temp });
             return result;
         }
         catch (const invalid_enclosure &)

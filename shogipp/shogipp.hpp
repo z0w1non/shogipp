@@ -4264,8 +4264,18 @@ namespace shogipp
     class enclosure_evaluator_t
     {
     public:
+        /**
+         * @biref 盤から囲いを構築する。
+         * @param board 先手の駒を含む盤
+         */
         inline enclosure_evaluator_t(const board_t & board);
 
+        /**
+         * @breif 盤と囲いの距離を計算する。
+         * @param board 盤
+         * @param color 手番
+         * @details color で指定した手番以外の駒は無視される。
+         */
         inline evaluation_value_t distance(const board_t & board, color_t color) const;
 
     private:
@@ -4384,9 +4394,37 @@ namespace shogipp
 
     inline evaluation_value_t enclosure_evaluator_t::distance(const board_t & board, color_t color) const
     {
-        const board_t temp{ board };
-        // TODO: 後手番の場合反転させる
-        return positions.distance(positions_t{ temp });
+        try
+        {
+            board_t temp;
+            temp.clear();
+
+            // 先手視点に変換する。
+            for (position_t source = position_begin; source < position_end; ++source)
+            {
+                if (!board_t::out(source))
+                {
+                    const colored_piece_t & piece = board[source];
+                    if (!piece.empty() && piece.to_color() == color)
+                    {
+                        position_t destination;
+                        if (color == black)
+                            destination = source;
+                        else
+                            destination = position_end - 1 - source;
+                        temp[destination] = colored_piece_t{ noncolored_piece_t{ piece }, black };
+                    }
+                }
+            }
+
+            evaluation_value_t result = positions.distance(positions_t{ temp });
+            return result;
+        }
+        catch (const invalid_enclosure &)
+        {
+            ;
+        }
+        return std::numeric_limits<position_t>::max();
     }
 
     /**

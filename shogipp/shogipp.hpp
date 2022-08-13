@@ -3261,7 +3261,6 @@ namespace shogipp
         std::vector<evaluated_enclosure_t> evaluated_enclosures;
         const enclosure_categoly_t enclosure_categoly = get_enclosure_categoly(board, color);
 
-        // ‹”òÔ‚ÌˆÍ‚¢‚ğ•]‰¿‚·‚éB
         if (enclosure_categoly == enclosure_categoly_t::static_rook || enclosure_categoly == enclosure_categoly_t::neutral)
         {
             const auto iter = defined_enclosure_evaluators.find(enclosure_categoly_t::static_rook);
@@ -3270,7 +3269,6 @@ namespace shogipp
                     evaluated_enclosures.emplace_back(&enclosure_evaluator, enclosure_evaluator.distance(board, color));
         }
 
-        // U‚è”òÔ‚ÌˆÍ‚¢‚ğ•]‰¿‚·‚éB
         if (enclosure_categoly == enclosure_categoly_t::ranging_rook || enclosure_categoly == enclosure_categoly_t::neutral)
         {
             const auto iter = defined_enclosure_evaluators.find(enclosure_categoly_t::ranging_rook);

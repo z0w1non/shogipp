@@ -7227,10 +7227,10 @@ namespace shogipp
 
         /**
          * @breif コマンドを返す。
-         * @param taikyoku 対局
+         * @param game 対局
          * @return コマンド
          */
-        virtual command_t get_command(game_t & taikyoku) = 0;
+        virtual command_t get_command(game_t & game) = 0;
 
         /**
          * @breif 棋士の名前を返す。
@@ -7253,7 +7253,7 @@ namespace shogipp
         : public abstract_player_t
     {
     public:
-        command_t get_command(game_t & taikyoku) override;
+        command_t get_command(game_t & game) override;
         std::string name() const override;
         bool is_computer() const override;
     };
@@ -7269,7 +7269,7 @@ namespace shogipp
             : ptr{ ptr }
         {}
 
-        command_t get_command(game_t & taikyoku) override;
+        command_t get_command(game_t & game) override;
         std::string name() const override;
         bool is_computer() const override;
 
@@ -7277,9 +7277,9 @@ namespace shogipp
         std::shared_ptr<abstract_evaluator_t> ptr;
     };
 
-    command_t stdin_player_t::get_command(game_t & taikyoku)
+    command_t stdin_player_t::get_command(game_t & game)
     {
-        return read_command_line_input(taikyoku.get_moves());
+        return read_command_line_input(game.get_moves());
     }
 
     std::string stdin_player_t::name() const
@@ -7292,7 +7292,7 @@ namespace shogipp
         return false;
     }
 
-    command_t computer_player_t::get_command(game_t & taikyoku)
+    command_t computer_player_t::get_command(game_t & game)
     {
         iddfs_context_t context
         {
@@ -7301,7 +7301,7 @@ namespace shogipp
             details::program_options::cache_size / sizeof(hash_t)
         };
         context.start();
-        return command_t{ command_t::id_t::move, ptr->best_move_iddfs(taikyoku.state, context) };
+        return command_t{ command_t::id_t::move, ptr->best_move_iddfs(game.state, context) };
     }
 
     std::string computer_player_t::name() const
@@ -7413,25 +7413,25 @@ namespace shogipp
     * @param black_player 先手の棋士
     * @param white_player 後手の棋士
     */
-    inline void do_taikyoku(state_t & state, const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
+    inline void match(state_t & state, const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
     {
         details::performance.clear();
 
-        game_t taikyoku{ black_player, white_player };
-        taikyoku.state = state;
+        game_t game{ black_player, white_player };
+        game.state = state;
         while (true)
         {
-            taikyoku.print();
-            if (!taikyoku.procedure())
+            game.print();
+            if (!game.procedure())
                 break;
         }
 
-        taikyoku.print(); // 詰んだ局面を標準出力に出力する。
+        game.print(); // 詰んだ局面を標準出力に出力する。
 
         std::cout << std::endl;
         details::performance.print_elapsed_time();
 
-        taikyoku.state.print_kifu();
+        game.state.print_kifu();
         std::cout << std::flush;
     }
 
@@ -7440,10 +7440,10 @@ namespace shogipp
      * @param black_player 先手の棋士
      * @param white_player 後手の棋士
      */
-    inline void do_taikyoku(const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
+    inline void match(const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
     {
         state_t state;
-        do_taikyoku(state, black_player, white_player);
+        match(state, black_player, white_player);
     }
 
     /**
@@ -7873,23 +7873,23 @@ namespace shogipp
             const std::shared_ptr<abstract_player_t> black_player{ std::make_shared<computer_player_t>(black) };
             const std::shared_ptr<abstract_player_t> white_player{ std::make_shared<computer_player_t>(white) };
 
-            game_t taikyoku{ black_player, white_player };
+            game_t game{ black_player, white_player };
             while (true)
             {
-                taikyoku.print(ostream);
-                if (!taikyoku.procedure(ostream) || taikyoku.state.move_count >= m_max_move_count)
+                game.print(ostream);
+                if (!game.procedure(ostream) || game.state.move_count >= m_max_move_count)
                     break;
             }
 
-            taikyoku.print(ostream); // 詰んだ局面を標準出力に出力する。
+            game.print(ostream); // 詰んだ局面を標準出力に出力する。
 
             ostream << std::endl;
             details::performance.print_elapsed_time(ostream);
 
-            taikyoku.state.print_kifu(ostream);
+            game.state.print_kifu(ostream);
             ostream << std::flush;
 
-            return taikyoku.state.kifu;
+            return game.state.kifu;
         }
 
         /**
@@ -8414,7 +8414,7 @@ namespace shogipp
                     opt_state = state_t{ *details::program_options::sfen };
                 else
                     opt_state = state_t{};
-                do_taikyoku(*opt_state, black_player, white_player);
+                match(*opt_state, black_player, white_player);
             }
             else
             {

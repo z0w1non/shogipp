@@ -3912,8 +3912,9 @@ namespace shogipp
         /**
          * @breif 最後に指された合法手を取得する。
          * @return 最後に指された合法手
+         * @details has_last_move が false を返す状態でこの関数を呼び出した場合、未定義の動作となる。
          */
-        inline move_t last_move() const noexcept;
+        inline const move_t & last_move() const noexcept;
 
         /**
          * @breif 手番を取得する。
@@ -4863,7 +4864,7 @@ namespace shogipp
         return !kifu.empty();
     }
 
-    inline move_t kyokumen_t::last_move() const noexcept
+    inline const move_t & kyokumen_t::last_move() const noexcept
     {
         return kifu.back();
     }
@@ -7090,10 +7091,10 @@ namespace shogipp
                 }
             }
 
-            std::optional<move_t> last_move = kyokumen.last_move();
-            if (last_move)
+            if (kyokumen.has_last_move())
             {
-                ;
+                const move_t & last_move = kyokumen.last_move();
+                /* unused */
             }
 
             return evaluation_value;

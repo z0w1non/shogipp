@@ -5555,11 +5555,11 @@ namespace shogipp
         virtual std::string name() const = 0;
 
         /**
-         * @breif 一時オブジェクトの局面を引数として query_best_move を開始する前に、局面を初期化する。
-         * @details この関数は best_move / best_move_iddfs から呼び出される。
+         * @breif この関数は best_move / best_move_iddfs から呼び出される。
          *          この関数で任意に add_observer を呼び出す。
+         * @param state 一時オブジェクトの局面
          */
-        virtual void initialize_state(state_t & state) = 0;
+        virtual void add_observers(state_t & state) = 0;
     };
 
     move_t abstract_evaluator_t::best_move(state_t & state, iddfs_context_t & context)
@@ -5569,7 +5569,7 @@ namespace shogipp
         try
         {
             state_t duplicated{ state };
-            context.evaluator()->initialize_state(duplicated);
+            context.evaluator()->add_observers(duplicated);
             opt_best_move = query_best_move(duplicated, context, 0);
         }
         catch (const timeout_exception &)
@@ -5600,7 +5600,7 @@ namespace shogipp
             for (iddfs_iteration_t iddf_iteration = 0; iddf_iteration <= context.max_iddfs_iteration(); ++iddf_iteration)
             {
                 state_t duplicated{ state };
-                context.evaluator()->initialize_state(duplicated);
+                context.evaluator()->add_observers(duplicated);
                 opt_best_move = query_best_move(duplicated, context, iddf_iteration);
                 last_iddfs_iteration = iddf_iteration;
             }
@@ -6673,7 +6673,7 @@ namespace shogipp
             return "sample evaluator";
         }
 
-        void initialize_state(state_t & state) override
+        void add_observers(state_t & state) override
         {
             ;
         }
@@ -6695,7 +6695,7 @@ namespace shogipp
             return "ひよこ";
         }
 
-        void initialize_state(state_t & state) override
+        void add_observers(state_t & state) override
         {
             ;
         }
@@ -6718,7 +6718,7 @@ namespace shogipp
             return "にわとり";
         }
 
-        void initialize_state(state_t & state) override
+        void add_observers(state_t & state) override
         {
             ;
         }
@@ -6764,7 +6764,7 @@ namespace shogipp
             return "深読み";
         }
 
-        void initialize_state(state_t & state) override
+        void add_observers(state_t & state) override
         {
             ;
         }
@@ -6809,7 +6809,7 @@ namespace shogipp
             return "枝刈り";
         }
 
-        void initialize_state(state_t & state) override
+        void add_observers(state_t & state) override
         {
             ;
         }
@@ -7115,7 +7115,7 @@ namespace shogipp
             return m_name;
         }
 
-        void initialize_state(state_t & state) override
+        void add_observers(state_t & state) override
         {
             ;
         }
@@ -7168,7 +7168,7 @@ namespace shogipp
             return "random evaluator";
         }
 
-        void initialize_state(state_t & state) override
+        void add_observers(state_t & state) override
         {
             ;
         }

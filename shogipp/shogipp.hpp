@@ -4854,6 +4854,7 @@ namespace shogipp
         kifu.push_back(move);
         push_additional_info(hash);
         validate_board_out();
+        notify_observers_do_move_called();
     }
 
     inline void state_t::undo_move()
@@ -4877,6 +4878,7 @@ namespace shogipp
         }
         kifu.pop_back();
         pop_additional_info();
+        notify_observers_undo_move_called();
     }
 
     inline bool state_t::has_last_move() const noexcept

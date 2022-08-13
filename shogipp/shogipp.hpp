@@ -510,7 +510,7 @@ namespace shogipp
     {
     public:
         using value_type = unsigned char;
-        
+
         constexpr inline color_t(value_type value) noexcept;
         constexpr inline color_t operator !() const noexcept { return m_value != 0 ? 0 : 1; }
         constexpr inline bool operator ==(const color_t & color) const noexcept { return m_value == color.m_value; }
@@ -1868,7 +1868,7 @@ namespace shogipp
         SHOGIPP_ASSERT(!put());
         return m_promote;
     }
-    
+
     inline std::string move_t::sfen_string() const
     {
         std::string result;
@@ -2240,7 +2240,7 @@ namespace shogipp
 
             inline positions_t(const board_t & board);
             inline evaluation_value_t distance(const positions_t & positions) const;
-           
+
             position_t pawn_destination[file_size];
             position_t lance_destination[2];
             position_t knight_destination[2];
@@ -3434,7 +3434,7 @@ namespace shogipp
         {
             m_valid = false;
         }
-        
+
     //private:
         mutable value_type m_value;
         mutable bool m_valid;
@@ -4288,7 +4288,7 @@ namespace shogipp
             return npos;
         return current;
     }
-    
+
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
     inline void state_t::search_piece_near(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
@@ -4488,7 +4488,7 @@ namespace shogipp
     {
         const aigoma_info_t aigoma_info = search_aigoma(color());
         const position_t king_pos = additional_info.king_position_list[color().value()];
-        
+
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         const std::size_t saved_count = check_list().size();
 
@@ -5606,7 +5606,7 @@ namespace shogipp
 
             unsigned int id;
             moves_t moves = state.search_moves();
-            
+
             while (!selected)
             {
                 try
@@ -6324,12 +6324,12 @@ namespace shogipp
     {
         if (usi_info)
             usi_info->resolve_request_to_stop(depth);
-        
+
         if (depth >= arguments.max_depth)
         {
             if (arguments.context.timeout())
                 throw timeout_exception{ "context.timeout() == true" };
-            
+
             // ‘O‰ñ‹îŽæ‚è‚ª”­¶‚µ‚Ä‚¢‚½ê‡A’Tõ‚ð‰„’·‚·‚éB
             if (depth >= arguments.max_selective_depth && previous_destination != npos)
             {
@@ -6428,7 +6428,7 @@ namespace shogipp
         const depth_t max_depth = iddfs_iteration * 2 + 1;
         const depth_t max_selective_depth = std::numeric_limits<depth_t>::max();
         arguments_t arguments{ context.cache(), context, max_depth, max_selective_depth };
-        
+
         try
         {
             evaluation_value = extendable_alphabeta(state, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), candidate_move, npos, arguments);
@@ -7574,7 +7574,7 @@ namespace shogipp
                 else if (tokens[current] == "go")
                 {
                     ++current;
-                 
+
                     std::optional<std::chrono::milliseconds> opt_time[color_t::size()];
                     std::optional<std::chrono::milliseconds> opt_byoyomi;
                     std::optional<std::chrono::milliseconds> opt_inc[color_t::size()];
@@ -8060,7 +8060,7 @@ namespace shogipp
             {
                 const std::filesystem::path log_path = log_directory / "summary.txt";
                 std::ofstream log_stream{ log_path };
-                
+
                 std::size_t div = (individuals.size() - 1) * 2;
                 for (std::size_t i = 0; i < individuals.size(); ++i)
                 {
@@ -8069,7 +8069,7 @@ namespace shogipp
                     log_stream << name << ": " << wp << "% (" << fitness_table[i] << "/" << div << ")" << std::endl;
                 }
                 log_stream << std::endl;
-                
+
                 log_stream << "best chromosome:" << std::endl;
                 evaluated_individuals.front().first->chromosome()->print(log_stream);
                 std::cout << std::endl;
@@ -8112,14 +8112,14 @@ namespace shogipp
                     const std::size_t chromosome_distance = base->chromosome()->distance(*sub->chromosome());
                     const std::shared_ptr<chromosome_t> chromosome = std::make_shared<chromosome_t>(*base->chromosome());
                     chromosome->clossover(*sub->chromosome());
-                    
+
                     if (chromosome_distance < m_min_chromosome_distance)
                     {
                         const std::size_t chromosome_distance_diff = m_min_chromosome_distance - chromosome_distance;
                         for (std::size_t i = 0; i < chromosome_distance_diff; ++i)
                             chromosome->mutate();
                     }
-                    
+
                     const std::shared_ptr<chromosome_evaluator_t> next_individual = std::make_shared<chromosome_evaluator_t>(chromosome, base->name(), uid++);
                     next_individuals.push_back(next_individual);
                 }

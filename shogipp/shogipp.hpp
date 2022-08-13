@@ -5556,7 +5556,7 @@ namespace shogipp
 
         /**
          * @breif この関数は best_move / best_move_iddfs から呼び出される。
-         *          この関数で任意に add_observer を呼び出す。
+         *        この関数から任意に state_t::add_observer を呼び出す。
          * @param state 一時オブジェクトの局面
          */
         virtual void add_observers(state_t & state) {}

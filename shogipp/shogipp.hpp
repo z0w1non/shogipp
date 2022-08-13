@@ -7138,7 +7138,7 @@ namespace shogipp
         return command_t{ command_t::id_t::error };
     }
 
-    class abstract_kishi_t;
+    class abstract_player_t;
 
     /**
      * @breif ‘Î‹Ç
@@ -7151,7 +7151,7 @@ namespace shogipp
          * @param a æè‚ÌŠûm
          * @param b Œãè‚ÌŠûm
          */
-        inline taikyoku_t(const std::shared_ptr<abstract_kishi_t> & a, const std::shared_ptr<abstract_kishi_t> & b);
+        inline taikyoku_t(const std::shared_ptr<abstract_player_t> & a, const std::shared_ptr<abstract_player_t> & b);
 
         /**
          * @breif ‘Î‹Ç‚ğÀs‚·‚éB
@@ -7179,7 +7179,7 @@ namespace shogipp
          */
         inline void update_moves() const;
 
-        std::shared_ptr<abstract_kishi_t> kishi_list[color_t::size()];
+        std::shared_ptr<abstract_player_t> player_list[color_t::size()];
         mutable moves_t moves;
         kyokumen_t kyokumen;
         bool black_win;
@@ -7188,10 +7188,10 @@ namespace shogipp
     /**
      * @breif Šûm
      */
-    class abstract_kishi_t
+    class abstract_player_t
     {
     public:
-        virtual ~abstract_kishi_t() {}
+        virtual ~abstract_player_t() {}
 
         /**
          * @breif ƒRƒ}ƒ“ƒh‚ğ•Ô‚·B
@@ -7217,8 +7217,8 @@ namespace shogipp
     /**
      * @breif •W€“ü—Í‚É‚æ‚è§Œä‚³‚ê‚éŠûm
      */
-    class stdin_kishi_t
-        : public abstract_kishi_t
+    class stdin_player_t
+        : public abstract_player_t
     {
     public:
         command_t get_command(taikyoku_t & taikyoku) override;
@@ -7229,11 +7229,11 @@ namespace shogipp
     /**
      * @breif •]‰¿ŠÖ”ƒIƒuƒWƒFƒNƒg‚É‚æ‚è§Œä‚³‚ê‚éŠûm
      */
-    class computer_kishi_t
-        : public abstract_kishi_t
+    class computer_player_t
+        : public abstract_player_t
     {
     public:
-        inline computer_kishi_t(const std::shared_ptr<abstract_evaluator_t> & ptr)
+        inline computer_player_t(const std::shared_ptr<abstract_evaluator_t> & ptr)
             : ptr{ ptr }
         {}
 
@@ -7245,40 +7245,40 @@ namespace shogipp
         std::shared_ptr<abstract_evaluator_t> ptr;
     };
 
-    command_t stdin_kishi_t::get_command(taikyoku_t & taikyoku)
+    command_t stdin_player_t::get_command(taikyoku_t & taikyoku)
     {
         return read_command_line_input(taikyoku.get_moves());
     }
 
-    std::string stdin_kishi_t::name() const
+    std::string stdin_player_t::name() const
     {
         return "stdin";
     }
 
-    bool stdin_kishi_t::is_computer() const
+    bool stdin_player_t::is_computer() const
     {
         return false;
     }
 
-    command_t computer_kishi_t::get_command(taikyoku_t & taikyoku)
+    command_t computer_player_t::get_command(taikyoku_t & taikyoku)
     {
         iddfs_context_t context{ details::program_options::max_iddfs_iteration ,details::program_options::limit_time };
         context.start();
         return command_t{ command_t::id_t::move, ptr->best_move_iddfs(taikyoku.kyokumen, context) };
     }
 
-    std::string computer_kishi_t::name() const
+    std::string computer_player_t::name() const
     {
         return ptr->name();
     }
 
-    bool computer_kishi_t::is_computer() const
+    bool computer_player_t::is_computer() const
     {
         return true;
     }
 
-    inline taikyoku_t::taikyoku_t(const std::shared_ptr<abstract_kishi_t> & a, const std::shared_ptr<abstract_kishi_t> & b)
-        : kishi_list{ a, b }
+    inline taikyoku_t::taikyoku_t(const std::shared_ptr<abstract_player_t> & a, const std::shared_ptr<abstract_player_t> & b)
+        : player_list{ a, b }
         , black_win{ false }
     {
         update_moves();
@@ -7286,13 +7286,13 @@ namespace shogipp
 
     inline bool taikyoku_t::procedure(std::ostream & ostream)
     {
-        const std::shared_ptr<abstract_kishi_t> & kishi = kishi_list[kyokumen.color().value()];
+        const std::shared_ptr<abstract_player_t> & player = player_list[kyokumen.color().value()];
 
         kyokumen_t temp_kyokumen = kyokumen;
 
         while (true)
         {
-            command_t cmd = kishi->get_command(*this);
+            command_t cmd = player->get_command(*this);
             switch (cmd.id)
             {
             case command_t::id_t::error:
@@ -7344,20 +7344,20 @@ namespace shogipp
         if (kyokumen.move_count == 0)
         {
             for (const color_t color : colors)
-                ostream << color.to_string() << "F" << kishi_list[color.value()]->name() << std::endl;
+                ostream << color.to_string() << "F" << player_list[color.value()]->name() << std::endl;
             ostream << std::endl;
         }
 
         if (moves.empty())
         {
-            const std::shared_ptr<abstract_kishi_t> & winner_evaluator = kishi_list[!kyokumen.color().value()];
+            const std::shared_ptr<abstract_player_t> & winner_evaluator = player_list[!kyokumen.color().value()];
             ostream << kyokumen.move_count << "è‹l‚İ" << std::endl;
             kyokumen.print(ostream);
             ostream << (!kyokumen.color()).to_string() << "Ÿ—˜(" << winner_evaluator->name() << ")" << std::flush;
         }
         else
         {
-            const bool is_computer = kishi_list[kyokumen.color().value()]->is_computer();
+            const bool is_computer = player_list[kyokumen.color().value()]->is_computer();
             ostream << (kyokumen.move_count + 1) << "è–Ú" << kyokumen.color().to_string() << "”Ô" << std::endl;
             kyokumen.print(ostream);
             if (!is_computer || details::program_options::print_moves)
@@ -7378,14 +7378,14 @@ namespace shogipp
 
     /**
     * @breif ‘Î‹Ç‚·‚éB
-    * @param black_kishi æè‚ÌŠûm
-    * @param white_kishi Œãè‚ÌŠûm
+    * @param black_player æè‚ÌŠûm
+    * @param white_player Œãè‚ÌŠûm
     */
-    inline void do_taikyoku(kyokumen_t & kyokumen, const std::shared_ptr<abstract_kishi_t> & black_kishi, const std::shared_ptr<abstract_kishi_t> & white_kishi)
+    inline void do_taikyoku(kyokumen_t & kyokumen, const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
     {
         details::timer.clear();
 
-        taikyoku_t taikyoku{ black_kishi, white_kishi };
+        taikyoku_t taikyoku{ black_player, white_player };
         taikyoku.kyokumen = kyokumen;
         while (true)
         {
@@ -7405,13 +7405,13 @@ namespace shogipp
 
     /**
      * @breif ‘Î‹Ç‚·‚éB
-     * @param black_kishi æè‚ÌŠûm
-     * @param white_kishi Œãè‚ÌŠûm
+     * @param black_player æè‚ÌŠûm
+     * @param white_player Œãè‚ÌŠûm
      */
-    inline void do_taikyoku(const std::shared_ptr<abstract_kishi_t> & black_kishi, const std::shared_ptr<abstract_kishi_t> & white_kishi)
+    inline void do_taikyoku(const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
     {
         kyokumen_t kyokumen;
-        do_taikyoku(kyokumen, black_kishi, white_kishi);
+        do_taikyoku(kyokumen, black_player, white_player);
     }
 
     /**
@@ -7745,15 +7745,15 @@ namespace shogipp
         }
     };
 
-    static const std::map<std::string, std::shared_ptr<abstract_kishi_t>> kishi_map
+    static const std::map<std::string, std::shared_ptr<abstract_player_t>> player_map
     {
-        { "stdin"   , std::make_shared<stdin_kishi_t>()                                            },
-        { "random"  , std::make_shared<computer_kishi_t>(std::make_shared<random_evaluator_t  >()) },
-        { "sample"  , std::make_shared<computer_kishi_t>(std::make_shared<sample_evaluator_t  >()) },
-        { "hiyoko"  , std::make_shared<computer_kishi_t>(std::make_shared<hiyoko_evaluator_t  >()) },
-        { "niwatori", std::make_shared<computer_kishi_t>(std::make_shared<niwatori_evaluator_t>()) },
-        { "fukayomi", std::make_shared<computer_kishi_t>(std::make_shared<fukayomi_evaluator_t>()) },
-        { "edagari" , std::make_shared<computer_kishi_t>(std::make_shared<edagari_evaluator_t >()) },
+        { "stdin"   , std::make_shared<stdin_player_t>()                                            },
+        { "random"  , std::make_shared<computer_player_t>(std::make_shared<random_evaluator_t  >()) },
+        { "sample"  , std::make_shared<computer_player_t>(std::make_shared<sample_evaluator_t  >()) },
+        { "hiyoko"  , std::make_shared<computer_player_t>(std::make_shared<hiyoko_evaluator_t  >()) },
+        { "niwatori", std::make_shared<computer_player_t>(std::make_shared<niwatori_evaluator_t>()) },
+        { "fukayomi", std::make_shared<computer_player_t>(std::make_shared<fukayomi_evaluator_t>()) },
+        { "edagari" , std::make_shared<computer_player_t>(std::make_shared<edagari_evaluator_t >()) },
     };
 
     static const std::map<std::string, std::shared_ptr<abstract_evaluator_t>> evaluator_map
@@ -7829,10 +7829,10 @@ namespace shogipp
             std::ostream & ostream
         ) const
         {
-            const std::shared_ptr<abstract_kishi_t> black_kishi{ std::make_shared<computer_kishi_t>(black) };
-            const std::shared_ptr<abstract_kishi_t> white_kishi{ std::make_shared<computer_kishi_t>(white) };
+            const std::shared_ptr<abstract_player_t> black_player{ std::make_shared<computer_player_t>(black) };
+            const std::shared_ptr<abstract_player_t> white_player{ std::make_shared<computer_player_t>(white) };
 
-            taikyoku_t taikyoku{ black_kishi, white_kishi };
+            taikyoku_t taikyoku{ black_player, white_player };
             while (true)
             {
                 taikyoku.print(ostream);
@@ -8350,22 +8350,22 @@ namespace shogipp
             }
             else if (details::program_options::black_name && details::program_options::white_name)
             {
-                auto black_iter = kishi_map.find(*details::program_options::black_name);
-                if (black_iter == kishi_map.end())
+                auto black_iter = player_map.find(*details::program_options::black_name);
+                if (black_iter == player_map.end())
                     throw invalid_command_line_input{ "invalid black name" };
-                const std::shared_ptr<abstract_kishi_t> & black_kishi = black_iter->second;
+                const std::shared_ptr<abstract_player_t> & black_player = black_iter->second;
 
-                auto white_iter = kishi_map.find(*details::program_options::white_name);
-                if (white_iter == kishi_map.end())
+                auto white_iter = player_map.find(*details::program_options::white_name);
+                if (white_iter == player_map.end())
                     throw invalid_command_line_input{ "invalid white name" };
-                const std::shared_ptr<abstract_kishi_t> & white_kishi = white_iter->second;
+                const std::shared_ptr<abstract_player_t> & white_player = white_iter->second;
 
                 std::optional<kyokumen_t> opt_kyokumen;
                 if (details::program_options::sfen)
                     opt_kyokumen = kyokumen_t{ *details::program_options::sfen };
                 else
                     opt_kyokumen = kyokumen_t{};
-                do_taikyoku(*opt_kyokumen, black_kishi, white_kishi);
+                do_taikyoku(*opt_kyokumen, black_player, white_player);
             }
             else
             {

@@ -3531,6 +3531,19 @@ namespace shogipp
         stack_cache_t previously_done_moves;                // 既出の合法手
     };
 
+    class state_t;
+
+    /**
+     * @breif do_move / undo_move が呼び出されたときに何らかの処理を行う。
+     */
+    class observer_t
+    {
+    public:
+        virtual ~observer_t() {}
+        virtual void notify_do_move_called(const state_t & state, const move_t & move) = 0;
+        virtual void notify_undo_move_called() = 0;
+    };
+
     /**
      * @breif 局面
      */
@@ -3958,14 +3971,6 @@ namespace shogipp
          * @return 手番にかかっている王手
          */
         inline const std::vector<kiki_t> & check_list() const noexcept;
-
-        class observer_t
-        {
-        public:
-            virtual ~observer_t() {}
-            virtual void notify_do_move_called(const state_t & state, const move_t & move) = 0;
-            virtual void notify_undo_move_called() = 0;
-        };
 
         inline void add_observer(const std::shared_ptr<observer_t> & observer);
         inline void remove_observer(const std::shared_ptr<observer_t> & observer);
@@ -5435,6 +5440,8 @@ namespace shogipp
         piece_pair_statistics_t piece_pair_statistics;
     }
 
+    class abstract_evaluator_t;
+
     /**
      * @breif 評価関数オブジェクトが呼び出された文脈を表現する。
      */
@@ -5444,11 +5451,13 @@ namespace shogipp
         inline iddfs_context_t(
             iddfs_iteration_t max_iddfs_iteration,
             std::chrono::milliseconds limit_time,
-            std::size_t cache_capacity
+            std::size_t cache_capacity,
+            const std::shared_ptr<abstract_evaluator_t> & evaluator
         ) noexcept
             : m_max_iddfs_iteration{ max_iddfs_iteration }
             , m_limit_time{ limit_time }
             , m_cache{ cache_capacity }
+            , m_evaluator{ evaluator }
         {
         }
 
@@ -5483,11 +5492,22 @@ namespace shogipp
             return m_cache;
         }
 
+        inline std::shared_ptr<abstract_evaluator_t> & evaluator() noexcept
+        {
+            return m_evaluator;
+        }
+
+        inline const std::shared_ptr<abstract_evaluator_t> & evaluator() const noexcept
+        {
+            return m_evaluator;
+        }
+
     private:
         iddfs_iteration_t m_max_iddfs_iteration{};
         std::chrono::milliseconds m_limit_time{};
         std::chrono::system_clock::time_point m_begin;
         cache_t m_cache;
+        std::shared_ptr<abstract_evaluator_t> m_evaluator;
     };
 
     /**
@@ -5533,6 +5553,13 @@ namespace shogipp
          * @return 評価関数オブジェクトの名前
          */
         virtual std::string name() const = 0;
+
+        /**
+         * @breif 一時オブジェクトの局面を引数として query_best_move を開始する前に、局面を初期化する。
+         * @details この関数は best_move / best_move_iddfs から呼び出される。
+         *          この関数で任意に add_observer を呼び出す。
+         */
+        virtual void initialize_state(state_t & state) = 0;
     };
 
     move_t abstract_evaluator_t::best_move(state_t & state, iddfs_context_t & context)
@@ -5542,6 +5569,7 @@ namespace shogipp
         try
         {
             state_t duplicated{ state };
+            context.evaluator()->initialize_state(duplicated);
             opt_best_move = query_best_move(duplicated, context, 0);
         }
         catch (const timeout_exception &)
@@ -5572,6 +5600,7 @@ namespace shogipp
             for (iddfs_iteration_t iddf_iteration = 0; iddf_iteration <= context.max_iddfs_iteration(); ++iddf_iteration)
             {
                 state_t duplicated{ state };
+                context.evaluator()->initialize_state(duplicated);
                 opt_best_move = query_best_move(duplicated, context, iddf_iteration);
                 last_iddfs_iteration = iddf_iteration;
             }
@@ -6643,6 +6672,11 @@ namespace shogipp
         {
             return "sample evaluator";
         }
+
+        void initialize_state(state_t & state) override
+        {
+            ;
+        }
     };
 
     class hiyoko_evaluator_t
@@ -6659,6 +6693,11 @@ namespace shogipp
         std::string name() const override
         {
             return "ひよこ";
+        }
+
+        void initialize_state(state_t & state) override
+        {
+            ;
         }
     };
 
@@ -6677,6 +6716,11 @@ namespace shogipp
         std::string name() const override
         {
             return "にわとり";
+        }
+
+        void initialize_state(state_t & state) override
+        {
+            ;
         }
     };
 
@@ -6719,6 +6763,11 @@ namespace shogipp
         {
             return "深読み";
         }
+
+        void initialize_state(state_t & state) override
+        {
+            ;
+        }
     };
 
     class edagari_evaluator_t
@@ -6758,6 +6807,11 @@ namespace shogipp
         std::string name() const override
         {
             return "枝刈り";
+        }
+
+        void initialize_state(state_t & state) override
+        {
+            ;
         }
     };
 
@@ -7061,6 +7115,11 @@ namespace shogipp
             return m_name;
         }
 
+        void initialize_state(state_t & state) override
+        {
+            ;
+        }
+
         std::string file_name() const
         {
             return m_name + "_" + std::to_string(m_id);
@@ -7107,6 +7166,11 @@ namespace shogipp
         std::string name() const override
         {
             return "random evaluator";
+        }
+
+        void initialize_state(state_t & state) override
+        {
+            ;
         }
 
         std::minstd_rand rand{ SHOGIPP_SEED };
@@ -7337,7 +7401,8 @@ namespace shogipp
         {
             details::program_options::max_iddfs_iteration,
             details::program_options::limit_time,
-            details::program_options::cache_size / sizeof(hash_t)
+            details::program_options::cache_size / sizeof(hash_t),
+            ptr
         };
         context.start();
         return command_t{ command_t::id_t::move, ptr->best_move_iddfs(game.state, context) };
@@ -7694,7 +7759,8 @@ namespace shogipp
                                 {
                                     details::program_options::max_iddfs_iteration,
                                     usi_info->limit_time,
-                                    cache_size / sizeof(hash_t)
+                                    cache_size / sizeof(hash_t),
+                                    evaluator
                                 };
                                 context.start();
                                 evaluator->best_move_iddfs(state, context);

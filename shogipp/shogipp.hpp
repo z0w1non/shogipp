@@ -391,6 +391,9 @@ namespace shogipp
 
             const std::string default_piece_pair_statistics = "piece_pair_statistics.bin";
             std::string piece_pair_statistics = default_piece_pair_statistics;
+
+            constexpr std::size_t default_cache_size = 256 * 1000 * 1000;
+            std::size_t cache_size = default_cache_size;
         } // namespace program_options
 
         namespace evaluation_value_template
@@ -5364,21 +5367,21 @@ namespace shogipp
     class iddfs_context_t
     {
     public:
-        constexpr inline iddfs_context_t() noexcept = default;
-
-        constexpr inline iddfs_context_t(
+        inline iddfs_context_t(
             iddfs_iteration_t max_iddfs_iteration,
-            std::chrono::milliseconds limit_time
+            std::chrono::milliseconds limit_time,
+            std::size_t cache_capacity
         ) noexcept
             : m_max_iddfs_iteration{ max_iddfs_iteration }
             , m_limit_time{ limit_time }
+            , m_cache{ cache_capacity }
         {
         }
 
-        constexpr inline iddfs_context_t(iddfs_context_t & context) noexcept = default;
-        constexpr inline iddfs_context_t(iddfs_context_t && context) noexcept = default;
-        constexpr inline iddfs_context_t & operator =(iddfs_context_t & context) noexcept = default;
-        constexpr inline iddfs_context_t & operator =(iddfs_context_t && context) noexcept = default;
+        inline iddfs_context_t(const iddfs_context_t & context) noexcept = default;
+        inline iddfs_context_t(iddfs_context_t && context) noexcept = default;
+        inline iddfs_context_t & operator =(const iddfs_context_t & context) noexcept = default;
+        inline iddfs_context_t & operator =(iddfs_context_t && context) noexcept = default;
 
         inline iddfs_iteration_t max_iddfs_iteration() const noexcept
         {
@@ -5396,10 +5399,21 @@ namespace shogipp
             return std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin) >= std::chrono::milliseconds{ m_limit_time };
         }
 
+        inline cache_t & cache() noexcept
+        {
+            return m_cache;
+        }
+
+        inline const cache_t & cache() const noexcept
+        {
+            return m_cache;
+        }
+
     private:
         iddfs_iteration_t m_max_iddfs_iteration{};
         std::chrono::milliseconds m_limit_time{};
         std::chrono::system_clock::time_point m_begin;
+        cache_t m_cache;
     };
 
     /**
@@ -7265,7 +7279,12 @@ namespace shogipp
 
     command_t computer_player_t::get_command(game_t & taikyoku)
     {
-        iddfs_context_t context{ details::program_options::max_iddfs_iteration ,details::program_options::limit_time };
+        iddfs_context_t context
+        {
+            details::program_options::max_iddfs_iteration,
+            details::program_options::limit_time,
+            details::program_options::cache_size / sizeof(hash_t)
+        };
         context.start();
         return command_t{ command_t::id_t::move, ptr->best_move_iddfs(taikyoku.state, context) };
     }
@@ -7618,7 +7637,16 @@ namespace shogipp
                         {
                             try
                             {
-                                iddfs_context_t context(details::program_options::max_iddfs_iteration, usi_info->limit_time);
+                                std::size_t cache_size = details::program_options::cache_size;
+                                const std::optional<std::size_t> cache_size_mb = usi_info->get_option_as<std::size_t>("USI_Hash");
+                                if (cache_size_mb)
+                                    cache_size = *cache_size_mb * 1000 * 1000;
+                                iddfs_context_t context
+                                {
+                                    details::program_options::max_iddfs_iteration,
+                                    usi_info->limit_time,
+                                    cache_size / sizeof(hash_t)
+                                };
                                 context.start();
                                 evaluator->best_move_iddfs(state, context);
                             }
@@ -8191,6 +8219,14 @@ namespace shogipp
                         details::program_options::limit_time = std::chrono::milliseconds{ *opt_rep };
                     else
                         std::cerr << "invalid limit-time parameter" << std::endl;
+                }
+                else if (option == "cache-size" && !params.empty())
+                {
+                    const std::optional<std::size_t> opt_cache_size = details::cast_to<std::size_t>(params[0]);
+                    if (opt_cache_size)
+                        details::program_options::cache_size = *opt_cache_size;
+                    else
+                        std::cerr << "invalid cache-size parameter" << std::endl;
                 }
                 else if (option == "ga-iteration" && !params.empty())
                 {

@@ -3889,8 +3889,7 @@ namespace shogipp
         /**
          * @breif 合法手を実行する。
          * @param move 合法手
-         * @details この関数を呼び出すときに指定した move を指定して undo_move を呼び出すことにより
-         *          この関数を呼び出す前の状態に復元することができる。
+         * @details この関数を呼び出した後 undo_move を呼び出すことにより、この関数を呼び出す前の状態に復元することができる。
          *          この関数は additional_info のメンバに再割当てを行う可能性があるため、
          *          この関数を呼び出す前後で additional_info に関連した参照やポインタを継続して使用しないよう注意する。
          * @sa undo_move
@@ -3898,17 +3897,23 @@ namespace shogipp
         inline void do_move(const move_t & move);
 
         /**
-         * @breif 合法手を実行する前に戻す。
-         * @param move 合法手
+         * @breif 最後に指された合法手を実行する前の状態に復元する。
          * @sa do_move
          */
-        inline void undo_move(const move_t & move);
+        inline void undo_move();
 
         /**
-         * @breif 最後に指された合法手を返す。
+         * @breif 最後に指された合法手が存在するか判定する。
+         * @retval true 最後に指された合法手が存在する
+         * @retval false 最後に指された合法手が存在しない
+         */
+        inline bool has_last_move() const noexcept;
+
+        /**
+         * @breif 最後に指された合法手を取得する。
          * @return 最後に指された合法手
          */
-        inline std::optional<move_t> last_move() const noexcept;
+        inline move_t last_move() const noexcept;
 
         /**
          * @breif 手番を取得する。
@@ -4237,7 +4242,7 @@ namespace shogipp
                     VALIDATE_KYOKUMEN_ROLLBACK(*this);
                     const_cast<kyokumen_t &>(*this).do_move(move);
                     moves = search_moves();
-                    const_cast<kyokumen_t &>(*this).undo_move(move);
+                    const_cast<kyokumen_t &>(*this).undo_move();
                 }
                 if (moves.empty())
                     return false;
@@ -4830,8 +4835,9 @@ namespace shogipp
         validate_board_out();
     }
 
-    inline void kyokumen_t::undo_move(const move_t & move)
+    inline void kyokumen_t::undo_move()
     {
+        const move_t & move = last_move();
         SHOGIPP_ASSERT(move_count > 0);
         --move_count;
         if (move.put())
@@ -4852,10 +4858,13 @@ namespace shogipp
         pop_additional_info();
     }
 
-    inline std::optional<move_t> kyokumen_t::last_move() const noexcept
+    inline bool kyokumen_t::has_last_move() const noexcept
     {
-        if (kifu.empty())
-            return std::nullopt;
+        return !kifu.empty();
+    }
+
+    inline move_t kyokumen_t::last_move() const noexcept
+    {
         return kifu.back();
     }
 
@@ -4875,7 +4884,7 @@ namespace shogipp
             VALIDATE_KYOKUMEN_ROLLBACK(*this);
             const_cast<kyokumen_t &>(*this).do_move(move);
             count += count_node(depth - 1);
-            const_cast<kyokumen_t &>(*this).undo_move(move);
+            const_cast<kyokumen_t &>(*this).undo_move();
         }
         return count;
     }
@@ -5564,6 +5573,9 @@ namespace shogipp
         }
     };
 
+    /**
+     * @breif ヘルプを標準出力に出力する。
+     */
     void print_help()
     {
         std::cout
@@ -5946,6 +5958,9 @@ namespace shogipp
             this->cp = cp;
         }
 
+        /**
+         * @breif 探索の開始を通知する。
+         */
         inline void notify_search_begin()
         {
             std::lock_guard<decltype(mutex)> lock{ mutex };
@@ -6046,7 +6061,7 @@ namespace shogipp
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -negamax(kyokumen, depth + 1, nested_candidate_move, arguments);
-                kyokumen.undo_move(move);
+                kyokumen.undo_move();
             }
             *inserter++ = { &move, evaluation_value };
 
@@ -6172,7 +6187,7 @@ namespace shogipp
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -alphabeta(kyokumen, depth + 1, -beta, -alpha, nested_candidate_move, arguments);
-                kyokumen.undo_move(move);
+                kyokumen.undo_move();
             }
             *inserter++ = { &move, evaluation_value };
 
@@ -6288,7 +6303,7 @@ namespace shogipp
                             VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                             kyokumen.do_move(move);
                             evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, nested_candidate_move, previous_destination, arguments);
-                            kyokumen.undo_move(move);
+                            kyokumen.undo_move();
                         }
                         *inserter++ = { &move, evaluation_value };
                         alpha = std::max(alpha, evaluation_value);
@@ -6339,7 +6354,7 @@ namespace shogipp
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, nested_candidate_move, destination, arguments);
-                kyokumen.undo_move(move);
+                kyokumen.undo_move();
             }
             *inserter++ = { &move, evaluation_value };
 
@@ -6480,7 +6495,7 @@ namespace shogipp
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 evaluation_value = -pruning_alphabeta(kyokumen, depth + 1, -beta, -alpha, nested_candidate_move, destination, increased_pruning_parameter, arguments);
-                kyokumen.undo_move(move);
+                kyokumen.undo_move();
             }
             *inserter++ = { &move, evaluation_value };
 
@@ -6551,7 +6566,7 @@ namespace shogipp
                 VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
                 kyokumen.do_move(move);
                 *back_inserter++ = { &move, evaluate(kyokumen) };
-                kyokumen.undo_move(move);
+                kyokumen.undo_move();
             }
 
             std::sort(scores.begin(), scores.end(), [](auto & a, auto & b) { return a.second > b.second; });
@@ -7448,7 +7463,7 @@ namespace shogipp
                 if (kyokumen.move_count >= 2)
                 {
                     for (int i = 0; i < 2; ++i)
-                        kyokumen.undo_move(kyokumen.kifu.back());
+                        kyokumen.undo_move();
                     update_moves();
                     return !moves.empty();
                 }

@@ -171,20 +171,34 @@ namespace shogipp
              */
             inline const search_count_t & search_count() const noexcept;
 
+            /**
+             * @breif キャッシュ適用率の参照を返す。
+             * @return 読み手数の参照
+             */
+            inline search_count_t & cache_hit_count() noexcept;
+
+            /**
+             * @breif キャッシュ適用率の参照を返す。
+             * @return 読み手数の参照
+             */
+            inline const search_count_t & cache_hit_count() const noexcept;
+
         private:
             std::chrono::system_clock::time_point m_begin;
             search_count_t m_search_count;
+            search_count_t m_cache_hit_count;
         };
 
         inline timer_t::timer_t() noexcept
+            : m_begin{ std::chrono::system_clock::now() }
+            , m_search_count{}
+            , m_cache_hit_count{}
         {
-            clear();
         }
 
         inline void timer_t::clear() noexcept
         {
-            m_begin = std::chrono::system_clock::now();
-            m_search_count = 0;
+            *this = timer_t{};
         }
 
         inline void timer_t::print_elapsed_time(std::ostream & ostream) noexcept
@@ -192,12 +206,14 @@ namespace shogipp
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             const std::chrono::milliseconds::rep duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
             const search_count_t nps = duration != 0 ? m_search_count * 1000 / duration : 0;
+            const search_count_t cache_hit_rate = 100 * m_cache_hit_count / m_search_count;
 
             ostream
                 << std::endl
-                << "総読み手数     : " << m_search_count << std::endl
-                << "実行時間[ms]   : " << duration << std::endl
-                << "読み手速度[n/s]: " << nps << std::endl << std::endl;
+                << "総読み手数      ：" << m_search_count << std::endl
+                << "キャッシュ適用率：" << cache_hit_rate << "%" << std::endl
+                << "実行時間[ms]    ：" << duration << std::endl
+                << "読み手速度[n/s] ：" << nps << std::endl << std::endl;
         }
 
         inline search_count_t & timer_t::search_count() noexcept
@@ -208,6 +224,16 @@ namespace shogipp
         inline const search_count_t & timer_t::search_count() const noexcept
         {
             return m_search_count;
+        }
+
+        inline search_count_t & timer_t::cache_hit_count() noexcept
+        {
+            return m_cache_hit_count;
+        }
+
+        inline const search_count_t & timer_t::cache_hit_count() const noexcept
+        {
+            return m_cache_hit_count;
         }
 
         thread_local timer_t timer;
@@ -4989,10 +5015,18 @@ namespace shogipp
         std::size_t capacity;
     };
 
+    class cache_value_t
+    {
+    public:
+        evaluation_value_t evaluation_value{};
+        iddfs_iteration_t max_iddfs_iteration{};
+        bool is_best_move{};
+    };
+
 #ifdef SIZE_OF_HASH
-    using cache_t = lru_cache_t<hash_t, evaluation_value_t, basic_hash_hasher_t<SIZE_OF_HASH>>;
+    using cache_t = lru_cache_t<hash_t, cache_value_t, basic_hash_hasher_t<SIZE_OF_HASH>>;
 #else
-    using cache_t = lru_cache_t<hash_t, evaluation_value_t>;
+    using cache_t = lru_cache_t<hash_t, cache_value_t>;
 #endif
 
     /**
@@ -5871,26 +5905,6 @@ namespace shogipp
         }
 
         /**
-         * @breif USI_Hash オプションの値に準拠した最大サイズを持つ cache_t を構築する。
-         * @param usi_info usi_info_t のポインタ
-         * @return USI_Hash オプションの値に準拠した最大サイズを持つ cache_t
-         * @details usi_info が nullptr である場合、あるいは USI_Hash オプション が指定されていない場合、
-         *          この関数は無制限の最大サイズを持つ cache_t を構築する。
-         */
-        inline static cache_t make_cache(usi_info_t * usi_info)
-        {
-            std::size_t cache_size = std::numeric_limits<std::size_t>::max();
-            if (usi_info)
-            {
-                std::lock_guard<decltype(usi_info->mutex)> lock{ usi_info->mutex };
-                const std::optional<std::size_t> cache_mb_size = usi_info->get_option_as<std::size_t>("USI_Hash");
-                if (cache_mb_size)
-                    cache_size = *cache_mb_size * 1000 * 1000 / sizeof(hash_t);
-            }
-            return cache_t{ cache_size };
-        }
-
-        /**
          * @breif state に state_t::terminated を設定し、ponder == false であれば bestmove コマンドを出力する。
          */
         inline void terminate()
@@ -6020,15 +6034,16 @@ namespace shogipp
                 throw timeout_exception{ "context.timeout() == true" };
 
             ++details::timer.search_count();
-            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(state.hash());
-            if (cached_evaluation_value)
+            const std::optional<cache_value_t> cached_value = arguments.cache.get(state.hash());
+            if (cached_value && cached_value->max_iddfs_iteration == arguments.context.max_iddfs_iteration())
             {
+                ++details::timer.cache_hit_count();
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
-                return *cached_evaluation_value;
+                return cached_value->evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(state) * reverse(state.color());
-            arguments.cache.push(state.hash(), evaluation_value);
+            arguments.cache.push(state.hash(), cache_value_t{ evaluation_value, arguments.context.max_iddfs_iteration() });
             return evaluation_value;
         }
 
@@ -6073,11 +6088,10 @@ namespace shogipp
         if (usi_info)
             usi_info->notify_search_begin();
 
-        cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
         evaluation_value_t evaluation_value;
         const depth_t max_depth = iddfs_iteration * 2 + 1;
-        arguments_t arguments{ cache, context, max_depth };
+        arguments_t arguments{ context.cache(), context, max_depth };
 
         try
         {
@@ -6145,15 +6159,16 @@ namespace shogipp
                 throw timeout_exception{ "context.timeout() == true" };
 
             ++details::timer.search_count();
-            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(state.hash());
-            if (cached_evaluation_value)
+            const std::optional<cache_value_t> cached_value = arguments.cache.get(state.hash());
+            if (cached_value && cached_value->max_iddfs_iteration == arguments.context.max_iddfs_iteration())
             {
+                ++details::timer.cache_hit_count();
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
-                return *cached_evaluation_value;
+                return cached_value->evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(state) * reverse(state.color());
-            arguments.cache.push(state.hash(), evaluation_value);
+            arguments.cache.push(state.hash(), cache_value_t{ evaluation_value, arguments.context.max_iddfs_iteration() });
             return evaluation_value;
         }
 
@@ -6203,11 +6218,10 @@ namespace shogipp
         if (usi_info)
             usi_info->notify_search_begin();
 
-        cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
         evaluation_value_t evaluation_value;
         const depth_t max_depth = iddfs_iteration * 2 + 1;
-        arguments_t arguments{ cache, context, max_depth };
+        arguments_t arguments{ context.cache(), context, max_depth };
 
         try
         {
@@ -6311,15 +6325,16 @@ namespace shogipp
             }
 
             ++details::timer.search_count();
-            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(state.hash());
-            if (cached_evaluation_value)
+            const std::optional<cache_value_t> cached_value = arguments.cache.get(state.hash());
+            if (cached_value && cached_value->max_iddfs_iteration == arguments.context.max_iddfs_iteration())
             {
+                ++details::timer.cache_hit_count();
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
-                return *cached_evaluation_value;
+                return cached_value->evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(state) * reverse(state.color());
-            arguments.cache.push(state.hash(), evaluation_value);
+            arguments.cache.push(state.hash(), cache_value_t{ evaluation_value, arguments.context.max_iddfs_iteration() });
             return evaluation_value;
         }
 
@@ -6370,12 +6385,11 @@ namespace shogipp
         if (usi_info)
             usi_info->notify_search_begin();
 
-        cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
         evaluation_value_t evaluation_value;
         const depth_t max_depth = iddfs_iteration * 2 + 1;
         const depth_t max_selective_depth = std::numeric_limits<depth_t>::max();
-        arguments_t arguments{ cache, context, max_depth, max_selective_depth };
+        arguments_t arguments{ context.cache(), context, max_depth, max_selective_depth };
         
         try
         {
@@ -6451,15 +6465,16 @@ namespace shogipp
                 throw timeout_exception{ "context.timeout() == true" };
 
             ++details::timer.search_count();
-            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(state.hash());
-            if (cached_evaluation_value)
+            const std::optional<cache_value_t> cached_value = arguments.cache.get(state.hash());
+            if (cached_value && cached_value->max_iddfs_iteration == arguments.context.max_iddfs_iteration())
             {
+                ++details::timer.cache_hit_count();
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
-                return *cached_evaluation_value;
+                return cached_value->evaluation_value;
             }
             const evaluation_value_t evaluation_value = evaluate(state) * reverse(state.color());
-            arguments.cache.push(state.hash(), evaluation_value);
+            arguments.cache.push(state.hash(), cache_value_t{ evaluation_value, arguments.context.max_iddfs_iteration() });
             return evaluation_value;
         }
 
@@ -6511,10 +6526,9 @@ namespace shogipp
         if (usi_info)
             usi_info->notify_search_begin();
 
-        cache_t cache = usi_info_t::make_cache(usi_info.get());
         std::optional<move_t> candidate_move;
         evaluation_value_t evaluation_value;
-        arguments_t arguments{ cache, context, get_pruning_threshold() * iddfs_iteration };
+        arguments_t arguments{ context.cache(), context, get_pruning_threshold() * iddfs_iteration };
 
         try
         {

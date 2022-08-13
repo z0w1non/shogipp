@@ -60,7 +60,7 @@
 #ifdef NDEBUG
 #define VALIDATE_STATE_ROLLBACK(state)
 #else
-#define VALIDATE_state_ROLLBACK(state) state_rollback_validator_t state_rollback_validator{ state }
+#define VALIDATE_STATE_ROLLBACK(state) state_rollback_validator_t state_rollback_validator{ state }
 #endif
 
 #if __cplusplus >= 202002L

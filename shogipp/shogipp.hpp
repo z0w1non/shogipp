@@ -58,7 +58,7 @@
 #define SHOGIPP_THROW(expr, except) do { if (expr) throw except{ #expr }; } while (false)
 
 #ifdef NDEBUG
-#define VALIDATE_state_ROLLBACK(state)
+#define VALIDATE_STATE_ROLLBACK(state)
 #else
 #define VALIDATE_state_ROLLBACK(state) state_rollback_validator_t state_rollback_validator{ state }
 #endif
@@ -4216,7 +4216,7 @@ namespace shogipp
                 const move_t move{ destination, piece };
                 moves_t moves;
                 {
-                    VALIDATE_state_ROLLBACK(*this);
+                    VALIDATE_STATE_ROLLBACK(*this);
                     const_cast<state_t &>(*this).do_move(move);
                     moves = search_moves();
                     const_cast<state_t &>(*this).undo_move();
@@ -4424,7 +4424,7 @@ namespace shogipp
                 const move_t move{ source, destination, board[source], board[destination], false, move_t::escape_tag };
                 std::vector<kiki_t> kiki;
                 {
-                    VALIDATE_state_ROLLBACK(*this);
+                    VALIDATE_STATE_ROLLBACK(*this);
                     state_t & nonconst_this = const_cast<state_t &>(*this);
                     const colored_piece_t captured = board[destination];
                     nonconst_this.board[destination] = board[source];
@@ -4858,7 +4858,7 @@ namespace shogipp
         search_count_t count = 0;
         for (const move_t & move : search_moves())
         {
-            VALIDATE_state_ROLLBACK(*this);
+            VALIDATE_STATE_ROLLBACK(*this);
             const_cast<state_t &>(*this).do_move(move);
             count += count_node(depth - 1);
             const_cast<state_t &>(*this).undo_move();
@@ -6035,7 +6035,7 @@ namespace shogipp
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_state_ROLLBACK(state);
+                VALIDATE_STATE_ROLLBACK(state);
                 state.do_move(move);
                 evaluation_value = -negamax(state, depth + 1, nested_candidate_move, arguments);
                 state.undo_move();
@@ -6161,7 +6161,7 @@ namespace shogipp
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_state_ROLLBACK(state);
+                VALIDATE_STATE_ROLLBACK(state);
                 state.do_move(move);
                 evaluation_value = -alphabeta(state, depth + 1, -beta, -alpha, nested_candidate_move, arguments);
                 state.undo_move();
@@ -6277,7 +6277,7 @@ namespace shogipp
                         std::optional<move_t> nested_candidate_move;
                         evaluation_value_t evaluation_value;
                         {
-                            VALIDATE_state_ROLLBACK(state);
+                            VALIDATE_STATE_ROLLBACK(state);
                             state.do_move(move);
                             evaluation_value = -extendable_alphabeta(state, depth + 1, -beta, -alpha, nested_candidate_move, previous_destination, arguments);
                             state.undo_move();
@@ -6328,7 +6328,7 @@ namespace shogipp
             position_t destination = (!move.put() && !move.destination_piece().empty()) ? move.destination() : npos;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_state_ROLLBACK(state);
+                VALIDATE_STATE_ROLLBACK(state);
                 state.do_move(move);
                 evaluation_value = -extendable_alphabeta(state, depth + 1, -beta, -alpha, nested_candidate_move, destination, arguments);
                 state.undo_move();
@@ -6469,7 +6469,7 @@ namespace shogipp
             position_t destination = (!move.put() && !move.destination_piece().empty()) ? move.destination() : npos;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_state_ROLLBACK(state);
+                VALIDATE_STATE_ROLLBACK(state);
                 state.do_move(move);
                 evaluation_value = -pruning_alphabeta(state, depth + 1, -beta, -alpha, nested_candidate_move, destination, increased_pruning_parameter, arguments);
                 state.undo_move();
@@ -6540,7 +6540,7 @@ namespace shogipp
             auto back_inserter = std::back_inserter(scores);
             for (const move_t & move : moves)
             {
-                VALIDATE_state_ROLLBACK(state);
+                VALIDATE_STATE_ROLLBACK(state);
                 state.do_move(move);
                 *back_inserter++ = { &move, evaluate(state) };
                 state.undo_move();

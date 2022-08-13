@@ -3260,6 +3260,8 @@ namespace shogipp
     {
         std::vector<evaluated_enclosure_t> evaluated_enclosures;
         const enclosure_categoly_t enclosure_categoly = get_enclosure_categoly(board, color);
+
+        // ‹”òŽÔ‚ÌˆÍ‚¢‚ð•]‰¿‚·‚éB
         if (enclosure_categoly == enclosure_categoly_t::static_rook || enclosure_categoly == enclosure_categoly_t::neutral)
         {
             const auto iter = defined_enclosure_evaluators.find(enclosure_categoly_t::static_rook);
@@ -3267,6 +3269,8 @@ namespace shogipp
                 for (const enclosure_evaluator_t & enclosure_evaluator : iter->second)
                     evaluated_enclosures.emplace_back(&enclosure_evaluator, enclosure_evaluator.distance(board, color));
         }
+
+        // U‚è”òŽÔ‚ÌˆÍ‚¢‚ð•]‰¿‚·‚éB
         if (enclosure_categoly == enclosure_categoly_t::ranging_rook || enclosure_categoly == enclosure_categoly_t::neutral)
         {
             const auto iter = defined_enclosure_evaluators.find(enclosure_categoly_t::ranging_rook);
@@ -3274,11 +3278,13 @@ namespace shogipp
                 for (const enclosure_evaluator_t & enclosure_evaluator : iter->second)
                     evaluated_enclosures.emplace_back(&enclosure_evaluator, enclosure_evaluator.distance(board, color));
         }
+
         const auto comparator = [](const evaluated_enclosure_t & evaluated_enclosure1, const evaluated_enclosure_t & evaluated_enclosure2) -> bool
         {
             return evaluated_enclosure1.second < evaluated_enclosure2.second;
         };
         std::sort(evaluated_enclosures.begin(), evaluated_enclosures.end(), comparator);
+
         SHOGIPP_ASSERT(!evaluated_enclosures.empty());
         return evaluated_enclosures.front();
     }

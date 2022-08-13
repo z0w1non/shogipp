@@ -3262,14 +3262,14 @@ namespace shogipp
         const enclosure_categoly_t enclosure_categoly = get_enclosure_categoly(board, color);
         if (enclosure_categoly == enclosure_categoly_t::static_rook || enclosure_categoly == enclosure_categoly_t::neutral)
         {
-            auto iter = defined_enclosure_evaluators.find(enclosure_categoly_t::static_rook);
+            const auto iter = defined_enclosure_evaluators.find(enclosure_categoly_t::static_rook);
             if (iter != defined_enclosure_evaluators.end())
                 for (const enclosure_evaluator_t & enclosure_evaluator : iter->second)
                     evaluated_enclosures.emplace_back(&enclosure_evaluator, enclosure_evaluator.distance(board, color));
         }
         if (enclosure_categoly == enclosure_categoly_t::ranging_rook || enclosure_categoly == enclosure_categoly_t::neutral)
         {
-            auto iter = defined_enclosure_evaluators.find(enclosure_categoly_t::ranging_rook);
+            const auto iter = defined_enclosure_evaluators.find(enclosure_categoly_t::ranging_rook);
             if (iter != defined_enclosure_evaluators.end())
                 for (const enclosure_evaluator_t & enclosure_evaluator : iter->second)
                     evaluated_enclosures.emplace_back(&enclosure_evaluator, enclosure_evaluator.distance(board, color));

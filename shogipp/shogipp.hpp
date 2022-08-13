@@ -141,13 +141,13 @@ namespace shogipp
         /**
          * @breif 総読み手数、実行時間、読み手速度を測定する機能を提供する。
          */
-        class timer_t
+        class performance_t
         {
         public:
             /**
              * @breif 時間計測を開始する。
              */
-            inline timer_t() noexcept;
+            inline performance_t() noexcept;
 
             /**
              * @breif 時間計測を再開始する。
@@ -189,19 +189,19 @@ namespace shogipp
             search_count_t m_cache_hit_count;
         };
 
-        inline timer_t::timer_t() noexcept
+        inline performance_t::performance_t() noexcept
             : m_begin{ std::chrono::system_clock::now() }
             , m_search_count{}
             , m_cache_hit_count{}
         {
         }
 
-        inline void timer_t::clear() noexcept
+        inline void performance_t::clear() noexcept
         {
-            *this = timer_t{};
+            *this = performance_t{};
         }
 
-        inline void timer_t::print_elapsed_time(std::ostream & ostream) noexcept
+        inline void performance_t::print_elapsed_time(std::ostream & ostream) noexcept
         {
             const std::chrono::system_clock::time_point end = std::chrono::system_clock::now();
             const std::chrono::milliseconds::rep duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - m_begin).count();
@@ -216,27 +216,27 @@ namespace shogipp
                 << "読み手速度[n/s] ：" << nps << std::endl << std::endl;
         }
 
-        inline search_count_t & timer_t::search_count() noexcept
+        inline search_count_t & performance_t::search_count() noexcept
         {
             return m_search_count;
         }
 
-        inline const search_count_t & timer_t::search_count() const noexcept
+        inline const search_count_t & performance_t::search_count() const noexcept
         {
             return m_search_count;
         }
 
-        inline search_count_t & timer_t::cache_hit_count() noexcept
+        inline search_count_t & performance_t::cache_hit_count() noexcept
         {
             return m_cache_hit_count;
         }
 
-        inline const search_count_t & timer_t::cache_hit_count() const noexcept
+        inline const search_count_t & performance_t::cache_hit_count() const noexcept
         {
             return m_cache_hit_count;
         }
 
-        thread_local timer_t timer;
+        thread_local performance_t performance;
 
         /**
          * @breif std::string_view の先頭から続く空白を削除する。
@@ -6033,11 +6033,11 @@ namespace shogipp
             if (arguments.context.timeout())
                 throw timeout_exception{ "context.timeout() == true" };
 
-            ++details::timer.search_count();
+            ++details::performance.search_count();
             const std::optional<cache_value_t> cached_value = arguments.cache.get(state.hash());
             if (cached_value && cached_value->max_iddfs_iteration == arguments.context.max_iddfs_iteration())
             {
-                ++details::timer.cache_hit_count();
+                ++details::performance.cache_hit_count();
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
                 return cached_value->evaluation_value;
@@ -6158,11 +6158,11 @@ namespace shogipp
             if (arguments.context.timeout())
                 throw timeout_exception{ "context.timeout() == true" };
 
-            ++details::timer.search_count();
+            ++details::performance.search_count();
             const std::optional<cache_value_t> cached_value = arguments.cache.get(state.hash());
             if (cached_value && cached_value->max_iddfs_iteration == arguments.context.max_iddfs_iteration())
             {
-                ++details::timer.cache_hit_count();
+                ++details::performance.cache_hit_count();
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
                 return cached_value->evaluation_value;
@@ -6324,11 +6324,11 @@ namespace shogipp
                 }
             }
 
-            ++details::timer.search_count();
+            ++details::performance.search_count();
             const std::optional<cache_value_t> cached_value = arguments.cache.get(state.hash());
             if (cached_value && cached_value->max_iddfs_iteration == arguments.context.max_iddfs_iteration())
             {
-                ++details::timer.cache_hit_count();
+                ++details::performance.cache_hit_count();
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
                 return cached_value->evaluation_value;
@@ -6464,11 +6464,11 @@ namespace shogipp
             if (arguments.context.timeout())
                 throw timeout_exception{ "context.timeout() == true" };
 
-            ++details::timer.search_count();
+            ++details::performance.search_count();
             const std::optional<cache_value_t> cached_value = arguments.cache.get(state.hash());
             if (cached_value && cached_value->max_iddfs_iteration == arguments.context.max_iddfs_iteration())
             {
-                ++details::timer.cache_hit_count();
+                ++details::performance.cache_hit_count();
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
                 return cached_value->evaluation_value;
@@ -7419,7 +7419,7 @@ namespace shogipp
     */
     inline void do_taikyoku(state_t & state, const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
     {
-        details::timer.clear();
+        details::performance.clear();
 
         game_t taikyoku{ black_player, white_player };
         taikyoku.state = state;
@@ -7433,7 +7433,7 @@ namespace shogipp
         taikyoku.print(); // 詰んだ局面を標準出力に出力する。
 
         std::cout << std::endl;
-        details::timer.print_elapsed_time();
+        details::performance.print_elapsed_time();
 
         taikyoku.state.print_kifu();
         std::cout << std::flush;
@@ -7888,7 +7888,7 @@ namespace shogipp
             taikyoku.print(ostream); // 詰んだ局面を標準出力に出力する。
 
             ostream << std::endl;
-            details::timer.print_elapsed_time(ostream);
+            details::performance.print_elapsed_time(ostream);
 
             taikyoku.state.print_kifu(ostream);
             ostream << std::flush;

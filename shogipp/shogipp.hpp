@@ -3959,6 +3959,19 @@ namespace shogipp
          */
         inline const std::vector<kiki_t> & check_list() const noexcept;
 
+        class observer_t
+        {
+        public:
+            virtual ~observer_t() {}
+            virtual void notify_do_move_called(const state_t & state, const move_t & move) = 0;
+            virtual void notify_undo_move_called() = 0;
+        };
+
+        inline void add_observer(const std::shared_ptr<observer_t> & observer);
+        inline void remove_observer(const std::shared_ptr<observer_t> & observer);
+        inline void notify_observers_do_move_called() const;
+        inline void notify_observers_undo_move_called() const;
+
         board_t board;                                              // ”Õ
         captured_pieces_t captured_pieces_list[color_t::size()];    // ‚¿‹î
         move_count_t move_count = 0;                                // è”
@@ -3966,6 +3979,7 @@ namespace shogipp
         additional_info_t additional_info;                          // ’Ç‰Áî•ñ
         bool anti_repetition_of_moves = true;                       // ‘Ïç“úè
         std::string initial_sfen_string;                            // ‰Šúó‘Ô
+        std::vector<std::shared_ptr<observer_t>> observers;
     };
 
 #ifndef NDEBUG
@@ -4938,6 +4952,29 @@ namespace shogipp
     {
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         return additional_info.check_list_stack[move_count];
+    }
+
+    inline void state_t::add_observer(const std::shared_ptr<observer_t> & observer)
+    {
+        observers.push_back(observer);
+    }
+
+    inline void state_t::remove_observer(const std::shared_ptr<observer_t> & observer)
+    {
+        observers.erase(std::remove(observers.begin(), observers.end(), observer), observers.end());
+    }
+
+    inline void state_t::notify_observers_do_move_called() const
+    {
+        SHOGIPP_ASSERT(has_last_move());
+        for (const std::shared_ptr<observer_t> & observer : observers)
+            observer->notify_do_move_called(*this, last_move());
+    }
+
+    inline void state_t::notify_observers_undo_move_called() const
+    {
+        for (const std::shared_ptr<observer_t> & observer : observers)
+            observer->notify_undo_move_called();
     }
 
     template<typename Key, typename Value, typename Hash = std::hash<Key>>

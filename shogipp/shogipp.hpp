@@ -212,8 +212,8 @@ namespace shogipp
                 << std::endl
                 << "総読み手数      ：" << m_search_count << std::endl
                 << "キャッシュ適用率：" << cache_hit_rate << "%" << std::endl
-                << "実行時間[ms]    ：" << duration << std::endl
-                << "読み手速度[n/s] ：" << nps << std::endl << std::endl;
+                << "実行時間        ：" << duration << "[ms]" << std::endl
+                << "読み手速度      ：" << nps << "[n/s]" << std::endl << std::endl;
         }
 
         inline search_count_t & performance_t::search_count() noexcept
@@ -283,6 +283,7 @@ namespace shogipp
             return ((bitmask >> index) & 1) != 0;
         }
 
+        /* unused */
         template<typename Function>
         inline std::chrono::milliseconds test_time_performance(Function && func, std::size_t iteration)
         {
@@ -7355,12 +7356,7 @@ namespace shogipp
                 break;
             case command_t::id_t::perft:
             {
-                search_count_t node;
-                const std::chrono::milliseconds time = details::test_time_performance([&] { node = state.count_node(*cmd.opt_depth); }, 1);
-                const search_count_t nps = time.count() != 0 ? node * 1000 / time.count() : 0;
-                ostream << "node: " << node << std::endl;
-                ostream << "time[ms]: " << time.count() << std::endl;
-                ostream << "nps[n/s]: " << nps << std::endl;
+                ostream << state.count_node(*cmd.opt_depth) << std::endl;
                 break;
             }
             case command_t::id_t::hash:

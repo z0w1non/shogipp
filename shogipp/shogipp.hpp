@@ -7779,6 +7779,10 @@ namespace shogipp
         using fitness_type = unsigned int;
         using parameter_type = unsigned int;
 
+        /**
+         * @breif 変異・交叉、複製から行動をランダムに選択する。
+         * @return 選択された行動
+         */
         inline action_t random_action() noexcept
         {
             parameter_type div = m_mutation_rate + m_crossover_rate + m_selection_rate;
@@ -7791,6 +7795,11 @@ namespace shogipp
             return action_t::selection;
         }
 
+        /**
+         * @breif ルーレット方式で個体をランダムに選択する。
+         * @param fitness_table 適応度を要素として含む配列
+         * @return 選択された個体の参照
+         */
         inline const std::shared_ptr<chromosome_evaluator_t> & select_individual(const std::vector<fitness_type> & fitness_table) const
         {
             fitness_type div = 0;
@@ -7807,6 +7816,12 @@ namespace shogipp
             return individuals.back();
         }
 
+        /**
+         * @breif 棋譜を作成する。
+         * @param black 先手の棋士
+         * @param white 後手の棋士
+         * @param ostream 出力ストリーム
+         */
         inline std::vector<move_t> make_kifu
         (
             const std::shared_ptr<chromosome_evaluator_t> & black,
@@ -7836,6 +7851,10 @@ namespace shogipp
             return taikyoku.kyokumen.kifu;
         }
 
+        /**
+         * @breif 棋譜のうち勝った手番の手を元に駒関係の統計を更新する。
+         * @param kifu 棋譜
+         */
         inline static void update_piece_pair_statistics(const std::vector<move_t> & kifu)
         {
             kyokumen_t kyokumen;
@@ -7849,6 +7868,12 @@ namespace shogipp
             }
         }
 
+        /**
+         * @breif 遺伝的アルゴリズムを実施する。
+         * @param log_directory ログの出力先ディレクトリ
+         * @param uid 個体を一意に識別する番号
+         * @param thread_number スレッド数
+         */
         inline void run(const std::filesystem::path & log_directory, unsigned long long & uid, unsigned int thread_number)
         {
             std::vector<fitness_type> fitness_table;
@@ -8033,6 +8058,9 @@ namespace shogipp
             individuals = std::move(next_individuals);
         }
 
+        /**
+         * @breif 染色体ファイルで個体を初期化する。
+         */
         inline genetic_algorithm_t(const std::vector<std::filesystem::path> & paths)
         {
             for (const std::filesystem::path & path : paths)
@@ -8056,6 +8084,10 @@ namespace shogipp
             }
         }
 
+        /**
+         * @breif 全ての現世代の個体を染色体ファイルに書き出す。
+         * @param directory 出力ディレクトリ
+         */
         inline void write_file(const std::string & directory) const
         {
             std::filesystem::create_directories(directory);
@@ -8080,6 +8112,12 @@ namespace shogipp
         parameter_type m_elite_number = 1;
     };
 
+    /**
+     * @breif コマンドライン文字列を解析する。
+     * @param argc コマンドライン引数の要素数
+     * @param argv コマンドライン引数の配列
+     * @return main 関数の戻り値
+     */
     inline int parse_command_line(int argc, const char ** argv) noexcept
     {
         try

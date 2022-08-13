@@ -58,9 +58,9 @@
 #define SHOGIPP_THROW(expr, except) do { if (expr) throw except{ #expr }; } while (false)
 
 #ifdef NDEBUG
-#define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen)
+#define VALIDATE_state_ROLLBACK(state)
 #else
-#define VALIDATE_KYOKUMEN_ROLLBACK(kyokumen) kyokumen_rollback_validator_t kyokumen_rollback_validator{ kyokumen }
+#define VALIDATE_state_ROLLBACK(state) state_rollback_validator_t state_rollback_validator{ state }
 #endif
 
 #if __cplusplus >= 202002L
@@ -1997,7 +1997,7 @@ namespace shogipp
         return count[piece.index()];
     }
 
-    class kyokumen_rollback_validator_t;
+    class state_rollback_validator_t;
 
     constexpr colored_piece_t clear_board[]
     {
@@ -2094,7 +2094,7 @@ namespace shogipp
         }
 
     private:
-        friend class kyokumen_rollback_validator_t;
+        friend class state_rollback_validator_t;
         colored_piece_t data[position_size];
     };
 
@@ -3504,18 +3504,18 @@ namespace shogipp
     /**
      * @breif 局面
      */
-    class kyokumen_t
+    class state_t
     {
     public:
         /**
          * @breif 局面を構築する。
          */
-        inline kyokumen_t();
+        inline state_t();
 
         /**
          * @breif position コマンドで指定された文字列から局面を構築する。
          */
-        inline kyokumen_t(std::string_view position);
+        inline state_t(std::string_view position);
 
         /**
          * @breif 駒が移動する場合に成りが可能か判定する。
@@ -3942,51 +3942,51 @@ namespace shogipp
     /**
      * @breif コピーコンストラクトされてからデストラクトされるまでに局面が変更されていないことを検証する。
      */
-    class kyokumen_rollback_validator_t
+    class state_rollback_validator_t
     {
     public:
-        inline kyokumen_rollback_validator_t(const kyokumen_t & kyokumen) noexcept;
-        inline ~kyokumen_rollback_validator_t() noexcept;
+        inline state_rollback_validator_t(const state_t & state) noexcept;
+        inline ~state_rollback_validator_t() noexcept;
 
     private:
-        const kyokumen_t & kyokumen;
+        const state_t & state;
         colored_piece_t data[position_size];
         captured_pieces_t captured_pieces_list[color_t::size()];
     };
 
-    inline kyokumen_rollback_validator_t::kyokumen_rollback_validator_t(const kyokumen_t & kyokumen) noexcept
-        : kyokumen{ kyokumen }
+    inline state_rollback_validator_t::state_rollback_validator_t(const state_t & state) noexcept
+        : state{ state }
     {
-        std::copy(std::begin(kyokumen.board.data), std::end(kyokumen.board.data), std::begin(data));
+        std::copy(std::begin(state.board.data), std::end(state.board.data), std::begin(data));
         for (const color_t color : colors)
-            captured_pieces_list[color.value()] = kyokumen.captured_pieces_list[color.value()];
+            captured_pieces_list[color.value()] = state.captured_pieces_list[color.value()];
     }
 
-    inline kyokumen_rollback_validator_t::~kyokumen_rollback_validator_t() noexcept
+    inline state_rollback_validator_t::~state_rollback_validator_t() noexcept
     {
         // 最善手を探索している間に例外が送出された場合、 do_move と対応する undo_move が呼び出されない。
         // 捕捉されていない例外が存在しない場合のみ、不整合がないか検証する。
         if (std::uncaught_exceptions() == 0)
         {
             for (std::size_t i = 0; i < std::size(data); ++i)
-                SHOGIPP_ASSERT(data[i] == kyokumen.board.data[i]);
+                SHOGIPP_ASSERT(data[i] == state.board.data[i]);
             for (const color_t color : colors)
                 for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                    SHOGIPP_ASSERT(captured_pieces_list[color.value()][captured_piece_t{ piece }] == kyokumen.captured_pieces_list[color.value()][captured_piece_t{ piece }]);
+                    SHOGIPP_ASSERT(captured_pieces_list[color.value()][captured_piece_t{ piece }] == state.captured_pieces_list[color.value()][captured_piece_t{ piece }]);
         }
     }
 #endif
 
-    inline kyokumen_t::kyokumen_t()
+    inline state_t::state_t()
     {
         update_king_position_list();
         push_additional_info();
         initial_sfen_string = "startpos";
     }
 
-    inline kyokumen_t::kyokumen_t(std::string_view position)
+    inline state_t::state_t(std::string_view position)
     {
-        kyokumen_t temp;
+        state_t temp;
         bool promoted = false;
 
         std::vector<std::string> tokens;
@@ -4119,7 +4119,7 @@ namespace shogipp
         initial_sfen_string = position;
     }
 
-    inline bool kyokumen_t::promotable(colored_piece_t piece, position_t source, position_t destination)
+    inline bool state_t::promotable(colored_piece_t piece, position_t source, position_t destination)
     {
         if (!piece.is_promotable())
             return false;
@@ -4128,7 +4128,7 @@ namespace shogipp
         return source >= width * (6 + padding_height) || destination >= width * (6 + padding_height);
     }
 
-    inline bool kyokumen_t::must_promote(colored_piece_t piece, position_t destination)
+    inline bool state_t::must_promote(colored_piece_t piece, position_t destination)
     {
         if (noncolored_piece_t{ piece } == pawn || noncolored_piece_t{ piece } == lance)
         {
@@ -4146,7 +4146,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_far_destination(OutputIterator result, position_t source, position_t offset) const
+    inline void state_t::search_far_destination(OutputIterator result, position_t source, position_t offset) const
     {
         for (position_t current = source + offset; !board_t::out(current); current += offset)
         {
@@ -4162,7 +4162,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_near_destination(OutputIterator result, position_t source, position_t offset) const
+    inline void state_t::search_near_destination(OutputIterator result, position_t source, position_t offset) const
     {
         const position_t current = source + offset;
         if (!board_t::out(current) && (board[current].empty() || board[current].to_color() != board[source].to_color()))
@@ -4170,7 +4170,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_destination(OutputIterator result, position_t source, color_t color) const
+    inline void state_t::search_destination(OutputIterator result, position_t source, color_t color) const
     {
         const noncolored_piece_t piece{ board[source] };
         for (const position_t * offset = far_move_offsets(piece); *offset; ++offset)
@@ -4179,7 +4179,7 @@ namespace shogipp
             search_near_destination(result, source, *offset * reverse(color));
     }
 
-    inline bool kyokumen_t::puttable(captured_piece_t piece, position_t destination) const
+    inline bool state_t::puttable(captured_piece_t piece, position_t destination) const
     {
         if (!board[destination].empty())
             return false;
@@ -4216,10 +4216,10 @@ namespace shogipp
                 const move_t move{ destination, piece };
                 moves_t moves;
                 {
-                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
-                    const_cast<kyokumen_t &>(*this).do_move(move);
+                    VALIDATE_state_ROLLBACK(*this);
+                    const_cast<state_t &>(*this).do_move(move);
                     moves = search_moves();
-                    const_cast<kyokumen_t &>(*this).undo_move();
+                    const_cast<state_t &>(*this).undo_move();
                 }
                 if (moves.empty())
                     return false;
@@ -4229,14 +4229,14 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_source(OutputIterator result, color_t color) const
+    inline void state_t::search_source(OutputIterator result, color_t color) const
     {
         for (position_t position = position_begin; position < position_end; ++position)
             if (!board_t::out(position) && !board[position].empty() && board[position].to_color() == color)
                 *result++ = position;
     }
 
-    inline position_t kyokumen_t::search(position_t position, position_t offset) const
+    inline position_t state_t::search(position_t position, position_t offset) const
     {
         position_t current;
         for (current = position + offset; !board_t::out(current) && board[current].empty(); current += offset);
@@ -4246,7 +4246,7 @@ namespace shogipp
     }
     
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_piece_near(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
+    inline void state_t::search_piece_near(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
         if (position_t current = position + offset; !board_t::out(current) && !board[current].empty())
             if (is_collected(board[current].to_color()) && std::find(first, last, noncolored_piece_t{ board[current] }) != last)
@@ -4254,7 +4254,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator, typename InputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_piece_far(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
+    inline void state_t::search_piece_far(OutputIterator result, position_t position, position_t offset, InputIterator first, InputIterator last, IsCollected is_collected, Transform transform) const
     {
         if (position_t found = search(position, offset); found != npos && found != position + offset && !board[found].empty())
             if (is_collected(board[found].to_color()) && std::find(first, last, noncolored_piece_t{ board[found] }) != last)
@@ -4262,7 +4262,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator, typename IsCollected, typename Transform>
-    inline void kyokumen_t::search_piece(OutputIterator result, position_t position, color_t color, IsCollected is_collected, Transform transform) const
+    inline void state_t::search_piece(OutputIterator result, position_t position, color_t color, IsCollected is_collected, Transform transform) const
     {
         for (const auto & [offset, candidates] : near_kiki_list)
             search_piece_near(result, position, offset * reverse(color), candidates.begin(), candidates.end(), is_collected, transform);
@@ -4273,7 +4273,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_himo(OutputIterator result, position_t position, color_t color) const
+    inline void state_t::search_himo(OutputIterator result, position_t position, color_t color) const
     {
         search_piece(result, position, color,
             [color](color_t g) { return g == color; },
@@ -4281,7 +4281,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_kiki(OutputIterator result, position_t position, color_t color) const
+    inline void state_t::search_kiki(OutputIterator result, position_t position, color_t color) const
     {
         search_piece(result, position, color,
             [color](color_t g) { return g != color; },
@@ -4289,7 +4289,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_kiki_or_himo(OutputIterator result, position_t position, color_t color) const
+    inline void state_t::search_kiki_or_himo(OutputIterator result, position_t position, color_t color) const
     {
         search_piece(result, position, color,
             [](color_t) { return true; },
@@ -4297,24 +4297,24 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_check(OutputIterator result, color_t color) const
+    inline void state_t::search_check(OutputIterator result, color_t color) const
     {
         search_kiki(result, additional_info.king_position_list[color.value()], color);
     }
 
-    std::vector<kiki_t> kyokumen_t::search_check(color_t color) const
+    std::vector<kiki_t> state_t::search_check(color_t color) const
     {
         std::vector<kiki_t> check_list;
         search_check(std::back_inserter(check_list), color);
         return check_list;
     }
 
-    inline void kyokumen_t::push_additional_info()
+    inline void state_t::push_additional_info()
     {
         push_additional_info(make_hash());
     }
 
-    inline void kyokumen_t::push_additional_info(hash_t hash)
+    inline void state_t::push_additional_info(hash_t hash)
     {
         additional_info.check_list_stack.push_back(search_check(color()));
         additional_info.hash_stack.push_back(hash);
@@ -4325,7 +4325,7 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::pop_additional_info()
+    inline void state_t::pop_additional_info()
     {
         SHOGIPP_ASSERT(!additional_info.check_list_stack.empty());
         SHOGIPP_ASSERT(!additional_info.hash_stack.empty());
@@ -4334,7 +4334,7 @@ namespace shogipp
         additional_info.previously_done_moves.pop();
     }
 
-    inline void kyokumen_t::clear_additional_info()
+    inline void state_t::clear_additional_info()
     {
         additional_info.check_list_stack.clear();
         additional_info.hash_stack.clear();
@@ -4342,14 +4342,14 @@ namespace shogipp
         additional_info.previously_done_moves.clear();
     }
 
-    inline void kyokumen_t::update_king_position_list()
+    inline void state_t::update_king_position_list()
     {
         for (position_t position = position_begin; position < position_end; ++position)
             if (!board_t::out(position) && !board[position].empty() && noncolored_piece_t{ board[position] } == king)
                 additional_info.king_position_list[board[position].to_color().value()] = position;
     }
 
-    inline void kyokumen_t::search_aigoma(aigoma_info_t & aigoma_info, color_t color) const
+    inline void state_t::search_aigoma(aigoma_info_t & aigoma_info, color_t color) const
     {
         using pair = std::pair<position_t, std::vector<noncolored_piece_t>>;
         static const std::vector<pair> table
@@ -4388,7 +4388,7 @@ namespace shogipp
         }
     }
 
-    inline aigoma_info_t kyokumen_t::search_aigoma(color_t color) const
+    inline aigoma_info_t state_t::search_aigoma(color_t color) const
     {
         aigoma_info_t aigoma_info;
         search_aigoma(aigoma_info, color);
@@ -4396,7 +4396,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_from_positions(OutputIterator result, position_t source, position_t destination, move_t::tag_t tag) const
+    inline void state_t::search_moves_from_positions(OutputIterator result, position_t source, position_t destination, move_t::tag_t tag) const
     {
         if (promotable(board[source], source, destination))
             *result++ = { source, destination, board[source], board[destination], true, static_cast<move_t::tag_t>(tag | move_t::promote_tag) };
@@ -4405,14 +4405,14 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_nonescapes(OutputIterator result) const
+    inline void state_t::search_moves_nonescapes(OutputIterator result) const
     {
         search_moves_moves(result);
         search_moves_puts(result);
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_escapes_king_move(OutputIterator result) const
+    inline void state_t::search_moves_escapes_king_move(OutputIterator result) const
     {
         const position_t source = additional_info.king_position_list[color().value()];
         for (const position_t * ptr = near_move_offsets(king); *ptr; ++ptr)
@@ -4424,8 +4424,8 @@ namespace shogipp
                 const move_t move{ source, destination, board[source], board[destination], false, move_t::escape_tag };
                 std::vector<kiki_t> kiki;
                 {
-                    VALIDATE_KYOKUMEN_ROLLBACK(*this);
-                    kyokumen_t & nonconst_this = const_cast<kyokumen_t &>(*this);
+                    VALIDATE_state_ROLLBACK(*this);
+                    state_t & nonconst_this = const_cast<state_t &>(*this);
                     const colored_piece_t captured = board[destination];
                     nonconst_this.board[destination] = board[source];
                     nonconst_this.board[source] = colored_piece_t{};
@@ -4440,7 +4440,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_escapes_aigoma(OutputIterator result) const
+    inline void state_t::search_moves_escapes_aigoma(OutputIterator result) const
     {
         const aigoma_info_t aigoma_info = search_aigoma(color());
         const position_t king_pos = additional_info.king_position_list[color().value()];
@@ -4503,7 +4503,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_escapes(OutputIterator result) const
+    inline void state_t::search_moves_escapes(OutputIterator result) const
     {
         search_moves_escapes_king_move(result);
         search_moves_escapes_aigoma(result);
@@ -4514,7 +4514,7 @@ namespace shogipp
      * @param result 合法手の出力イテレータ
      */
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_moves(OutputIterator result) const
+    inline void state_t::search_moves_moves(OutputIterator result) const
     {
         const aigoma_info_t aigoma_info = search_aigoma(color());
         std::vector<position_t> source_list;
@@ -4566,7 +4566,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves_puts(OutputIterator result) const
+    inline void state_t::search_moves_puts(OutputIterator result) const
     {
         for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
             if (captured_pieces_list[color().value()][piece])
@@ -4576,7 +4576,7 @@ namespace shogipp
     }
 
     template<typename OutputIterator>
-    inline void kyokumen_t::search_moves(OutputIterator result) const
+    inline void state_t::search_moves(OutputIterator result) const
     {
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         auto & check_list = additional_info.check_list_stack[move_count];
@@ -4586,21 +4586,21 @@ namespace shogipp
             search_moves_escapes(result);
     }
 
-    inline moves_t kyokumen_t::search_moves() const
+    inline moves_t state_t::search_moves() const
     {
         if (anti_repetition_of_moves)
             return strict_search_moves();
         return nonstrict_search_moves();
     }
 
-    inline moves_t kyokumen_t::nonstrict_search_moves() const
+    inline moves_t state_t::nonstrict_search_moves() const
     {
         moves_t moves;
         search_moves(std::back_inserter(moves));
         return moves;
     }
 
-    inline moves_t kyokumen_t::strict_search_moves() const
+    inline moves_t state_t::strict_search_moves() const
     {
         moves_t moves;
         search_moves(std::back_inserter(moves));
@@ -4608,7 +4608,7 @@ namespace shogipp
         return moves;
     }
 
-    inline hash_t kyokumen_t::make_hash() const
+    inline hash_t state_t::make_hash() const
     {
         hash_t hash{};
 
@@ -4630,7 +4630,7 @@ namespace shogipp
         return hash;
     }
 
-    inline hash_t kyokumen_t::make_hash(hash_t hash, const move_t & move) const
+    inline hash_t state_t::make_hash(hash_t hash, const move_t & move) const
     {
         if (move.put())
         {
@@ -4661,7 +4661,7 @@ namespace shogipp
         return hash;
     }
 
-    inline void kyokumen_t::print_move(const move_t & move, color_t color, std::ostream & ostream) const
+    inline void state_t::print_move(const move_t & move, color_t color, std::ostream & ostream) const
     {
         ostream << (color == black ? "▲" : "△");
         if (move.put())
@@ -4687,7 +4687,7 @@ namespace shogipp
     }
 
     template<typename InputIterator>
-    inline void kyokumen_t::print_moves(InputIterator first, InputIterator last, std::ostream & ostream) const
+    inline void state_t::print_moves(InputIterator first, InputIterator last, std::ostream & ostream) const
     {
         for (std::size_t i = 0; first != last; ++i)
         {
@@ -4699,14 +4699,14 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::print_moves(std::ostream & ostream) const
+    inline void state_t::print_moves(std::ostream & ostream) const
     {
-        const kyokumen_t temp = *this;
+        const state_t temp = *this;
         const moves_t moves = temp.strict_search_moves();
         print_moves(moves.begin(), moves.end(), ostream);
     }
 
-    inline void kyokumen_t::print_check(std::ostream & ostream) const
+    inline void state_t::print_check(std::ostream & ostream) const
     {
         if (details::program_options::print_check)
         {
@@ -4726,7 +4726,7 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::print_enclosure(color_t color, std::ostream & ostream) const
+    inline void state_t::print_enclosure(color_t color, std::ostream & ostream) const
     {
         if (details::program_options::print_enclosure)
         {
@@ -4736,7 +4736,7 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::print(std::ostream & ostream) const
+    inline void state_t::print(std::ostream & ostream) const
     {
         if (details::program_options::print_board)
         {
@@ -4750,7 +4750,7 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::print_kifu(std::ostream & ostream) const
+    inline void state_t::print_kifu(std::ostream & ostream) const
     {
         for (move_count_t i = 0; i < static_cast<move_count_t>(kifu.size()); ++i)
         {
@@ -4760,7 +4760,7 @@ namespace shogipp
         }
     }
 
-    inline void kyokumen_t::print_recent_kifu(std::size_t size, std::ostream & ostream) const
+    inline void state_t::print_recent_kifu(std::size_t size, std::ostream & ostream) const
     {
         size = std::min(size, kifu.size());
         for (move_count_t i = 0; i < size; ++i)
@@ -4774,20 +4774,20 @@ namespace shogipp
         ostream << std::flush;
     }
 
-    inline hash_t kyokumen_t::hash() const
+    inline hash_t state_t::hash() const
     {
         SHOGIPP_ASSERT(move_count < additional_info.hash_stack.size());
         return additional_info.hash_stack[move_count];
     }
 
-    inline void kyokumen_t::validate_board_out()
+    inline void state_t::validate_board_out()
     {
         for (position_t position = 0; position < position_size; ++position)
             if (board_t::out(position))
                 SHOGIPP_ASSERT(board[position].value() == out_of_range.value());
     }
 
-    inline void kyokumen_t::do_move(const move_t & move)
+    inline void state_t::do_move(const move_t & move)
     {
         hash_t hash = make_hash(this->hash(), move);
         if (move.put())
@@ -4812,7 +4812,7 @@ namespace shogipp
         validate_board_out();
     }
 
-    inline void kyokumen_t::undo_move()
+    inline void state_t::undo_move()
     {
         const move_t & move = last_move();
         SHOGIPP_ASSERT(move_count > 0);
@@ -4835,22 +4835,22 @@ namespace shogipp
         pop_additional_info();
     }
 
-    inline bool kyokumen_t::has_last_move() const noexcept
+    inline bool state_t::has_last_move() const noexcept
     {
         return !kifu.empty();
     }
 
-    inline const move_t & kyokumen_t::last_move() const noexcept
+    inline const move_t & state_t::last_move() const noexcept
     {
         return kifu.back();
     }
 
-    inline color_t kyokumen_t::color() const
+    inline color_t state_t::color() const
     {
         return static_cast<color_t>(move_count % 2);
     }
 
-    inline search_count_t kyokumen_t::count_node(move_count_t depth) const
+    inline search_count_t state_t::count_node(move_count_t depth) const
     {
         if (depth == 0)
             return 1;
@@ -4858,15 +4858,15 @@ namespace shogipp
         search_count_t count = 0;
         for (const move_t & move : search_moves())
         {
-            VALIDATE_KYOKUMEN_ROLLBACK(*this);
-            const_cast<kyokumen_t &>(*this).do_move(move);
+            VALIDATE_state_ROLLBACK(*this);
+            const_cast<state_t &>(*this).do_move(move);
             count += count_node(depth - 1);
-            const_cast<kyokumen_t &>(*this).undo_move();
+            const_cast<state_t &>(*this).undo_move();
         }
         return count;
     }
 
-    inline std::string kyokumen_t::sfen_string() const
+    inline std::string state_t::sfen_string() const
     {
         std::string result;
         result += initial_sfen_string;
@@ -4886,7 +4886,7 @@ namespace shogipp
         return result;
     }
 
-    inline void kyokumen_t::remove_repetition_of_moves(moves_t & moves) const noexcept
+    inline void state_t::remove_repetition_of_moves(moves_t & moves) const noexcept
     {
         const hash_t hash = this->hash();
         const color_t color = this->color();
@@ -4899,12 +4899,12 @@ namespace shogipp
         ), moves.end());
     }
 
-    inline position_t kyokumen_t::king_position(color_t color) const noexcept
+    inline position_t state_t::king_position(color_t color) const noexcept
     {
         return additional_info.king_position_list[color.value()];
     }
 
-    inline const std::vector<kiki_t> & kyokumen_t::check_list() const noexcept
+    inline const std::vector<kiki_t> & state_t::check_list() const noexcept
     {
         SHOGIPP_ASSERT(move_count < additional_info.check_list_stack.size());
         return additional_info.check_list_stack[move_count];
@@ -5412,7 +5412,7 @@ namespace shogipp
 
         /**
          * @breif 局面に対して合法手を選択する。
-         * @param kyokumen 局面
+         * @param state 局面
          * @param context 評価関数オブジェクトが呼び出された文脈
          * @param iddfs_iteration IDDFSの反復回数
          * @return 選択された合法手
@@ -5420,25 +5420,25 @@ namespace shogipp
          * @sa best_move
          * @sa best_move_iddfs
          */
-        virtual move_t query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) = 0;
+        virtual move_t query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) = 0;
 
         /**
          * @breif 局面に対して合法手を選択する。
-         * @param kyokumen 局面
+         * @param state 局面
          * @param context 評価関数オブジェクトが呼び出された文脈
          * @return 選択された合法手
          * @details この関数は timeout_exception を送出しない。
          */
-        virtual move_t best_move(kyokumen_t & kyokumen, iddfs_context_t & context);
+        virtual move_t best_move(state_t & state, iddfs_context_t & context);
 
         /**
          * @breif 反復深化深さ優先探索で局面に対して合法手を選択する。
-         * @param kyokumen 局面
+         * @param state 局面
          * @param context 評価関数オブジェクトが呼び出された文脈
          * @return 選択された合法手
          * @details この関数は timeout_exception を送出しない。
          */
-        virtual move_t best_move_iddfs(kyokumen_t & kyokumen, iddfs_context_t & context);
+        virtual move_t best_move_iddfs(state_t & state, iddfs_context_t & context);
 
         /**
          * @breif 評価関数オブジェクトの名前を返す。
@@ -5447,13 +5447,13 @@ namespace shogipp
         virtual std::string name() const = 0;
     };
 
-    move_t abstract_evaluator_t::best_move(kyokumen_t & kyokumen, iddfs_context_t & context)
+    move_t abstract_evaluator_t::best_move(state_t & state, iddfs_context_t & context)
     {
         std::optional<move_t> opt_best_move;
 
         try
         {
-            kyokumen_t duplicated{ kyokumen };
+            state_t duplicated{ state };
             opt_best_move = query_best_move(duplicated, context, 0);
         }
         catch (const timeout_exception &)
@@ -5468,14 +5468,14 @@ namespace shogipp
         // 最善手を取得できなかった場合適当な合法手を選択する。
         if (!opt_best_move)
         {
-            const moves_t moves = kyokumen.strict_search_moves();
+            const moves_t moves = state.strict_search_moves();
             return moves.front();
         }
 
         return *opt_best_move;
     }
 
-    move_t abstract_evaluator_t::best_move_iddfs(kyokumen_t & kyokumen, iddfs_context_t & context)
+    move_t abstract_evaluator_t::best_move_iddfs(state_t & state, iddfs_context_t & context)
     {
         std::optional<move_t> opt_best_move;
         iddfs_iteration_t last_iddfs_iteration = 0;
@@ -5483,7 +5483,7 @@ namespace shogipp
         {
             for (iddfs_iteration_t iddf_iteration = 0; iddf_iteration <= context.max_iddfs_iteration(); ++iddf_iteration)
             {
-                kyokumen_t duplicated{ kyokumen };
+                state_t duplicated{ state };
                 opt_best_move = query_best_move(duplicated, context, iddf_iteration);
                 last_iddfs_iteration = iddf_iteration;
             }
@@ -5500,7 +5500,7 @@ namespace shogipp
         // 最善手を取得できなかった場合適当な合法手を選択する。
         if (!opt_best_move)
         {
-            const moves_t moves = kyokumen.strict_search_moves();
+            const moves_t moves = state.strict_search_moves();
             return moves.front();
         }
 
@@ -5514,12 +5514,12 @@ namespace shogipp
         : public abstract_evaluator_t
     {
     public:
-        move_t query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override
+        move_t query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override
         {
             bool selected = false;
 
             unsigned int id;
-            moves_t moves = kyokumen.search_moves();
+            moves_t moves = state.search_moves();
             
             while (!selected)
             {
@@ -5643,25 +5643,25 @@ namespace shogipp
 
     /**
      * @breif 駒と価値の連想配列から局面の点数を計算する。
-     * @param kyokumen 局面
+     * @param state 局面
      * @param map []演算子により駒から価値を連想するオブジェクト
      * @return 局面の点数
      */
     template<typename MapPieceInt>
-    inline evaluation_value_t kyokumen_map_evaluation_value(kyokumen_t & kyokumen, MapPieceInt & map)
+    inline evaluation_value_t state_map_evaluation_value(state_t & state, MapPieceInt & map)
     {
         evaluation_value_t evaluation_value = 0;
 
         for (position_t position = position_begin; position < position_end; ++position)
         {
-            const colored_piece_t piece = kyokumen.board[position];
+            const colored_piece_t piece = state.board[position];
             if (!board_t::out(position) && !piece.empty())
                 evaluation_value += map[noncolored_piece_t{ piece }.value()] * reverse(piece.to_color());
         }
 
         for (const color_t color : colors)
             for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                evaluation_value += map[piece] * kyokumen.captured_pieces_list[color.value()][piece] * reverse(color);
+                evaluation_value += map[piece] * state.captured_pieces_list[color.value()][piece] * reverse(color);
 
         return evaluation_value;
     }
@@ -5956,10 +5956,10 @@ namespace shogipp
 
         /**
          * @breif 局面に対して評価値を返す。
-         * @param kyokumen 局面
+         * @param state 局面
          * @return 局面の評価値
          */
-        virtual evaluation_value_t evaluate(kyokumen_t & kyokumen) = 0;
+        virtual evaluation_value_t evaluate(state_t & state) = 0;
     };
 
     /**
@@ -5970,7 +5970,7 @@ namespace shogipp
         , public evaluatable_t
     {
     public:
-        move_t query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override;
+        move_t query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override;
         std::shared_ptr<usi_info_t> usi_info;
 
     private:
@@ -5983,7 +5983,7 @@ namespace shogipp
         };
 
         evaluation_value_t negamax(
-            kyokumen_t & kyokumen,
+            state_t & state,
             depth_t depth,
             std::optional<move_t> & candidate_move,
             arguments_t & arguments
@@ -5991,7 +5991,7 @@ namespace shogipp
     };
 
     evaluation_value_t negamax_evaluator_t::negamax(
-        kyokumen_t & kyokumen,
+        state_t & state,
         depth_t depth,
         std::optional<move_t> & candidate_move,
         arguments_t & arguments
@@ -6006,19 +6006,19 @@ namespace shogipp
                 throw timeout_exception{ "context.timeout() == true" };
 
             ++details::timer.search_count();
-            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(kyokumen.hash());
+            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(state.hash());
             if (cached_evaluation_value)
             {
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
                 return *cached_evaluation_value;
             }
-            const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-            arguments.cache.push(kyokumen.hash(), evaluation_value);
+            const evaluation_value_t evaluation_value = evaluate(state) * reverse(state.color());
+            arguments.cache.push(state.hash(), evaluation_value);
             return evaluation_value;
         }
 
-        moves_t moves = kyokumen.search_moves();
+        moves_t moves = state.search_moves();
 
         if (moves.empty())
             return -std::numeric_limits<evaluation_value_t>::max();
@@ -6035,10 +6035,10 @@ namespace shogipp
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                kyokumen.do_move(move);
-                evaluation_value = -negamax(kyokumen, depth + 1, nested_candidate_move, arguments);
-                kyokumen.undo_move();
+                VALIDATE_state_ROLLBACK(state);
+                state.do_move(move);
+                evaluation_value = -negamax(state, depth + 1, nested_candidate_move, arguments);
+                state.undo_move();
             }
             *inserter++ = { &move, evaluation_value };
 
@@ -6054,7 +6054,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t negamax_evaluator_t::query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
+    move_t negamax_evaluator_t::query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
     {
         if (usi_info)
             usi_info->notify_search_begin();
@@ -6067,7 +6067,7 @@ namespace shogipp
 
         try
         {
-            evaluation_value = negamax(kyokumen, 0, candidate_move, arguments);
+            evaluation_value = negamax(state, 0, candidate_move, arguments);
         }
         catch (const timeout_exception &)
         {
@@ -6091,7 +6091,7 @@ namespace shogipp
         , public evaluatable_t
     {
     public:
-        move_t query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override;
+        move_t query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override;
         std::shared_ptr<usi_info_t> usi_info;
 
     private:
@@ -6104,7 +6104,7 @@ namespace shogipp
         };
 
         evaluation_value_t alphabeta(
-            kyokumen_t & kyokumen,
+            state_t & state,
             depth_t depth,
             evaluation_value_t alpha,
             evaluation_value_t beta,
@@ -6114,7 +6114,7 @@ namespace shogipp
     };
 
     evaluation_value_t alphabeta_evaluator_t::alphabeta(
-        kyokumen_t & kyokumen,
+        state_t & state,
         depth_t depth,
         evaluation_value_t alpha,
         evaluation_value_t beta,
@@ -6131,19 +6131,19 @@ namespace shogipp
                 throw timeout_exception{ "context.timeout() == true" };
 
             ++details::timer.search_count();
-            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(kyokumen.hash());
+            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(state.hash());
             if (cached_evaluation_value)
             {
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
                 return *cached_evaluation_value;
             }
-            const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-            arguments.cache.push(kyokumen.hash(), evaluation_value);
+            const evaluation_value_t evaluation_value = evaluate(state) * reverse(state.color());
+            arguments.cache.push(state.hash(), evaluation_value);
             return evaluation_value;
         }
 
-        moves_t moves = kyokumen.search_moves();
+        moves_t moves = state.search_moves();
         sort_moves_by_category(moves.begin(), moves.end());
 
         if (moves.empty())
@@ -6161,10 +6161,10 @@ namespace shogipp
             std::optional<move_t> nested_candidate_move;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                kyokumen.do_move(move);
-                evaluation_value = -alphabeta(kyokumen, depth + 1, -beta, -alpha, nested_candidate_move, arguments);
-                kyokumen.undo_move();
+                VALIDATE_state_ROLLBACK(state);
+                state.do_move(move);
+                evaluation_value = -alphabeta(state, depth + 1, -beta, -alpha, nested_candidate_move, arguments);
+                state.undo_move();
             }
             *inserter++ = { &move, evaluation_value };
 
@@ -6184,7 +6184,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
+    move_t alphabeta_evaluator_t::query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
     {
         if (usi_info)
             usi_info->notify_search_begin();
@@ -6197,7 +6197,7 @@ namespace shogipp
 
         try
         {
-            evaluation_value = alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), candidate_move, arguments);
+            evaluation_value = alphabeta(state, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), candidate_move, arguments);
         }
         catch (const timeout_exception &)
         {
@@ -6222,7 +6222,7 @@ namespace shogipp
         , public evaluatable_t
     {
     public:
-        move_t query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override;
+        move_t query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override;
         std::shared_ptr<usi_info_t> usi_info;
 
     private:
@@ -6236,7 +6236,7 @@ namespace shogipp
         };
 
         evaluation_value_t extendable_alphabeta(
-            kyokumen_t & kyokumen,
+            state_t & state,
             depth_t depth,
             evaluation_value_t alpha,
             evaluation_value_t beta,
@@ -6247,7 +6247,7 @@ namespace shogipp
     };
 
     evaluation_value_t extendable_alphabeta_evaluator_t::extendable_alphabeta(
-        kyokumen_t & kyokumen,
+        state_t & state,
         depth_t depth,
         evaluation_value_t alpha,
         evaluation_value_t beta,
@@ -6269,7 +6269,7 @@ namespace shogipp
             {
                 std::vector<evaluated_moves> evaluated_moves;
                 auto inserter = std::back_inserter(evaluated_moves);
-                const moves_t moves = kyokumen.search_moves();
+                const moves_t moves = state.search_moves();
                 for (const move_t & move : moves)
                 {
                     if (!move.put() && move.destination() == previous_destination)
@@ -6277,10 +6277,10 @@ namespace shogipp
                         std::optional<move_t> nested_candidate_move;
                         evaluation_value_t evaluation_value;
                         {
-                            VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                            kyokumen.do_move(move);
-                            evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, nested_candidate_move, previous_destination, arguments);
-                            kyokumen.undo_move();
+                            VALIDATE_state_ROLLBACK(state);
+                            state.do_move(move);
+                            evaluation_value = -extendable_alphabeta(state, depth + 1, -beta, -alpha, nested_candidate_move, previous_destination, arguments);
+                            state.undo_move();
                         }
                         *inserter++ = { &move, evaluation_value };
                         alpha = std::max(alpha, evaluation_value);
@@ -6297,19 +6297,19 @@ namespace shogipp
             }
 
             ++details::timer.search_count();
-            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(kyokumen.hash());
+            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(state.hash());
             if (cached_evaluation_value)
             {
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
                 return *cached_evaluation_value;
             }
-            const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-            arguments.cache.push(kyokumen.hash(), evaluation_value);
+            const evaluation_value_t evaluation_value = evaluate(state) * reverse(state.color());
+            arguments.cache.push(state.hash(), evaluation_value);
             return evaluation_value;
         }
 
-        moves_t moves = kyokumen.search_moves();
+        moves_t moves = state.search_moves();
         sort_moves_by_category(moves.begin(), moves.end());
 
         if (moves.empty())
@@ -6328,10 +6328,10 @@ namespace shogipp
             position_t destination = (!move.put() && !move.destination_piece().empty()) ? move.destination() : npos;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                kyokumen.do_move(move);
-                evaluation_value = -extendable_alphabeta(kyokumen, depth + 1, -beta, -alpha, nested_candidate_move, destination, arguments);
-                kyokumen.undo_move();
+                VALIDATE_state_ROLLBACK(state);
+                state.do_move(move);
+                evaluation_value = -extendable_alphabeta(state, depth + 1, -beta, -alpha, nested_candidate_move, destination, arguments);
+                state.undo_move();
             }
             *inserter++ = { &move, evaluation_value };
 
@@ -6351,7 +6351,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t extendable_alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
+    move_t extendable_alphabeta_evaluator_t::query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
     {
         if (usi_info)
             usi_info->notify_search_begin();
@@ -6365,7 +6365,7 @@ namespace shogipp
         
         try
         {
-            evaluation_value = extendable_alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), candidate_move, npos, arguments);
+            evaluation_value = extendable_alphabeta(state, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), candidate_move, npos, arguments);
         }
         catch (const timeout_exception &)
         {
@@ -6389,7 +6389,7 @@ namespace shogipp
         , public evaluatable_t
     {
     public:
-        move_t query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override;
+        move_t query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override;
         std::shared_ptr<usi_info_t> usi_info;
 
     private:
@@ -6402,7 +6402,7 @@ namespace shogipp
         };
 
         evaluation_value_t pruning_alphabeta(
-            kyokumen_t & kyokumen,
+            state_t & state,
             depth_t depth,
             evaluation_value_t alpha,
             evaluation_value_t beta,
@@ -6412,12 +6412,12 @@ namespace shogipp
             arguments_t & arguments
         );
 
-        virtual pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const = 0;
+        virtual pruning_threshold_t get_pruning_parameter(state_t & state, const move_t & move) const = 0;
         virtual pruning_threshold_t get_pruning_threshold() const = 0;
     };
 
     evaluation_value_t pruning_alphabeta_evaluator_t::pruning_alphabeta(
-        kyokumen_t & kyokumen,
+        state_t & state,
         depth_t depth,
         evaluation_value_t alpha,
         evaluation_value_t beta,
@@ -6437,19 +6437,19 @@ namespace shogipp
                 throw timeout_exception{ "context.timeout() == true" };
 
             ++details::timer.search_count();
-            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(kyokumen.hash());
+            const std::optional<evaluation_value_t> cached_evaluation_value = arguments.cache.get(state.hash());
             if (cached_evaluation_value)
             {
                 if (usi_info)
                     usi_info->increase_cache_hit_count();
                 return *cached_evaluation_value;
             }
-            const evaluation_value_t evaluation_value = evaluate(kyokumen) * reverse(kyokumen.color());
-            arguments.cache.push(kyokumen.hash(), evaluation_value);
+            const evaluation_value_t evaluation_value = evaluate(state) * reverse(state.color());
+            arguments.cache.push(state.hash(), evaluation_value);
             return evaluation_value;
         }
 
-        moves_t moves = kyokumen.search_moves();
+        moves_t moves = state.search_moves();
         sort_moves_by_category(moves.begin(), moves.end());
 
         if (moves.empty())
@@ -6464,15 +6464,15 @@ namespace shogipp
             if (usi_info && depth == 0)
                 usi_info->notify_currmove(move);
 
-            const pruning_threshold_t increased_pruning_parameter = pruning_parameter + get_pruning_parameter(kyokumen, move);
+            const pruning_threshold_t increased_pruning_parameter = pruning_parameter + get_pruning_parameter(state, move);
             std::optional<move_t> nested_candidate_move;
             position_t destination = (!move.put() && !move.destination_piece().empty()) ? move.destination() : npos;
             evaluation_value_t evaluation_value;
             {
-                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                kyokumen.do_move(move);
-                evaluation_value = -pruning_alphabeta(kyokumen, depth + 1, -beta, -alpha, nested_candidate_move, destination, increased_pruning_parameter, arguments);
-                kyokumen.undo_move();
+                VALIDATE_state_ROLLBACK(state);
+                state.do_move(move);
+                evaluation_value = -pruning_alphabeta(state, depth + 1, -beta, -alpha, nested_candidate_move, destination, increased_pruning_parameter, arguments);
+                state.undo_move();
             }
             *inserter++ = { &move, evaluation_value };
 
@@ -6492,7 +6492,7 @@ namespace shogipp
         return evaluated_moves.front().second;
     }
 
-    move_t pruning_alphabeta_evaluator_t::query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
+    move_t pruning_alphabeta_evaluator_t::query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration)
     {
         if (usi_info)
             usi_info->notify_search_begin();
@@ -6504,7 +6504,7 @@ namespace shogipp
 
         try
         {
-            evaluation_value = pruning_alphabeta(kyokumen, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), candidate_move, npos, 0, arguments);
+            evaluation_value = pruning_alphabeta(state, 0, -std::numeric_limits<evaluation_value_t>::max(), std::numeric_limits<evaluation_value_t>::max(), candidate_move, npos, 0, arguments);
         }
         catch (const timeout_exception &)
         {
@@ -6529,21 +6529,21 @@ namespace shogipp
     public:
         /**
          * @breif 局面に対して評価値が最も高くなる合法手を選択する。
-         * @param kyokumen 局面
+         * @param state 局面
          * @return 選択された合法手
          */
-        move_t query_best_move(kyokumen_t & kyokumen, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override
+        move_t query_best_move(state_t & state, iddfs_context_t & context, iddfs_iteration_t iddfs_iteration) override
         {
-            moves_t moves = kyokumen.search_moves();
+            moves_t moves = state.search_moves();
 
             std::vector<evaluated_moves> scores;
             auto back_inserter = std::back_inserter(scores);
             for (const move_t & move : moves)
             {
-                VALIDATE_KYOKUMEN_ROLLBACK(kyokumen);
-                kyokumen.do_move(move);
-                *back_inserter++ = { &move, evaluate(kyokumen) };
-                kyokumen.undo_move();
+                VALIDATE_state_ROLLBACK(state);
+                state.do_move(move);
+                *back_inserter++ = { &move, evaluate(state) };
+                state.undo_move();
             }
 
             std::sort(scores.begin(), scores.end(), [](auto & a, auto & b) { return a.second > b.second; });
@@ -6552,10 +6552,10 @@ namespace shogipp
 
         /**
          * @breif 局面に対して評価値を返す。
-         * @param kyokumen 局面
+         * @param state 局面
          * @return 局面の評価値
          */
-        virtual evaluation_value_t evaluate(kyokumen_t & kyokumen) = 0;
+        virtual evaluation_value_t evaluate(state_t & state) = 0;
     };
 
     /**
@@ -6565,9 +6565,9 @@ namespace shogipp
         : public alphabeta_evaluator_t
     {
     public:
-        evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        evaluation_value_t evaluate(state_t & state) override
         {
-            evaluation_value_t evaluation_value = kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
+            evaluation_value_t evaluation_value = state_map_evaluation_value(state, details::evaluation_value_template::map);
             return evaluation_value;
         }
 
@@ -6581,10 +6581,10 @@ namespace shogipp
         : public negamax_evaluator_t
     {
     public:
-        evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        evaluation_value_t evaluate(state_t & state) override
         {
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
+            evaluation_value += state_map_evaluation_value(state, details::evaluation_value_template::map);
             return evaluation_value;
         }
 
@@ -6598,10 +6598,10 @@ namespace shogipp
         : public alphabeta_evaluator_t
     {
     public:
-        evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        evaluation_value_t evaluate(state_t & state) override
         {
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
+            evaluation_value += state_map_evaluation_value(state, details::evaluation_value_template::map);
 
             return evaluation_value;
         }
@@ -6616,30 +6616,30 @@ namespace shogipp
         : public extendable_alphabeta_evaluator_t
     {
     public:
-        evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        evaluation_value_t evaluate(state_t & state) override
         {
             constexpr evaluation_value_t destination_point = 1;
             constexpr evaluation_value_t kiki_point = -10;
             constexpr evaluation_value_t himo_point = 10;
 
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
+            evaluation_value += state_map_evaluation_value(state, details::evaluation_value_template::map);
 
             for (position_t position = position_begin; position < position_end; ++position)
             {
-                if (!board_t::out(position) && !kyokumen.board[position].empty())
+                if (!board_t::out(position) && !state.board[position].empty())
                 {
                     std::vector<kiki_t> kiki_list;
-                    const color_t color = kyokumen.board[position].to_color();
-                    kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
+                    const color_t color = state.board[position].to_color();
+                    state.search_kiki(std::back_inserter(kiki_list), position, color);
                     evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
 
                     std::vector<position_t> himo_list;
-                    kyokumen.search_himo(std::back_inserter(himo_list), position, color);
+                    state.search_himo(std::back_inserter(himo_list), position, color);
                     evaluation_value += himo_point * static_cast<evaluation_value_t>(himo_list.size()) * reverse(color);
 
                     std::vector<position_t> destination_list;
-                    kyokumen.search_destination(std::back_inserter(destination_list), position, color);
+                    state.search_destination(std::back_inserter(destination_list), position, color);
                     evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
                 }
             }
@@ -6657,29 +6657,29 @@ namespace shogipp
         : public extendable_alphabeta_evaluator_t
     {
     public:
-        evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        evaluation_value_t evaluate(state_t & state) override
         {
             constexpr evaluation_value_t destination_point = 1;
             constexpr evaluation_value_t kiki_point = -10;
             constexpr evaluation_value_t himo_point = 10;
 
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += kyokumen_map_evaluation_value(kyokumen, details::evaluation_value_template::map);
+            evaluation_value += state_map_evaluation_value(state, details::evaluation_value_template::map);
 
             for (position_t position = position_begin; position < position_end; ++position)
             {
-                if (!board_t::out(position) && !kyokumen.board[position].empty())
+                if (!board_t::out(position) && !state.board[position].empty())
                 {
                     std::vector<kiki_t> kiki_list;
-                    const color_t color = kyokumen.board[position].to_color();
-                    kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
+                    const color_t color = state.board[position].to_color();
+                    state.search_kiki(std::back_inserter(kiki_list), position, color);
                     evaluation_value += kiki_point * static_cast<evaluation_value_t>(kiki_list.size()) * reverse(color);
                     std::vector<position_t> himo_list;
-                    kyokumen.search_himo(std::back_inserter(himo_list), position, color);
+                    state.search_himo(std::back_inserter(himo_list), position, color);
                     evaluation_value += himo_point * static_cast<evaluation_value_t>(himo_list.size()) * reverse(color);
 
                     std::vector<position_t> destination_list;
-                    kyokumen.search_destination(std::back_inserter(destination_list), position, color);
+                    state.search_destination(std::back_inserter(destination_list), position, color);
                     evaluation_value += destination_point * static_cast<evaluation_value_t>(destination_list.size()) * reverse(color);
                 }
             }
@@ -6885,13 +6885,13 @@ namespace shogipp
             return captured_piece_points[index];
         }
 
-        inline evaluation_value_t evaluate(kyokumen_t & kyokumen) const
+        inline evaluation_value_t evaluate(state_t & state) const
         {
             evaluation_value_t evaluation_value = 0;
 
             for (position_t position = position_begin; position < position_end; ++position)
             {
-                const colored_piece_t piece = kyokumen.board[position];
+                const colored_piece_t piece = state.board[position];
                 if (!board_t::out(position) && !piece.empty())
                     evaluation_value += evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color());
             }
@@ -6899,10 +6899,10 @@ namespace shogipp
             for (const color_t color : colors)
             {
                 for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
-                    evaluation_value += evaluate_captured_piece(captured_piece_t{ piece }, kyokumen.captured_pieces_list[color.value()][piece]) * reverse(color);
+                    evaluation_value += evaluate_captured_piece(captured_piece_t{ piece }, state.captured_pieces_list[color.value()][piece]) * reverse(color);
 
                 {
-                    const unsigned int offset = nyugyoku_progress(kyokumen.additional_info.king_position_list[color.value()], color);
+                    const unsigned int offset = nyugyoku_progress(state.additional_info.king_position_list[color.value()], color);
                     SHOGIPP_ASSERT(offset < std::size(nyugyoku_coefficient));
                     evaluation_value += nyugyoku_coefficient[offset];
                 }
@@ -6912,14 +6912,14 @@ namespace shogipp
             {
                 if (!board_t::out(position))
                 {
-                    const colored_piece_t piece = kyokumen.board[position];
+                    const colored_piece_t piece = state.board[position];
                     if (!piece.empty())
                     {
                         const color_t color = piece.to_color();
 
                         {
                             std::vector<kiki_t> kiki_list;
-                            kyokumen.search_kiki(std::back_inserter(kiki_list), position, color);
+                            state.search_kiki(std::back_inserter(kiki_list), position, color);
                             const std::size_t offset = std::min(kiki_list.size(), std::size(kiki_coefficient) - 1);
                             evaluation_value += (evaluate_board_piece(piece) * reverse(color)
                                 * kiki_coefficient[offset]) >> CHAR_BIT;
@@ -6927,7 +6927,7 @@ namespace shogipp
 
                         {
                             std::vector<position_t> himo_list;
-                            kyokumen.search_himo(std::back_inserter(himo_list), position, color);
+                            state.search_himo(std::back_inserter(himo_list), position, color);
                             const std::size_t offset = std::min(himo_list.size(), std::size(himo_coefficient) - 1);
                             evaluation_value += (evaluate_board_piece(piece) * reverse(color)
                                 * himo_coefficient[offset]) >> CHAR_BIT;
@@ -6935,7 +6935,7 @@ namespace shogipp
 
                         {
                             std::vector<position_t> destination_list;
-                            kyokumen.search_destination(std::back_inserter(destination_list), position, color);
+                            state.search_destination(std::back_inserter(destination_list), position, color);
                             const std::size_t offset = std::min(destination_list.size(), std::size(destination_points) - 1);
                             evaluation_value += (static_cast<evaluation_value_t>(destination_list.size()) * reverse(color)
                                 * destination_points[offset]) >> (sizeof(*destination_points) * CHAR_BIT);
@@ -6944,9 +6944,9 @@ namespace shogipp
                 }
             }
 
-            if (kyokumen.has_last_move())
+            if (state.has_last_move())
             {
-                const move_t & last_move = kyokumen.last_move();
+                const move_t & last_move = state.last_move();
                 /* unused */
             }
 
@@ -6983,9 +6983,9 @@ namespace shogipp
         inline chromosome_evaluator_t & operator =(const chromosome_evaluator_t &) = default;
         inline chromosome_evaluator_t & operator =(chromosome_evaluator_t &&) = default;
 
-        evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        evaluation_value_t evaluate(state_t & state) override
         {
-            return m_chromosome->evaluate(kyokumen);
+            return m_chromosome->evaluate(state);
         }
 
         std::string name() const override
@@ -7031,7 +7031,7 @@ namespace shogipp
         : public max_evaluator_t
     {
     public:
-        inline evaluation_value_t evaluate(kyokumen_t & kyokumen) override
+        inline evaluation_value_t evaluate(state_t & state) override
         {
             return uid(rand);
         }
@@ -7146,7 +7146,7 @@ namespace shogipp
     /**
      * @breif 対局
      */
-    class taikyoku_t
+    class game_t
     {
     public:
         /**
@@ -7154,7 +7154,7 @@ namespace shogipp
          * @param a 先手の棋士
          * @param b 後手の棋士
          */
-        inline taikyoku_t(const std::shared_ptr<abstract_player_t> & a, const std::shared_ptr<abstract_player_t> & b);
+        inline game_t(const std::shared_ptr<abstract_player_t> & a, const std::shared_ptr<abstract_player_t> & b);
 
         /**
          * @breif 対局を実行する。
@@ -7184,7 +7184,7 @@ namespace shogipp
 
         std::shared_ptr<abstract_player_t> player_list[color_t::size()];
         mutable moves_t moves;
-        kyokumen_t kyokumen;
+        state_t state;
         bool black_win;
     };
 
@@ -7201,7 +7201,7 @@ namespace shogipp
          * @param taikyoku 対局
          * @return コマンド
          */
-        virtual command_t get_command(taikyoku_t & taikyoku) = 0;
+        virtual command_t get_command(game_t & taikyoku) = 0;
 
         /**
          * @breif 棋士の名前を返す。
@@ -7224,7 +7224,7 @@ namespace shogipp
         : public abstract_player_t
     {
     public:
-        command_t get_command(taikyoku_t & taikyoku) override;
+        command_t get_command(game_t & taikyoku) override;
         std::string name() const override;
         bool is_computer() const override;
     };
@@ -7240,7 +7240,7 @@ namespace shogipp
             : ptr{ ptr }
         {}
 
-        command_t get_command(taikyoku_t & taikyoku) override;
+        command_t get_command(game_t & taikyoku) override;
         std::string name() const override;
         bool is_computer() const override;
 
@@ -7248,7 +7248,7 @@ namespace shogipp
         std::shared_ptr<abstract_evaluator_t> ptr;
     };
 
-    command_t stdin_player_t::get_command(taikyoku_t & taikyoku)
+    command_t stdin_player_t::get_command(game_t & taikyoku)
     {
         return read_command_line_input(taikyoku.get_moves());
     }
@@ -7263,11 +7263,11 @@ namespace shogipp
         return false;
     }
 
-    command_t computer_player_t::get_command(taikyoku_t & taikyoku)
+    command_t computer_player_t::get_command(game_t & taikyoku)
     {
         iddfs_context_t context{ details::program_options::max_iddfs_iteration ,details::program_options::limit_time };
         context.start();
-        return command_t{ command_t::id_t::move, ptr->best_move_iddfs(taikyoku.kyokumen, context) };
+        return command_t{ command_t::id_t::move, ptr->best_move_iddfs(taikyoku.state, context) };
     }
 
     std::string computer_player_t::name() const
@@ -7280,18 +7280,18 @@ namespace shogipp
         return true;
     }
 
-    inline taikyoku_t::taikyoku_t(const std::shared_ptr<abstract_player_t> & a, const std::shared_ptr<abstract_player_t> & b)
+    inline game_t::game_t(const std::shared_ptr<abstract_player_t> & a, const std::shared_ptr<abstract_player_t> & b)
         : player_list{ a, b }
         , black_win{ false }
     {
         update_moves();
     }
 
-    inline bool taikyoku_t::procedure(std::ostream & ostream)
+    inline bool game_t::procedure(std::ostream & ostream)
     {
-        const std::shared_ptr<abstract_player_t> & player = player_list[kyokumen.color().value()];
+        const std::shared_ptr<abstract_player_t> & player = player_list[state.color().value()];
 
-        kyokumen_t temp_kyokumen = kyokumen;
+        state_t temp_state = state;
 
         while (true)
         {
@@ -7301,16 +7301,16 @@ namespace shogipp
             case command_t::id_t::error:
                 break;
             case command_t::id_t::move:
-                kyokumen.print_move(*cmd.opt_move, kyokumen.color(), ostream);
+                state.print_move(*cmd.opt_move, state.color(), ostream);
                 ostream << std::endl << std::endl;
-                kyokumen.do_move(*cmd.opt_move);
+                state.do_move(*cmd.opt_move);
                 update_moves();
                 return !moves.empty();
             case command_t::id_t::undo:
-                if (kyokumen.move_count >= 2)
+                if (state.move_count >= 2)
                 {
                     for (int i = 0; i < 2; ++i)
-                        kyokumen.undo_move();
+                        state.undo_move();
                     update_moves();
                     return !moves.empty();
                 }
@@ -7318,12 +7318,12 @@ namespace shogipp
             case command_t::id_t::giveup:
                 break;
             case command_t::id_t::dump:
-                kyokumen.print_kifu(ostream);
+                state.print_kifu(ostream);
                 break;
             case command_t::id_t::perft:
             {
                 search_count_t node;
-                const std::chrono::milliseconds time = details::test_time_performance([&] { node = kyokumen.count_node(*cmd.opt_depth); }, 1);
+                const std::chrono::milliseconds time = details::test_time_performance([&] { node = state.count_node(*cmd.opt_depth); }, 1);
                 const search_count_t nps = time.count() != 0 ? node * 1000 / time.count() : 0;
                 ostream << "node: " << node << std::endl;
                 ostream << "time[ms]: " << time.count() << std::endl;
@@ -7331,10 +7331,10 @@ namespace shogipp
                 break;
             }
             case command_t::id_t::hash:
-                ostream << hash_to_string(kyokumen.hash()) << std::endl;
+                ostream << hash_to_string(state.hash()) << std::endl;
                 break;
             case command_t::id_t::sfen:
-                ostream << kyokumen.sfen_string() << std::endl;
+                ostream << state.sfen_string() << std::endl;
                 break;
             case command_t::id_t::eval:
                 break;
@@ -7342,9 +7342,9 @@ namespace shogipp
         }
     }
 
-    inline void taikyoku_t::print(std::ostream & ostream) const
+    inline void game_t::print(std::ostream & ostream) const
     {
-        if (kyokumen.move_count == 0)
+        if (state.move_count == 0)
         {
             for (const color_t color : colors)
                 ostream << color.to_string() << "：" << player_list[color.value()]->name() << std::endl;
@@ -7353,30 +7353,30 @@ namespace shogipp
 
         if (moves.empty())
         {
-            const std::shared_ptr<abstract_player_t> & winner_evaluator = player_list[!kyokumen.color().value()];
-            ostream << kyokumen.move_count << "手詰み" << std::endl;
-            kyokumen.print(ostream);
-            ostream << (!kyokumen.color()).to_string() << "勝利(" << winner_evaluator->name() << ")" << std::flush;
+            const std::shared_ptr<abstract_player_t> & winner_evaluator = player_list[!state.color().value()];
+            ostream << state.move_count << "手詰み" << std::endl;
+            state.print(ostream);
+            ostream << (!state.color()).to_string() << "勝利(" << winner_evaluator->name() << ")" << std::flush;
         }
         else
         {
-            const bool is_computer = player_list[kyokumen.color().value()]->is_computer();
-            ostream << (kyokumen.move_count + 1) << "手目" << kyokumen.color().to_string() << "番" << std::endl;
-            kyokumen.print(ostream);
+            const bool is_computer = player_list[state.color().value()]->is_computer();
+            ostream << (state.move_count + 1) << "手目" << state.color().to_string() << "番" << std::endl;
+            state.print(ostream);
             if (!is_computer || details::program_options::print_moves)
-                kyokumen.print_moves(ostream);
-            kyokumen.print_check(ostream);
+                state.print_moves(ostream);
+            state.print_check(ostream);
         }
     }
 
-    inline const moves_t & taikyoku_t::get_moves() const
+    inline const moves_t & game_t::get_moves() const
     {
         return moves;
     }
 
-    inline void taikyoku_t::update_moves() const
+    inline void game_t::update_moves() const
     {
-        moves = kyokumen.search_moves();
+        moves = state.search_moves();
     }
 
     /**
@@ -7384,12 +7384,12 @@ namespace shogipp
     * @param black_player 先手の棋士
     * @param white_player 後手の棋士
     */
-    inline void do_taikyoku(kyokumen_t & kyokumen, const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
+    inline void do_taikyoku(state_t & state, const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
     {
         details::timer.clear();
 
-        taikyoku_t taikyoku{ black_player, white_player };
-        taikyoku.kyokumen = kyokumen;
+        game_t taikyoku{ black_player, white_player };
+        taikyoku.state = state;
         while (true)
         {
             taikyoku.print();
@@ -7402,7 +7402,7 @@ namespace shogipp
         std::cout << std::endl;
         details::timer.print_elapsed_time();
 
-        taikyoku.kyokumen.print_kifu();
+        taikyoku.state.print_kifu();
         std::cout << std::flush;
     }
 
@@ -7413,8 +7413,8 @@ namespace shogipp
      */
     inline void do_taikyoku(const std::shared_ptr<abstract_player_t> & black_player, const std::shared_ptr<abstract_player_t> & white_player)
     {
-        kyokumen_t kyokumen;
-        do_taikyoku(kyokumen, black_player, white_player);
+        state_t state;
+        do_taikyoku(state, black_player, white_player);
     }
 
     /**
@@ -7591,7 +7591,7 @@ namespace shogipp
                     }
                     else // ponder or none
                     {
-                        kyokumen_t kyokumen{ position };
+                        state_t state{ position };
                         auto evaluator = std::make_shared<hiyoko_evaluator_t>();
                         usi_info = std::make_shared<usi_info_t>();
 
@@ -7601,9 +7601,9 @@ namespace shogipp
                                 usi_info->limit_time = std::numeric_limits<decltype(usi_info->limit_time)>::max();
                             else
                             {
-                                if (!opt_time[kyokumen.color().value()])
+                                if (!opt_time[state.color().value()])
                                     throw invalid_usi_input{ "limit time not specified" };
-                                std::chrono::milliseconds limit_time = *opt_time[kyokumen.color().value()];
+                                std::chrono::milliseconds limit_time = *opt_time[state.color().value()];
                                 if (opt_byoyomi)
                                     limit_time += *opt_byoyomi;
                                 usi_info->limit_time = limit_time;
@@ -7614,13 +7614,13 @@ namespace shogipp
 
                         evaluator->usi_info = usi_info;
 
-                        auto search_thread_impl = [evaluator, kyokumen, usi_info]() mutable
+                        auto search_thread_impl = [evaluator, state, usi_info]() mutable
                         {
                             try
                             {
                                 iddfs_context_t context(details::program_options::max_iddfs_iteration, usi_info->limit_time);
                                 context.start();
-                                evaluator->best_move_iddfs(kyokumen, context);
+                                evaluator->best_move_iddfs(state, context);
                             }
                             catch (...)
                             {
@@ -7835,11 +7835,11 @@ namespace shogipp
             const std::shared_ptr<abstract_player_t> black_player{ std::make_shared<computer_player_t>(black) };
             const std::shared_ptr<abstract_player_t> white_player{ std::make_shared<computer_player_t>(white) };
 
-            taikyoku_t taikyoku{ black_player, white_player };
+            game_t taikyoku{ black_player, white_player };
             while (true)
             {
                 taikyoku.print(ostream);
-                if (!taikyoku.procedure(ostream) || taikyoku.kyokumen.move_count >= m_max_move_count)
+                if (!taikyoku.procedure(ostream) || taikyoku.state.move_count >= m_max_move_count)
                     break;
             }
 
@@ -7848,10 +7848,10 @@ namespace shogipp
             ostream << std::endl;
             details::timer.print_elapsed_time(ostream);
 
-            taikyoku.kyokumen.print_kifu(ostream);
+            taikyoku.state.print_kifu(ostream);
             ostream << std::flush;
 
-            return taikyoku.kyokumen.kifu;
+            return taikyoku.state.kifu;
         }
 
         /**
@@ -7860,14 +7860,14 @@ namespace shogipp
          */
         inline static void update_piece_pair_statistics(const std::vector<move_t> & kifu)
         {
-            kyokumen_t kyokumen;
+            state_t state;
             const move_count_t winner_mod = (kifu.size() + 1) % 2;
-            details::piece_pair_statistics.increase(kyokumen.board);
+            details::piece_pair_statistics.increase(state.board);
             for (move_count_t i = 0; i < kifu.size(); ++i)
             {
-                kyokumen.do_move(kifu[i]);
+                state.do_move(kifu[i]);
                 if (i % 2 == winner_mod)
-                    details::piece_pair_statistics.increase(kyokumen.board);
+                    details::piece_pair_statistics.increase(state.board);
             }
         }
 
@@ -8363,12 +8363,12 @@ namespace shogipp
                     throw invalid_command_line_input{ "invalid white name" };
                 const std::shared_ptr<abstract_player_t> & white_player = white_iter->second;
 
-                std::optional<kyokumen_t> opt_kyokumen;
+                std::optional<state_t> opt_state;
                 if (details::program_options::sfen)
-                    opt_kyokumen = kyokumen_t{ *details::program_options::sfen };
+                    opt_state = state_t{ *details::program_options::sfen };
                 else
-                    opt_kyokumen = kyokumen_t{};
-                do_taikyoku(*opt_kyokumen, black_player, white_player);
+                    opt_state = state_t{};
+                do_taikyoku(*opt_state, black_player, white_player);
             }
             else
             {

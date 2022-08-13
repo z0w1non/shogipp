@@ -8238,13 +8238,9 @@ namespace shogipp
                         std::cerr << "invalid print-enclosure parameter" << std::endl;
                 }
                 else if (option == "black" && !params.empty())
-                {
                     details::program_options::black_name = params[0];
-                }
                 else if (option == "white" && !params.empty())
-                {
                     details::program_options::white_name = params[0];
-                }
                 else if (option == "sfen" && !params.empty())
                 {
                     std::string sfen_string;
@@ -8354,9 +8350,7 @@ namespace shogipp
                         std::cerr << "invalid ga-thread-number parameter" << std::endl;
                 }
                 else if (option == "piece-pair-statistics" && !params.empty())
-                {
                     details::program_options::piece_pair_statistics = params[0];
-                }
                 else
                     std::cerr << "invalid option \"" << option << "\"" << std::endl;
             };

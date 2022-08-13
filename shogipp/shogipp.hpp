@@ -1169,30 +1169,6 @@ namespace shogipp
     }
 
     /**
-     * @breif 指定された座標の8近傍のうち中央に近い3近傍の相対座標を取得する。
-     * @param a 座標
-     * @return 2つの座標間の距離
-     */
-    inline const position_t * nearest_center_side_3(position_t position) noexcept
-    {
-        constexpr position_t map[9][4]
-        {
-            { right, back, back_right, 0 },
-            { back_left, back, back_right, 0 },
-            { left, back_left, back, 0 },
-            { front_right, right, back_right, 0 },
-            { 0 },
-            { front_left, left, back_left, 0 },
-            { front, front_right, right, 0 },
-            { front_left, front, front_right, 0 },
-            { front_left, front, left, 0 },
-        };
-        const std::size_t index = position_to_rank(position) / 3 * 3 + position_to_file(position) / 3;
-        SHOGIPP_ASSERT(index < std::size(map));
-        return map[index];
-    }
-
-    /**
      * @breif 入玉の進捗の最大値
      * @sa nyugyoku_progress
      */
@@ -6715,28 +6691,6 @@ namespace shogipp
         {
             return "枝刈り";
         }
-
-        //pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
-        //{
-        //    if (move.tag() & move_t::check_tag)
-        //        return 3;
-        //    if (move.tag() & move_t::escape_tag)
-        //        return 3;
-        //    if (move.tag() & move_t::aigoma_tag)
-        //        return 3;
-        //    if (move.tag() & move_t::promote_tag)
-        //        return 3;
-        //    if (move.tag() & move_t::capture_tag)
-        //        return 4;
-        //    if (move.tag() & move_t::put_tag)
-        //        return 4;
-        //    return 5;
-        //}
-
-        //pruning_threshold_t get_pruning_threshold() const override
-        //{
-        //    return 12;
-        //}
     };
 
     /**
@@ -6744,32 +6698,6 @@ namespace shogipp
      */
     class chromosome_t
     {
-    private:
-        enum : std::size_t
-        {
-            check_offset,
-            escape_offset,
-            aigoma_offset,
-            promote_offset,
-            capture_offset,
-            put_offset,
-            none_offset,
-            pruning_coefficient_size
-        };
-
-        enum : std::size_t
-        {
-            front_left_offset,
-            front_offset,
-            front_right_offset,
-            left_offset,
-            right_offset,
-            back_left_offset,
-            back_offset,
-            back_right_offset,
-            nearest_8_size
-        };
-
     public:
         unsigned short board_piece_points[promoted_rook_value - pawn_value - 1]{};
         unsigned short captured_piece_points[captured_size]{};
@@ -6777,31 +6705,6 @@ namespace shogipp
         short himo_coefficient[4]{};
         unsigned char destination_points[16]{};
         unsigned short nyugyoku_coefficient[max_nyugyoku_progress + 1]{};
-        short nearest_8_coefficient[nearest_8_size]{};
-        //unsigned short pruning_parameters[pruning_coefficient_size]{};
-        //unsigned short pruning_threshold{};
-
-        //inline pruning_threshold_t get_pruning_parameter(move_t::tag_t tag) const noexcept
-        //{
-        //    if (tag & move_t::check_tag)
-        //        return pruning_parameters[check_offset];
-        //    if (tag & move_t::escape_tag)
-        //        return pruning_parameters[escape_offset];
-        //    if (tag & move_t::aigoma_tag)
-        //        return pruning_parameters[aigoma_offset];
-        //    if (tag & move_t::promote_tag)
-        //        return pruning_parameters[promote_offset];
-        //    if (tag & move_t::capture_tag)
-        //        return pruning_parameters[capture_offset];
-        //    if (tag & move_t::put_tag)
-        //        return pruning_parameters[put_offset];
-        //    return pruning_parameters[none_offset];
-        //}
-
-        //inline bool get_pruning_threshold() const noexcept
-        //{
-        //    return pruning_threshold;
-        //}
 
         inline void generate_template() noexcept
         {
@@ -6862,25 +6765,6 @@ namespace shogipp
 
             for (unsigned short i = 0; i < static_cast<unsigned short>(std::size(nyugyoku_coefficient)); ++i)
                 nyugyoku_coefficient[i] = i;
-
-            //pruning_parameters[check_offset]   = std::numeric_limits<unsigned char>::max() / 2;
-            //pruning_parameters[escape_offset]  = std::numeric_limits<unsigned char>::max() / 2;
-            //pruning_parameters[aigoma_offset]  = std::numeric_limits<unsigned char>::max() / 2;
-            //pruning_parameters[promote_offset] = std::numeric_limits<unsigned char>::max() / 2;
-            //pruning_parameters[capture_offset] = std::numeric_limits<unsigned char>::max() / 2;
-            //pruning_parameters[put_offset]     = std::numeric_limits<unsigned char>::max() / 2;
-            //pruning_parameters[none_offset]    = std::numeric_limits<unsigned char>::max() / 2;
-
-            nearest_8_coefficient[front_left_offset ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
-            nearest_8_coefficient[front_offset      ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
-            nearest_8_coefficient[front_right_offset] = std::numeric_limits<unsigned char>::max() * 1 / 64;
-            nearest_8_coefficient[left_offset       ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
-            nearest_8_coefficient[right_offset      ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
-            nearest_8_coefficient[back_left_offset  ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
-            nearest_8_coefficient[back_offset       ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
-            nearest_8_coefficient[back_right_offset ] = std::numeric_limits<unsigned char>::max() * 1 / 64;
-
-            //pruning_threshold = pruning_parameters[none_offset] * 2;
         }
 
         inline void generate_random() noexcept
@@ -6935,9 +6819,6 @@ namespace shogipp
                 ostream << "destination-points-" << i << ": " << static_cast<unsigned int>(destination_points[i]) << std::endl;
             for (std::size_t i = 0; i < std::size(nyugyoku_coefficient); ++i)
                 ostream << "nyugyoku-coefficient-" << i << ": " << static_cast<unsigned int>(nyugyoku_coefficient[i]) << std::endl;
-            //for (std::size_t i = 0; i < std::size(pruning_parameters); ++i)
-            //    ostream << "pruning-parameter-" << i << ": " << static_cast<unsigned int>(pruning_parameters[i]) << std::endl;
-            //ostream << "pruning-threshold: " << static_cast<unsigned int>(pruning_threshold) << std::endl;
         }
 
         inline void clossover(const chromosome_t & chromosome) noexcept
@@ -7019,34 +6900,6 @@ namespace shogipp
             {
                 for (piece_value_t piece = pawn_value; piece <= rook_value; ++piece)
                     evaluation_value += evaluate_captured_piece(captured_piece_t{ piece }, kyokumen.captured_pieces_list[color.value()][piece]) * reverse(color);
-
-                const position_t king_position = kyokumen.king_position(color);
-                constexpr position_t nearest_8[]
-                {
-                    front_left,
-                    front,
-                    front_right,
-                    left,
-                    right,
-                    back_left,
-                    back,
-                    back_right,
-                };
-
-                for (std::size_t i = 0; i < nearest_8_size; ++i)
-                {
-                    const position_t offset = nearest_8[i];
-                    const position_t nearest = king_position + offset;
-                    if (!board_t::out(nearest))
-                    {
-                        const colored_piece_t piece = kyokumen.board[nearest];
-                        if (!piece.empty())
-                        {
-                            evaluation_value += (evaluate_board_piece(noncolored_piece_t{ piece }) * reverse(piece.to_color())
-                                * nearest_8_coefficient[i]) >> CHAR_BIT;
-                        }
-                    }
-                }
 
                 {
                     const unsigned int offset = nyugyoku_progress(kyokumen.additional_info.king_position_list[color.value()], color);
@@ -7136,16 +6989,6 @@ namespace shogipp
         {
             return m_name;
         }
-
-        //pruning_threshold_t get_pruning_parameter(kyokumen_t & kyokumen, const move_t & move) const override
-        //{
-        //    return m_chromosome->get_pruning_parameter(move.tag());
-        //}
-
-        //pruning_threshold_t get_pruning_threshold() const override
-        //{
-        //    return m_chromosome->get_pruning_threshold();
-        //}
 
         std::string file_name() const
         {

@@ -470,7 +470,7 @@ namespace shogipp
         using std::runtime_error::runtime_error;
     };
 
-    class ill_formed_chromosome_file
+    class ill_formed_chromosome_file_name
         : public std::runtime_error
     {
         using std::runtime_error::runtime_error;
@@ -8161,7 +8161,7 @@ namespace shogipp
                     std::string name;
                     chromosome_evaluator_t::id_type id{};
                     if (!std::regex_match(filename, results, std::regex(R"((.*)_(\d+))")))
-                        throw ill_formed_chromosome_file{ "ill-formed chromosome file name" };
+                        throw ill_formed_chromosome_file_name{ "ill-formed chromosome file name" };
                     name = results[1].str();
                     id = std::stoull(results[2].str());
                     individuals.push_back(std::make_shared<chromosome_evaluator_t>(path, name, id));

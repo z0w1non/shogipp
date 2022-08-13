@@ -5559,7 +5559,7 @@ namespace shogipp
          *          この関数で任意に add_observer を呼び出す。
          * @param state 一時オブジェクトの局面
          */
-        virtual void add_observers(state_t & state) = 0;
+        virtual void add_observers(state_t & state) {}
     };
 
     move_t abstract_evaluator_t::best_move(state_t & state, iddfs_context_t & context)

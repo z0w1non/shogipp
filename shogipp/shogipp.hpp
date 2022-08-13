@@ -6954,6 +6954,9 @@ namespace shogipp
         }
     };
 
+    /**
+     * @breif 染色体を使用して評価を行う評価関数オブジェクト
+     */
     class chromosome_evaluator_t
         : public extendable_alphabeta_evaluator_t
     {

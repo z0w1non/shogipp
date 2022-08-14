@@ -371,6 +371,23 @@ namespace shogipp
             return x * power(x, y - 1);
         }
 
+        inline void get_leaf_boards_internal(std::vector<board_t> & leaf_boards, state_t & state, depth_t depth)
+        {
+            if (depth == 0)
+            {
+                leaf_boards.push_back(state.board);
+                return;
+            }
+
+            const moves_t moves = state.search_moves();
+            for (const move_t & move : moves)
+            {
+                state.do_move(move);
+                get_leaf_boards_internal(leaf_boards, state, depth - 1);
+                state.undo_move();
+            }
+        };
+
         namespace program_options
         {
             constexpr bool default_print_move = false;
@@ -7615,6 +7632,20 @@ namespace shogipp
     }
 
     /**
+     * @breif 局面を指定された手数だけ進めた後の盤の集合を得る。
+     * @param state 根となる局面
+     * @param depth 最大深度
+     * @return 局面を指定された手数だけ進めた後の盤の集合
+     */
+    inline std::vector<board_t> get_leaf_boards(const state_t & state, depth_t depth)
+    {
+        std::vector<board_t> leaf_boards;
+        state_t temp{ state };
+        details::get_leaf_boards_internal(leaf_boards, temp, depth);
+        return leaf_boards;
+    }
+
+    /**
      * @breif 棋譜を作成する。
      * @param black 先手の棋士
      * @param white 後手の棋士
@@ -7649,6 +7680,19 @@ namespace shogipp
         ostream << std::flush;
 
         return game.state.kifu;
+    }
+
+    inline std::vector<move_t> make_kifu
+    (
+        const std::shared_ptr<chromosome_evaluator_t> & black,
+        const std::shared_ptr<chromosome_evaluator_t> & white,
+        move_count_t max_move_count,
+        const std::vector<move_t> & previous_kifu,
+        std::ostream & ostream = std::cout
+    )
+    {
+        SHOGIPP_ASSERT(previous_kifu.size() >= 2);
+        std::size_t modified_offset;
     }
 
     /**

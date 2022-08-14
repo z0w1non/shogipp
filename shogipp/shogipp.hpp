@@ -7615,6 +7615,43 @@ namespace shogipp
     }
 
     /**
+     * @breif 棋譜を作成する。
+     * @param black 先手の棋士
+     * @param white 後手の棋士
+     * @param max_move_count 最大手数
+     * @param ostream 出力ストリーム
+     */
+    inline std::vector<move_t> make_kifu
+    (
+        const std::shared_ptr<chromosome_evaluator_t> & black,
+        const std::shared_ptr<chromosome_evaluator_t> & white,
+        move_count_t max_move_count,
+        std::ostream & ostream = std::cout
+    )
+    {
+        const std::shared_ptr<abstract_player_t> black_player{ std::make_shared<computer_player_t>(black) };
+        const std::shared_ptr<abstract_player_t> white_player{ std::make_shared<computer_player_t>(white) };
+
+        game_t game{ black_player, white_player };
+        while (true)
+        {
+            game.print(ostream);
+            if (!game.procedure(ostream) || game.state.move_count >= max_move_count)
+                break;
+        }
+
+        game.print(ostream); // 詰んだ局面を標準出力に出力する。
+
+        ostream << std::endl;
+        details::performance.print_elapsed_time(ostream);
+
+        game.state.print_kifu(ostream);
+        ostream << std::flush;
+
+        return game.state.kifu;
+    }
+
+    /**
      * @breif USIプロトコルで通信する機能を提供する。
      */
     class abstract_usi_engine_t
@@ -8039,26 +8076,7 @@ namespace shogipp
             std::ostream & ostream
         ) const
         {
-            const std::shared_ptr<abstract_player_t> black_player{ std::make_shared<computer_player_t>(black) };
-            const std::shared_ptr<abstract_player_t> white_player{ std::make_shared<computer_player_t>(white) };
-
-            game_t game{ black_player, white_player };
-            while (true)
-            {
-                game.print(ostream);
-                if (!game.procedure(ostream) || game.state.move_count >= m_max_move_count)
-                    break;
-            }
-
-            game.print(ostream); // 詰んだ局面を標準出力に出力する。
-
-            ostream << std::endl;
-            details::performance.print_elapsed_time(ostream);
-
-            game.state.print_kifu(ostream);
-            ostream << std::flush;
-
-            return game.state.kifu;
+            return shogipp::make_kifu(black, white, m_max_move_count, ostream);
         }
 
         /**

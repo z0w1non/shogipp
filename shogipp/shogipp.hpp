@@ -6723,7 +6723,7 @@ namespace shogipp
          * @breif ‹î‚Ì•]‰¿’l‚ğæ“¾‚·‚éB
          * @return ‹î‚Ì•]‰¿’l
          */
-        evaluation_value_t evaluate() const noexcept
+        inline evaluation_value_t evaluate() const noexcept
         {
             return m_evaluation_value_stack.back();
         }

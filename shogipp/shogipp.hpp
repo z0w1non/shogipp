@@ -6682,12 +6682,52 @@ namespace shogipp
     class hiyoko_evaluator_t
         : public negamax_evaluator_t
     {
+    private:
+        class observer_t
+            : public shogipp::observer_t
+        {
+        public:
+            inline observer_t(state_t & state)
+            {
+                m_evaluation_value_stack.push_back(state_map_evaluation_value(state, details::evaluation_value_template::map));
+            }
+
+            void notify_do_move_called(const state_t & state, const move_t & move) override
+            {
+                evaluation_value_t evaluation_value = m_evaluation_value_stack.back();
+                if (!move.put())
+                {
+                    if (!move.destination_piece().empty())
+                    {
+                        evaluation_value += details::evaluation_value_template::map[noncolored_piece_t{ move.destination_piece() }.value()] * reverse(!state.color());
+                        evaluation_value += details::evaluation_value_template::map[noncolored_piece_t{ move.destination_piece().to_unpromoted() }.value()] * reverse(!state.color());
+                    }
+                    if (move.promote())
+                    {
+                        evaluation_value -= details::evaluation_value_template::map[noncolored_piece_t{ move.source_piece() }.value()] * reverse(!state.color());
+                        evaluation_value += details::evaluation_value_template::map[noncolored_piece_t{ move.source_piece().to_promoted() }.value()] * reverse(!state.color());
+                    }
+                }
+                m_evaluation_value_stack.push_back(evaluation_value);
+            }
+
+            void notify_undo_move_called() override
+            {
+                m_evaluation_value_stack.pop_back();
+            }
+
+            evaluation_value_t evaluate() const noexcept
+            {
+                return m_evaluation_value_stack.back();
+            }
+
+            std::vector<evaluation_value_t> m_evaluation_value_stack;
+        };
+
     public:
         evaluation_value_t evaluate(state_t & state) override
         {
-            evaluation_value_t evaluation_value = 0;
-            evaluation_value += state_map_evaluation_value(state, details::evaluation_value_template::map);
-            return evaluation_value;
+            return m_observer->evaluate();
         }
 
         std::string name() const override
@@ -6697,8 +6737,12 @@ namespace shogipp
 
         void add_observers(state_t & state) override
         {
-            ;
+            m_observer = std::make_shared<observer_t>(state);
+            state.add_observer(m_observer);
         }
+
+    private:
+        std::shared_ptr<observer_t> m_observer;
     };
 
     class niwatori_evaluator_t

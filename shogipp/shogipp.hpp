@@ -6762,10 +6762,7 @@ namespace shogipp
     public:
         evaluation_value_t evaluate(state_t & state) override
         {
-            evaluation_value_t evaluation_value = 0;
-            evaluation_value += state_map_evaluation_value(state, details::evaluation_value_template::map);
-
-            return evaluation_value;
+            return m_observer->evaluate();
         }
 
         std::string name() const override
@@ -6775,8 +6772,12 @@ namespace shogipp
 
         void add_observers(state_t & state) override
         {
-            ;
+            m_observer = std::make_shared<difference_based_piece_evaluator_t>(state);
+            state.add_observer(m_observer);
         }
+
+    private:
+        std::shared_ptr<difference_based_piece_evaluator_t> m_observer;
     };
 
     class fukayomi_evaluator_t
@@ -6790,7 +6791,7 @@ namespace shogipp
             constexpr evaluation_value_t himo_point = 10;
 
             evaluation_value_t evaluation_value = 0;
-            evaluation_value += state_map_evaluation_value(state, details::evaluation_value_template::map);
+            evaluation_value += m_observer->evaluate();
 
             for (position_t position = position_begin; position < position_end; ++position)
             {
@@ -6821,8 +6822,12 @@ namespace shogipp
 
         void add_observers(state_t & state) override
         {
-            ;
+            m_observer = std::make_shared<difference_based_piece_evaluator_t>(state);
+            state.add_observer(m_observer);
         }
+
+    private:
+        std::shared_ptr<difference_based_piece_evaluator_t> m_observer;
     };
 
     class edagari_evaluator_t

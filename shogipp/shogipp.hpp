@@ -5077,7 +5077,7 @@ namespace shogipp
     /**
      * @breif 盤の2駒の組と対応する評価値の統計
      */
-    class piece_pair_statistics_t
+    class piece_relationship_statistics_t
     {
     public:
         using value_type = unsigned long long;
@@ -5097,11 +5097,11 @@ namespace shogipp
          * @breif 盤の2駒の組と対応する評価値の統計を構築する。
          * @details 全ての評価値は 0 で初期化される。
          */
-        constexpr inline piece_pair_statistics_t() noexcept = default;
-        constexpr inline piece_pair_statistics_t(const piece_pair_statistics_t &) noexcept = default;
-        constexpr inline piece_pair_statistics_t(piece_pair_statistics_t &&) noexcept = default;
-        constexpr inline piece_pair_statistics_t & operator =(const piece_pair_statistics_t &) noexcept = default;
-        constexpr inline piece_pair_statistics_t & operator =(piece_pair_statistics_t &&) noexcept = default;
+        constexpr inline piece_relationship_statistics_t() noexcept = default;
+        constexpr inline piece_relationship_statistics_t(const piece_relationship_statistics_t &) noexcept = default;
+        constexpr inline piece_relationship_statistics_t(piece_relationship_statistics_t &&) noexcept = default;
+        constexpr inline piece_relationship_statistics_t & operator =(const piece_relationship_statistics_t &) noexcept = default;
+        constexpr inline piece_relationship_statistics_t & operator =(piece_relationship_statistics_t &&) noexcept = default;
 
         /**
          * @breif 駒と座標の組を正規化する。
@@ -5437,7 +5437,7 @@ namespace shogipp
 
     namespace details
     {
-        piece_pair_statistics_t piece_pair_statistics;
+        piece_relationship_statistics_t piece_relationship_statistics;
     }
 
     class abstract_evaluator_t;
@@ -7696,6 +7696,7 @@ namespace shogipp
     {
         SHOGIPP_ASSERT(previous_kifu.size() >= 2);
         std::size_t modified_offset;
+        // TODO
     }
 
     /**
@@ -8130,16 +8131,16 @@ namespace shogipp
          * @breif 棋譜のうち勝った手番の手を元に駒関係の統計を更新する。
          * @param kifu 棋譜
          */
-        inline static void update_piece_pair_statistics(const std::vector<move_t> & kifu)
+        inline static void update_piece_relationship_statistics(const std::vector<move_t> & kifu)
         {
             state_t state;
             const move_count_t winner_mod = (kifu.size() + 1) % 2;
-            details::piece_pair_statistics.increase(state.board);
+            details::piece_relationship_statistics.increase(state.board);
             for (move_count_t i = 0; i < kifu.size(); ++i)
             {
                 state.do_move(kifu[i]);
                 if (i % 2 == winner_mod)
-                    details::piece_pair_statistics.increase(state.board);
+                    details::piece_relationship_statistics.increase(state.board);
             }
         }
 
@@ -8220,7 +8221,7 @@ namespace shogipp
                                                 fitness_table[arguments.j] += 1;
                                         }
 
-                                        update_piece_pair_statistics(kifu);
+                                        update_piece_relationship_statistics(kifu);
                                     }
                                 }
                                 catch (const std::exception & e)
@@ -8239,11 +8240,11 @@ namespace shogipp
 
             try
             {
-                details::piece_pair_statistics.write_file(details::program_options::piece_pair_statistics);
+                details::piece_relationship_statistics.write_file(details::program_options::piece_pair_statistics);
             }
             catch (const std::filesystem::filesystem_error &)
             {
-                std::cerr << "piece_pair_statistics.write_file() failed" << std::endl;
+                std::cerr << "piece_relationship_statistics.write_file() failed" << std::endl;
             }
 
             // 勝率により降順に個体を並び替える。
@@ -8271,7 +8272,7 @@ namespace shogipp
                 evaluated_individuals.front().first->chromosome()->print(log_stream);
                 std::cout << std::endl;
 
-                details::piece_pair_statistics.print_most_frequent(100, log_stream);
+                details::piece_relationship_statistics.print_most_frequent(100, log_stream);
             }
 
             std::vector<std::shared_ptr<chromosome_evaluator_t>> next_individuals;
@@ -8563,7 +8564,7 @@ namespace shogipp
             try
             {
                 if (std::filesystem::exists(details::program_options::piece_pair_statistics))
-                    details::piece_pair_statistics.read_file(details::program_options::piece_pair_statistics);
+                    details::piece_relationship_statistics.read_file(details::program_options::piece_pair_statistics);
             }
             catch (const std::filesystem::filesystem_error &)
             {

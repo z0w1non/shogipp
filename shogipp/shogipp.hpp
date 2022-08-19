@@ -371,23 +371,6 @@ namespace shogipp
             return x * power(x, y - 1);
         }
 
-        inline void get_leaf_boards_internal(std::vector<board_t> & leaf_boards, state_t & state, depth_t depth)
-        {
-            if (depth == 0)
-            {
-                leaf_boards.push_back(state.board);
-                return;
-            }
-
-            const moves_t moves = state.search_moves();
-            for (const move_t & move : moves)
-            {
-                state.do_move(move);
-                get_leaf_boards_internal(leaf_boards, state, depth - 1);
-                state.undo_move();
-            }
-        };
-
         namespace program_options
         {
             constexpr bool default_print_move = false;
@@ -7629,6 +7612,26 @@ namespace shogipp
     {
         state_t state;
         match(state, black_player, white_player);
+    }
+
+    namespace details
+    {
+        inline void get_leaf_boards_internal(std::vector<board_t> & leaf_boards, state_t & state, depth_t depth)
+        {
+            if (depth == 0)
+            {
+                leaf_boards.push_back(state.board);
+                return;
+            }
+
+            const moves_t moves = state.search_moves();
+            for (const move_t & move : moves)
+            {
+                state.do_move(move);
+                get_leaf_boards_internal(leaf_boards, state, depth - 1);
+                state.undo_move();
+            }
+        };
     }
 
     /**

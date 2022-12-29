@@ -35,11 +35,13 @@
 * 実装したい機能
     * 棋譜に対する正解率を算出する機能
         * 一般的な棋譜を読み込む機能
+            * CSA
+            * KIF
+            * KI2
         * 読み込んだ棋譜と棋士の返した最善手の合致率を計算する機能
     * 勝率を集計する機能
         * 阻害する要因
         * 個体差か着手の揺らぎがないと勝敗が決定的になる。
-
 */
 
 /**
@@ -2217,6 +2219,132 @@ namespace shogipp
         }
         return result;
     }
+
+    class csa_t
+    {
+    public:
+        inline csa_t(std::filesystem::path path)
+        {
+            std::string line;
+            std::ifstream ifs{ path };
+            while (std::getline(ifs, line))
+            {
+                if (line.size() == 1 && line.front() == '$')
+                {
+                    auto word_begin = std::next(line.begin());
+                    auto word_end = std::find(word_begin, line.end(), ':');
+                    if (word_end != line.end())
+                    {
+                        std::string word{ word_begin, word_end };
+                        std::string rest{ std::next(word_end), line.end() };
+                        if (!word.empty())
+                        {
+                            if (word == "EVENT")
+                            {
+                                m_event = rest;
+                            }
+                            else if (word == "SITE")
+                            {
+                                m_site = rest;
+                            }
+                            else if (word == "START_TIME")
+                            {
+                                m_start_time = rest;
+                            }
+                            else if (word == "END_TIME")
+                            {
+                                m_end_time = rest;
+                            }
+                            else if (word == "TIME_LIMIT")
+                            {
+                                m_time_limit = rest;
+                            }
+                            else if (word == "OPENING")
+                            {
+                                m_opening = rest;
+                            }
+                            else
+                            {
+                                m_others.emplace_back(word, rest);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        static std::optional<noncolored_piece_t> csa_piece_to_noncolored_piece(std::string_view piece)
+        {
+            static const std::map<std::string, noncolored_piece_t> map
+            {
+                { "FU", pawn },
+                { "KY", lance },
+                { "KE", knight },
+                { "GI", silver },
+                { "KI", gold },
+                { "KA", bishop },
+                { "HI", rook },
+                { "OU", king },
+                { "TO", promoted_pawn },
+                { "NY", promoted_lance },
+                { "NK", promoted_knight },
+                { "NG", promoted_silver },
+                { "UM", promoted_bishop },
+                { "RY", promoted_rook },
+            };
+            
+            const auto value = std::find(map.begin(), map.end(), piece);
+            if (value == map.end())
+                return std::nullopt;
+            return value->second;
+        }
+
+        static std::optional<color_t> csa_color_to_color(std::string_view color)
+        {
+            if (color.size() == 1)
+            {
+                if (color[0] == '+')
+                    return black;
+                else if (color[0] == '-')
+                    return white;
+            }
+            return std::nullopt;
+        }
+
+        static std::optional<position_t> csa_position_to_position(std::string_view position)
+        {
+            if (position.size() == 2
+                && std::isdigit(position[0])
+                && std::isdigit(position[1]))
+            {
+                position_t file = position[0] - '0';
+                position_t rank = position[1] - '0';
+                if (file == 0 && rank == 0)
+                    return npos;
+                if (file == 0 || rank == 0)
+                    return std::nullopt;
+                --file;
+                --rank;
+                return file_rank_to_position(file, rank);
+            }
+            return std::nullopt;
+        }
+
+        const std::vector<move_t> & get_moves() const
+        {
+            return m_moves;
+        }
+
+    private:
+        std::string m_event;
+        std::string m_site;
+        std::string m_start_time;
+        std::string m_end_time;
+        std::string m_time_limit;
+        std::string m_opening;
+        std::vector<std::pair<std::string, std::string>> m_others;
+        std::vector<move_t> m_moves;
+    };
 
     /**
      * @breif 囲いを評価する。

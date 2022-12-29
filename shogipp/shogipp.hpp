@@ -5004,14 +5004,20 @@ namespace shogipp
         inline csa_t(std::filesystem::path path)
         {
             board_t board;
+            std::optional<color_t> color;
 
-            std::string line;
             std::ifstream ifs{ path };
-            while (std::getline(ifs, line))
+            const std::regex separator{ R"([\r\n,])" };
+            auto iter = std::regex_token_iterator<std::istreambuf_iterator<char>>(std::istreambuf_iterator<char>(ifs), std::istreambuf_iterator<char>(), separator, -1);
+            const auto end = std::regex_token_iterator<std::istreambuf_iterator<char>>();
+
+            for (; iter != end; ++iter)
             {
+                const std::string line = *iter;
+
                 if (line.size() >= 1)
                 {
-                    if (line.front() == '$')
+                    if (line[0] == '$')
                     {
                         auto word_begin = std::next(line.begin());
                         auto word_end = std::find(word_begin, line.end(), ':');
@@ -5052,7 +5058,7 @@ namespace shogipp
                             }
                         }
                     }
-                    else if (line.front() == 'P')
+                    else if (line[0] == 'P')
                     {
                         if (line.size() == 2 && line[1] == 'I')
                         {
@@ -5070,10 +5076,10 @@ namespace shogipp
                                     ;
                                 else
                                 {
-                                    std::optional<color_t> color = csa_color_to_color(piece_string[0]);
+                                    const std::optional<color_t> color = csa_color_to_color(piece_string[0]);
                                     if (!color.has_value())
                                         throw parse_error{ "!color.has_value()" };
-                                    std::optional<noncolored_piece_t> noncolored_piece = csa_piece_to_noncolored_piece(piece_string.substr(1, 2));
+                                    const std::optional<noncolored_piece_t> noncolored_piece = csa_piece_to_noncolored_piece(piece_string.substr(1, 2));
                                     if (!noncolored_piece.has_value())
                                         throw parse_error{ "!noncolored_piece.has_value()" };
                                     board[file_rank_to_position(rank, file)] = colored_piece_t{ *noncolored_piece, *color };
@@ -5085,13 +5091,90 @@ namespace shogipp
                             ; // TODO
                         }
                     }
+                    else if (line.size() >= 1 && (line[0] == '+' || line[0] == '-'))
+                    {
+                        if (line.size() == 1)
+                        {
+                            if (line[0] == '+')
+                                color = black;
+                            else if (line[0] == '-')
+                                color = white;
+                            else
+                                throw parse_error{ "unknown single token" };
+                        }
+                    }
+                    else if (line.size() >= 2 && (line[0] == '+' || line[0] == '-'))
+                    {
+                        if (line.size() < 7)
+                            throw parse_error{ "line.size() < 7" };
+                        const std::optional<color_t> color = csa_color_to_color(line[0]);
+                        if (!color.has_value())
+                            throw parse_error{ "!color.has_value()" };
+                        const std::optional<position_t> source_position = csa_position_to_position(line.substr(1, 2));
+                        const std::optional<position_t> destination_position = csa_position_to_position(line.substr(3, 2));
+                        const std::optional<noncolored_piece_t> noncolored_piece = csa_piece_to_noncolored_piece(line.substr(5, 2));
+                    }
+                    else if (line.size() >= 2 && line[0] == '%')
+                    {
+                        const std::string word = line.substr(1);
+                        if (word == "TORYO")
+                        {
+                        }
+                        else if (word == "CHUDAN")
+                        {
+                        }
+                        else if (word == "SENNICHITE")
+                        {
+                        }
+                        else if (word == "TIME_UP")
+                        {
+                        }
+                        else if (word == "ILLEGAL_MOVE")
+                        {
+                        }
+                        else if (word == "+ILLEGAL_ACTION")
+                        {
+                        }
+                        else if (word == "-ILLEGAL_ACTION")
+                        {
+                        }
+                        else if (word == "JISHOGI")
+                        {
+                        }
+                        else if (word == "KACHI")
+                        {
+                        }
+                        else if (word == "HIKIWAKE")
+                        {
+                        }
+                        else if (word == "MATTA")
+                        {
+                        }
+                        else if (word == "TSUMI")
+                        {
+                        }
+                        else if (word == "FUZUMI")
+                        {
+                        }
+                        else if (word == "ERROR")
+                        {
+                        }
+                    }
+                    else if (line.size() >= 1 && line[0] == 'T')
+                    {
+                        ;
+                    }
+                    else if (line.size() >= 1 && line[0] == '\'')
+                    {
+                    ;
+                    }
                 }
             }
         }
 
         static std::optional<noncolored_piece_t> csa_piece_to_noncolored_piece(std::string_view piece)
         {
-            static const std::map<std::string, noncolored_piece_t> map
+            static const std::map<std::string_view, noncolored_piece_t> map
             {
                 { "FU", pawn            },
                 { "KY", lance           },
@@ -5109,7 +5192,7 @@ namespace shogipp
                 { "RY", promoted_rook   },
             };
 
-            const auto value = std::find(map.begin(), map.end(), piece);
+            const auto value = map.find(piece);
             if (value == map.end())
                 return std::nullopt;
             return value->second;

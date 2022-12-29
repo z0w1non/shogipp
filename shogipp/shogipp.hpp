@@ -2220,132 +2220,6 @@ namespace shogipp
         return result;
     }
 
-    class csa_t
-    {
-    public:
-        inline csa_t(std::filesystem::path path)
-        {
-            std::string line;
-            std::ifstream ifs{ path };
-            while (std::getline(ifs, line))
-            {
-                if (line.size() == 1 && line.front() == '$')
-                {
-                    auto word_begin = std::next(line.begin());
-                    auto word_end = std::find(word_begin, line.end(), ':');
-                    if (word_end != line.end())
-                    {
-                        std::string word{ word_begin, word_end };
-                        std::string rest{ std::next(word_end), line.end() };
-                        if (!word.empty())
-                        {
-                            if (word == "EVENT")
-                            {
-                                m_event = rest;
-                            }
-                            else if (word == "SITE")
-                            {
-                                m_site = rest;
-                            }
-                            else if (word == "START_TIME")
-                            {
-                                m_start_time = rest;
-                            }
-                            else if (word == "END_TIME")
-                            {
-                                m_end_time = rest;
-                            }
-                            else if (word == "TIME_LIMIT")
-                            {
-                                m_time_limit = rest;
-                            }
-                            else if (word == "OPENING")
-                            {
-                                m_opening = rest;
-                            }
-                            else
-                            {
-                                m_others.emplace_back(word, rest);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        static std::optional<noncolored_piece_t> csa_piece_to_noncolored_piece(std::string_view piece)
-        {
-            static const std::map<std::string, noncolored_piece_t> map
-            {
-                { "FU", pawn },
-                { "KY", lance },
-                { "KE", knight },
-                { "GI", silver },
-                { "KI", gold },
-                { "KA", bishop },
-                { "HI", rook },
-                { "OU", king },
-                { "TO", promoted_pawn },
-                { "NY", promoted_lance },
-                { "NK", promoted_knight },
-                { "NG", promoted_silver },
-                { "UM", promoted_bishop },
-                { "RY", promoted_rook },
-            };
-            
-            const auto value = std::find(map.begin(), map.end(), piece);
-            if (value == map.end())
-                return std::nullopt;
-            return value->second;
-        }
-
-        static std::optional<color_t> csa_color_to_color(std::string_view color)
-        {
-            if (color.size() == 1)
-            {
-                if (color[0] == '+')
-                    return black;
-                else if (color[0] == '-')
-                    return white;
-            }
-            return std::nullopt;
-        }
-
-        static std::optional<position_t> csa_position_to_position(std::string_view position)
-        {
-            if (position.size() == 2
-                && std::isdigit(position[0])
-                && std::isdigit(position[1]))
-            {
-                position_t file = position[0] - '0';
-                position_t rank = position[1] - '0';
-                if (file == 0 && rank == 0)
-                    return npos;
-                if (file == 0 || rank == 0)
-                    return std::nullopt;
-                --file;
-                --rank;
-                return file_rank_to_position(file, rank);
-            }
-            return std::nullopt;
-        }
-
-        const std::vector<move_t> & get_moves() const
-        {
-            return m_moves;
-        }
-
-    private:
-        std::string m_event;
-        std::string m_site;
-        std::string m_start_time;
-        std::string m_end_time;
-        std::string m_time_limit;
-        std::string m_opening;
-        std::vector<std::pair<std::string, std::string>> m_others;
-        std::vector<move_t> m_moves;
-    };
-
     /**
      * @breif àÕÇ¢Çï]âøÇ∑ÇÈÅB
      */
@@ -5123,6 +4997,167 @@ namespace shogipp
         for (const std::shared_ptr<observer_t> & observer : observers)
             observer->notify_undo_move_called();
     }
+
+    class csa_t
+    {
+    public:
+        inline csa_t(std::filesystem::path path)
+        {
+            board_t board;
+
+            std::string line;
+            std::ifstream ifs{ path };
+            while (std::getline(ifs, line))
+            {
+                if (line.size() >= 1)
+                {
+                    if (line.front() == '$')
+                    {
+                        auto word_begin = std::next(line.begin());
+                        auto word_end = std::find(word_begin, line.end(), ':');
+                        if (word_end != line.end())
+                        {
+                            std::string word{ word_begin, word_end };
+                            std::string rest{ std::next(word_end), line.end() };
+                            if (!word.empty())
+                            {
+                                if (word == "EVENT")
+                                {
+                                    m_event = rest;
+                                }
+                                else if (word == "SITE")
+                                {
+                                    m_site = rest;
+                                }
+                                else if (word == "START_TIME")
+                                {
+                                    m_start_time = rest;
+                                }
+                                else if (word == "END_TIME")
+                                {
+                                    m_end_time = rest;
+                                }
+                                else if (word == "TIME_LIMIT")
+                                {
+                                    m_time_limit = rest;
+                                }
+                                else if (word == "OPENING")
+                                {
+                                    m_opening = rest;
+                                }
+                                else
+                                {
+                                    m_others.emplace_back(word, rest);
+                                }
+                            }
+                        }
+                    }
+                    else if (line.front() == 'P')
+                    {
+                        if (line.size() == 2 && line[1] == 'I')
+                        {
+
+                        }
+                        else if (line.size() >= 2 && line[1] >= '1' && line[1] <= '9')
+                        {
+                            if (line.size() != 2 + 3 * 9)
+                                throw parse_error{"line.size() != 2 + 3 * 9"};
+                            const position_t rank = line[1] - '1';
+                            for (position_t file = 0; file < file_size; ++file)
+                            {
+                                const std::string piece_string = line.substr(2 + 3 * file, 3);
+                                if (piece_string == " * ")
+                                    ;
+                                else
+                                {
+                                    std::optional<color_t> color = csa_color_to_color(piece_string[0]);
+                                    if (!color.has_value())
+                                        throw parse_error{ "!color.has_value()" };
+                                    std::optional<noncolored_piece_t> noncolored_piece = csa_piece_to_noncolored_piece(piece_string.substr(1, 2));
+                                    if (!noncolored_piece.has_value())
+                                        throw parse_error{ "!noncolored_piece.has_value()" };
+                                    board[file_rank_to_position(rank, file)] = colored_piece_t{ *noncolored_piece, *color };
+                                }
+                            }
+                        }
+                        else if (line.size() >= 2 && (line[1] == '+' || line[1] == '-'))
+                        {
+                            ; // TODO
+                        }
+                    }
+                }
+            }
+        }
+
+        static std::optional<noncolored_piece_t> csa_piece_to_noncolored_piece(std::string_view piece)
+        {
+            static const std::map<std::string, noncolored_piece_t> map
+            {
+                { "FU", pawn            },
+                { "KY", lance           },
+                { "KE", knight          },
+                { "GI", silver          },
+                { "KI", gold            },
+                { "KA", bishop          },
+                { "HI", rook            },
+                { "OU", king            },
+                { "TO", promoted_pawn   },
+                { "NY", promoted_lance  },
+                { "NK", promoted_knight },
+                { "NG", promoted_silver },
+                { "UM", promoted_bishop },
+                { "RY", promoted_rook   },
+            };
+
+            const auto value = std::find(map.begin(), map.end(), piece);
+            if (value == map.end())
+                return std::nullopt;
+            return value->second;
+        }
+
+        static std::optional<color_t> csa_color_to_color(char color)
+        {
+            if (color == '+')
+                return black;
+            else if (color == '-')
+                return white;
+            return std::nullopt;
+        }
+
+        static std::optional<position_t> csa_position_to_position(std::string_view position)
+        {
+            if (position.size() == 2
+                && std::isdigit(position[0])
+                && std::isdigit(position[1]))
+            {
+                position_t file = position[0] - '0';
+                position_t rank = position[1] - '0';
+                if (file == 0 && rank == 0)
+                    return npos;
+                if (file == 0 || rank == 0)
+                    return std::nullopt;
+                --file;
+                --rank;
+                return file_rank_to_position(file, rank);
+            }
+            return std::nullopt;
+        }
+
+        const state_t & get_kyokumen() const noexcept
+        {
+            return m_state;
+        }
+
+    private:
+        std::string m_event;
+        std::string m_site;
+        std::string m_start_time;
+        std::string m_end_time;
+        std::string m_time_limit;
+        std::string m_opening;
+        std::vector<std::pair<std::string, std::string>> m_others;
+        state_t m_state;
+    };
 
     template<typename Key, typename Value, typename Hash = std::hash<Key>>
     class lru_cache_t
